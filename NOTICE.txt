@@ -1,0 +1,13 @@
+NOTICE - SIGMA LIBRARY
+
+This distribution includes Sigma, (c) ArsChitectura SAS. Governed by the
+Sigma License (see LICENSE.txt in this distribution). Includes an
+at-will revocation right running directly from ArsChitectura SAS to you,
+exercisable by notice delivered per Section 4 of the License (any means
+reasonably calculated to apprise you, including email, postal mail,
+courier, huissier or process-server service, any direct or indirect
+channel, or public announcement on Licensor's organization website or
+on the Software's project homepage). Licensee shall consult Licensor's
+organization website and the Software's project homepage at least once
+every ninety (90) days. Your rights may be terminated at any time by
+such notice. SPDX: LicenseRef-ArsChitectura-Sigma.

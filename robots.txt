@@ -1,0 +1,25 @@
+# robots.txt - universal disallow
+#
+# This file is the rightsholder's machine-readable expression of an
+# opt-out from automated processing of the Software. It disallows
+# EVERY bot, crawler, scraper, indexer, archiver, and automated
+# agent, without exception and without enumeration of specific
+# user-agents.
+#
+# The technical implementation uses the Robot Exclusion Protocol
+# (RFC 9309) below. However, the LEGAL EFFECT of this file does NOT
+# depend on the bot operator's adherence to RFC 9309 or to any other
+# protocol or convention: the legal restriction flows from Section 7
+# of LICENSE.txt and from the rightsholder reservations under
+# Article 4(3) of Directive (EU) 2019/790 (DSM Directive) and
+# Article 53(1)(c) of Regulation (EU) 2024/1689 (EU AI Act, with
+# substantive obligations applicable from 2 August 2025 and AI
+# Office enforcement powers from 2 August 2026). Those reservations
+# bind every automated processor of the Software, regardless of any
+# claim that RFC 9309 (or any other protocol or convention) is not
+# observed by the processor. No omission of any specific user-agent
+# below shall be construed as an implicit permission, an opt-in, or
+# a waiver of any restriction.
+
+User-agent: *
+Disallow: /

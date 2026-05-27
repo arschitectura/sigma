@@ -1,0 +1,654 @@
+#!/usr/bin/env python3
+"""Generate six demo decision-tree PNGs at <dir>/<prefix><dataset>.png."""
+
+import argparse
+import os
+import sys
+import urllib.request
+
+import pandas
+import scipy.io.arff
+import sklearn.datasets
+
+import sigma
+
+_CACHE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), ".demo_data"
+)
+
+
+def run() -> int:
+    """Parse CLI args and write the six demo tree PNGs with response companions.
+
+    Returns:
+        0 on success. argparse may exit the process with status 2 before
+        this function returns if argument parsing or validation fails
+        (e.g., a missing or non-directory --dir).
+    """
+    args = _parse_args()
+    output_dir = args.dir
+    prefix = args.prefix
+    dpi = args.dpi
+    _build_diabetes_tree(
+        os.path.join(output_dir, f"{prefix}diabetes.png"), dpi
+    )
+    _build_titanic_tree(
+        os.path.join(output_dir, f"{prefix}titanic.png"), dpi
+    )
+    _build_german_credit_tree(
+        os.path.join(output_dir, f"{prefix}german_credit.png"), dpi
+    )
+    _build_insurance_tree(
+        os.path.join(output_dir, f"{prefix}insurance.png"), dpi
+    )
+    _build_breast_cancer_tree(
+        os.path.join(output_dir, f"{prefix}breast_cancer.png"), dpi
+    )
+    _build_telco_churn_tree(
+        os.path.join(output_dir, f"{prefix}telco_churn.png"), dpi
+    )
+    return 0
+
+
+def _parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for run()."""
+    default_dir = os.path.dirname(os.path.abspath(__file__))
+    parser = argparse.ArgumentParser(
+        description=(
+            "Fit six demo conditional inference trees (Diabetes, Titanic, "
+            "German Credit, Insurance, Breast Cancer, Telco Churn) and "
+            "write one PNG per dataset."
+        ),
+    )
+    parser.add_argument(
+        "--dir",
+        default=default_dir,
+        type=_existing_directory,
+        help=(
+            "Directory in which to write the PNG files; must already exist. "
+            "Defaults to the directory of this script."
+        ),
+    )
+    parser.add_argument(
+        "--prefix",
+        default="demo_",
+        help='Filename prefix for each PNG (default: "demo_").',
+    )
+    parser.add_argument(
+        "--dpi",
+        default=96,
+        type=_positive_integer,
+        help=(
+            "Output resolution in dots per inch for both the tree and "
+            "response PNGs. Defaults to 96 (screen-friendly)."
+        ),
+    )
+    args = parser.parse_args()
+    return args
+
+
+def _existing_directory(value: str) -> str:
+    """Argparse type that accepts only paths to existing directories."""
+    if not os.path.isdir(value):
+        raise argparse.ArgumentTypeError(
+            f"directory does not exist: {value}"
+        )
+    return value
+
+
+def _positive_integer(value: str) -> int:
+    """Argparse type that accepts only positive integers."""
+    try:
+        parsed = int(value)
+    except ValueError as value_error:
+        raise argparse.ArgumentTypeError(
+            f"expected a positive integer; got {value!r}"
+        ) from value_error
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError(
+            f"expected a positive integer; got {parsed}"
+        )
+    return parsed
+
+
+def _build_diabetes_tree(output_path: str, dpi: int) -> None:
+    """Fit a regression tree on the sklearn Diabetes dataset and write a PNG to
+    output_path at the requested dpi.
+    """
+    _print_dataset_header("Diabetes")
+    cache_path = os.path.join(_CACHE_DIR, "diabetes.csv")
+    if not os.path.exists(cache_path):
+        os.makedirs(_CACHE_DIR, exist_ok=True)
+        diabetes_bunch = sklearn.datasets.load_diabetes(
+            as_frame=True, scaled=False
+        )
+        target_name = diabetes_bunch.target.name
+        if target_name != "target":
+            raise ValueError(
+                f"load_diabetes target name drift: {target_name!r}"
+            )
+        diabetes_bunch.frame.to_csv(cache_path, index=False)
+    diabetes_frame = pandas.read_csv(
+        cache_path, float_precision="round_trip"
+    )
+    diabetes_data = diabetes_frame[[
+        "age", "sex", "bmi", "bp",
+        "s1", "s2", "s3", "s4", "s5", "s6",
+    ]].astype({
+        "age": "float64",
+        "sex": "float64",
+        "bmi": "float64",
+        "bp": "float64",
+        "s1": "float64",
+        "s2": "float64",
+        "s3": "float64",
+        "s4": "float64",
+        "s5": "float64",
+        "s6": "float64",
+    })
+    X_diabetes = diabetes_data.rename(columns={
+        "age": "Age",
+        "sex": "Sex",
+        "bmi": "BMI",
+        "bp": "Blood pressure",
+        "s1": "Total cholesterol",
+        "s2": "LDL cholesterol",
+        "s3": "HDL cholesterol",
+        "s4": "Total-to-HDL ratio",
+        "s5": "Triglycerides (log)",
+        "s6": "Blood sugar",
+    })
+    y_diabetes = diabetes_frame["target"].astype("float64").rename(
+        "Disease progression"
+    )
+    regression_tree = sigma.RegressionTree(
+        test_type="monte_carlo",
+        resamples=5000,
+        random_state=0,
+        min_splits=20,
+        min_buckets=7,
+        alpha=0.05,
+        reverse_order=True,
+        response_sample_size=200,
+    )
+    regression_tree.fit(X_diabetes, y_diabetes)
+    text = regression_tree.to_text(precision=1)
+    print(text)
+    regression_tree_png = regression_tree.to_image(
+        "png",
+        dpi=dpi,
+        background_color="transparent",
+        orientation="left-to-right",
+        precision=1,
+    )
+    _write_png(output_path, regression_tree_png)
+    response_png = regression_tree.to_image(
+        "png",
+        kind="response",
+        dpi=dpi,
+        background_color="transparent",
+    )
+    _write_png(_response_png_path(output_path), response_png)
+
+
+def _build_titanic_tree(output_path: str, dpi: int) -> None:
+    """Fit a classification tree on the Titanic survival dataset and write a PNG
+    to output_path at the requested dpi.
+    """
+    _print_dataset_header("Titanic")
+    url = (
+        "https://raw.githubusercontent.com/datasciencedojo"
+        "/datasets/master/titanic.csv"
+    )
+    titanic_dataframe = pandas.read_csv(
+        _cached_download(url, "titanic.csv"),
+        usecols=["Pclass", "Sex", "Age", "Embarked", "Survived"],
+        dtype={
+            "Pclass": "int64",
+            "Sex": "object",
+            "Age": "float64",
+            "Embarked": "object",
+            "Survived": "int64",
+        },
+    ).dropna()
+    X_titanic = pandas.DataFrame({
+        "Passenger class": pandas.Categorical(
+            titanic_dataframe["Pclass"].map({1: "1st", 2: "2nd", 3: "3rd"}),
+            categories=["1st", "2nd", "3rd"],
+        ),
+        "Sex": pandas.Categorical(
+            titanic_dataframe["Sex"], categories=["female", "male"]
+        ),
+        "Age": titanic_dataframe["Age"].astype("float64"),
+        "Port of embarkation": pandas.Categorical(
+            titanic_dataframe["Embarked"].map(
+                {"C": "Cherbourg", "Q": "Queenstown", "S": "Southampton"}
+            ),
+            categories=["Cherbourg", "Queenstown", "Southampton"],
+        ),
+    })
+    y_titanic = pandas.Series(
+        pandas.Categorical(
+            titanic_dataframe["Survived"].map({0: "died", 1: "survived"}),
+            categories=["died", "survived"],
+        ),
+        name="Survived",
+    )
+    classification_tree = sigma.ClassificationTree(
+        test_type="monte_carlo",
+        resamples=5000,
+        random_state=0,
+        min_splits=20,
+        min_buckets=7,
+        alpha=0.05,
+        ci_method="jeffreys",
+    )
+    classification_tree.fit(X_titanic, y_titanic)
+    text = classification_tree.to_text(precision=1)
+    print(text)
+    classification_tree_png = classification_tree.to_image(
+        "png",
+        dpi=dpi,
+        background_color="transparent",
+        precision=1,
+    )
+    _write_png(output_path, classification_tree_png)
+    response_png = classification_tree.to_image(
+        "png",
+        kind="response",
+        dpi=dpi,
+        background_color="transparent",
+    )
+    _write_png(_response_png_path(output_path), response_png)
+
+
+def _build_german_credit_tree(output_path: str, dpi: int) -> None:
+    """Fit a classification tree on the OpenML German Credit dataset and write a
+    PNG to output_path at the requested dpi.
+    """
+    _print_dataset_header("German Credit")
+    url = "https://www.openml.org/data/v1/download/31/credit-g.arff"
+    arff_data, _ = scipy.io.arff.loadarff(
+        _cached_download(url, "german_credit.arff")
+    )
+    credit_frame = pandas.DataFrame(arff_data)
+    for column in credit_frame.select_dtypes([object]).columns:
+        credit_frame[column] = credit_frame[column].str.decode("utf-8")
+    credit_dataframe = credit_frame[
+        [
+            "checking_status",
+            "duration",
+            "credit_amount",
+            "savings_status",
+            "age",
+            "housing",
+            "class",
+        ]
+    ].astype({
+        "checking_status": "category",
+        "duration": "int64",
+        "credit_amount": "int64",
+        "savings_status": "category",
+        "age": "int64",
+        "housing": "category",
+        "class": "category",
+    }).dropna()
+    X_german_credit = pandas.DataFrame({
+        "Checking account balance": credit_dataframe["checking_status"].cat.rename_categories(
+            {"0<=X<200": "0-200", "no checking": "no account"}
+        ),
+        "Loan duration": credit_dataframe["duration"],
+        "Loan amount": credit_dataframe["credit_amount"],
+        "Savings balance": credit_dataframe["savings_status"].cat.rename_categories({
+            "100<=X<500": "100-500",
+            "500<=X<1000": "500-1000",
+            "no known savings": "no account",
+        }),
+        "Age": credit_dataframe["age"],
+        "Housing": credit_dataframe["housing"],
+    })
+    y_german_credit = pandas.Series(
+        pandas.Categorical(
+            credit_dataframe["class"].map(
+                {"good": "Met all payments", "bad": "Missed payments"}
+            ),
+            categories=["Met all payments", "Missed payments"],
+        ),
+        name="Payments",
+    )
+    classification_tree = sigma.ClassificationTree(
+        test_type="monte_carlo",
+        resamples=5000,
+        random_state=0,
+        min_splits=20,
+        min_buckets=7,
+        alpha=0.05,
+        ci_method="jeffreys",
+        reverse_order=True,
+    )
+    classification_tree.fit(X_german_credit, y_german_credit)
+    text = classification_tree.to_text(precision=1)
+    print(text)
+    classification_tree_png = classification_tree.to_image(
+        "png",
+        dpi=dpi,
+        background_color="transparent",
+        precision=1,
+    )
+    _write_png(output_path, classification_tree_png)
+    response_png = classification_tree.to_image(
+        "png",
+        kind="response",
+        dpi=dpi,
+        background_color="transparent",
+    )
+    _write_png(_response_png_path(output_path), response_png)
+
+
+def _build_insurance_tree(output_path: str, dpi: int) -> None:
+    """Fit a regression tree on the Medical Insurance Charges dataset and write
+    a PNG to output_path at the requested dpi.
+    """
+    _print_dataset_header("Insurance")
+    url = (
+        "https://raw.githubusercontent.com/stedy"
+        "/Machine-Learning-with-R-datasets/master/insurance.csv"
+    )
+    insurance_dataframe = pandas.read_csv(
+        _cached_download(url, "insurance.csv"),
+        usecols=["age", "sex", "bmi", "children", "smoker", "region", "charges"],
+        dtype={
+            "age": "int64",
+            "sex": "object",
+            "bmi": "float64",
+            "children": "int64",
+            "smoker": "object",
+            "region": "object",
+            "charges": "float64",
+        },
+    ).dropna()
+    X_insurance = pandas.DataFrame({
+        "Age": insurance_dataframe["age"],
+        "Sex": pandas.Categorical(
+            insurance_dataframe["sex"], categories=["female", "male"]
+        ),
+        "BMI": insurance_dataframe["bmi"],
+        "Number of children": insurance_dataframe["children"],
+        "Smoking status": insurance_dataframe["smoker"].map(
+            {"no": False, "yes": True}
+        ).astype(bool),
+        "Region": pandas.Categorical(
+            insurance_dataframe["region"],
+            categories=["northeast", "northwest", "southeast", "southwest"],
+        ),
+    })
+    y_insurance = insurance_dataframe["charges"].rename("Charges")
+    regression_tree = sigma.RegressionTree(
+        test_type="monte_carlo",
+        resamples=5000,
+        random_state=0,
+        min_splits=20,
+        min_buckets=7,
+        max_depth=4,
+        alpha=0.05,
+        reverse_order=True,
+        response_sample_size=200,
+    )
+    regression_tree.fit(X_insurance, y_insurance)
+    text = regression_tree.to_text(precision=0)
+    print(text)
+    regression_tree_png = regression_tree.to_image(
+        "png",
+        dpi=dpi,
+        background_color="transparent",
+        orientation="left-to-right",
+        precision=0,
+    )
+    _write_png(output_path, regression_tree_png)
+    response_png = regression_tree.to_image(
+        "png",
+        kind="response",
+        dpi=dpi,
+        background_color="transparent",
+    )
+    _write_png(_response_png_path(output_path), response_png)
+
+
+def _build_breast_cancer_tree(output_path: str, dpi: int) -> None:
+    """Fit a survival tree on the breast cancer dataset and write a PNG to
+    output_path at the requested dpi.
+    """
+    _print_dataset_header("Breast Cancer")
+    url = (
+        "https://raw.githubusercontent.com/sebp/scikit-survival"
+        "/master/sksurv/datasets/data/GBSG2.arff"
+    )
+    arff_data, arff_meta = scipy.io.arff.loadarff(
+        _cached_download(url, "breast_cancer.arff")
+    )
+    expected_arff_attributes = [
+        ("horTh", "nominal"),
+        ("age", "numeric"),
+        ("menostat", "nominal"),
+        ("tsize", "numeric"),
+        ("tgrade", "nominal"),
+        ("pnodes", "numeric"),
+        ("progrec", "numeric"),
+        ("estrec", "numeric"),
+        ("time", "numeric"),
+        ("cens", "nominal"),
+    ]
+    actual_arff_attributes = [
+        (name, arff_meta[name][0]) for name in arff_meta.names()
+    ]
+    if actual_arff_attributes != expected_arff_attributes:
+        raise ValueError(
+            f"GBSG2.arff schema drift: {actual_arff_attributes!r}"
+        )
+    breast_cancer_dataframe = pandas.DataFrame(arff_data)
+    for column in breast_cancer_dataframe.select_dtypes([object]).columns:
+        breast_cancer_dataframe[column] = breast_cancer_dataframe[column].str.decode("utf-8")
+    X_breast_cancer = pandas.DataFrame({
+        "Hormone therapy": breast_cancer_dataframe["horTh"].map(
+            {"no": False, "yes": True}
+        ).astype(bool),
+        "Age": breast_cancer_dataframe["age"].astype("float64"),
+        "Menopausal status": pandas.Categorical(
+            breast_cancer_dataframe["menostat"], categories=["Pre", "Post"]
+        ).rename_categories({"Pre": "pre", "Post": "post"}),
+        "Tumor size": breast_cancer_dataframe["tsize"].astype("float64"),
+        "Tumor grade": pandas.Categorical(
+            breast_cancer_dataframe["tgrade"], categories=["I", "II", "III"]
+        ),
+        "Positive lymph nodes": breast_cancer_dataframe["pnodes"].astype("float64"),
+        "Progesterone receptor level": breast_cancer_dataframe["progrec"].astype("float64"),
+        "Estrogen receptor level": breast_cancer_dataframe["estrec"].astype("float64"),
+    })
+    y_breast_cancer = pandas.DataFrame({
+        "recurrence-free years": (
+            breast_cancer_dataframe["time"].astype("float64") / 365.25
+        ),
+        "event": breast_cancer_dataframe["cens"].astype("float64"),
+    })
+    survival_tree = sigma.SurvivalTree(
+        test_type="monte_carlo",
+        resamples=5000,
+        random_state=0,
+        min_splits=20,
+        min_buckets=7,
+        alpha=0.05,
+        metrics=("median", ("survival", 5.0, "years")),
+    )
+    survival_tree.fit(X_breast_cancer, y_breast_cancer)
+    text = survival_tree.to_text(precision=1)
+    print(text)
+    survival_png = survival_tree.to_image(
+        "png",
+        dpi=dpi,
+        background_color="transparent",
+        precision=1,
+    )
+    _write_png(output_path, survival_png)
+    response_png = survival_tree.to_image(
+        "png",
+        kind="response",
+        dpi=dpi,
+        background_color="transparent",
+    )
+    _write_png(_response_png_path(output_path), response_png)
+
+
+def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
+    """Fit a survival tree on the IBM Telco Customer Churn dataset and write a
+    PNG to output_path at the requested dpi.
+    """
+    _print_dataset_header("Telco Churn")
+    url = (
+        "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d"
+        "/master/data/Telco-Customer-Churn.csv"
+    )
+    telco_dataframe = pandas.read_csv(
+        _cached_download(url, "telco_churn.csv"),
+        usecols=[
+            "Contract",
+            "InternetService",
+            "OnlineSecurity",
+            "TechSupport",
+            "PaymentMethod",
+            "MonthlyCharges",
+            "Partner",
+            "Dependents",
+            "tenure",
+            "Churn",
+        ],
+        dtype={
+            "Contract": "object",
+            "InternetService": "object",
+            "OnlineSecurity": "object",
+            "TechSupport": "object",
+            "PaymentMethod": "object",
+            "MonthlyCharges": "float64",
+            "Partner": "object",
+            "Dependents": "object",
+            "tenure": "int64",
+            "Churn": "object",
+        },
+    )
+    telco_dataframe = telco_dataframe[telco_dataframe["tenure"] > 0].copy()
+    X_telco = pandas.DataFrame({
+        "Contract type": pandas.Categorical(
+            telco_dataframe["Contract"],
+            categories=["Month-to-month", "One year", "Two year"],
+        ).rename_categories({
+            "Month-to-month": "month-to-month",
+            "One year": "1 year",
+            "Two year": "2 years",
+        }),
+        "Internet service": pandas.Categorical(
+            telco_dataframe["InternetService"],
+            categories=["DSL", "Fiber optic", "No"],
+        ).rename_categories({
+            "DSL": "DSL", "Fiber optic": "fiber", "No": "no internet",
+        }),
+        "Online security": pandas.Categorical(
+            telco_dataframe["OnlineSecurity"],
+            categories=["No", "Yes", "No internet service"],
+        ).rename_categories({
+            "No": "no", "Yes": "yes", "No internet service": "no internet",
+        }),
+        "Tech support": pandas.Categorical(
+            telco_dataframe["TechSupport"],
+            categories=["No", "Yes", "No internet service"],
+        ).rename_categories({
+            "No": "no", "Yes": "yes", "No internet service": "no internet",
+        }),
+        "Payment method": pandas.Categorical(
+            telco_dataframe["PaymentMethod"],
+            categories=[
+                "Bank transfer (automatic)",
+                "Credit card (automatic)",
+                "Electronic check",
+                "Mailed check",
+            ],
+        ).rename_categories({
+            "Bank transfer (automatic)": "bank transfer",
+            "Credit card (automatic)": "credit card",
+            "Electronic check": "electronic check",
+            "Mailed check": "mailed check",
+        }),
+        "Monthly charges": telco_dataframe["MonthlyCharges"],
+        "Has a partner": telco_dataframe["Partner"].map(
+            {"No": False, "Yes": True}
+        ).astype(bool),
+        "Has dependents": telco_dataframe["Dependents"].map(
+            {"No": False, "Yes": True}
+        ).astype(bool),
+    })
+    y_telco = pandas.DataFrame({
+        "Tenure (months)": telco_dataframe["tenure"].astype("float64"),
+        "event": telco_dataframe["Churn"].map({"No": 0.0, "Yes": 1.0}),
+    })
+    survival_tree = sigma.SurvivalTree(
+        test_type="monte_carlo",
+        resamples=5000,
+        random_state=0,
+        min_splits=20,
+        min_buckets=7,
+        max_depth=4,
+        alpha=0.05,
+        metrics=("median", ("survival", 12.0, "months")),
+    )
+    survival_tree.fit(X_telco, y_telco)
+    text = survival_tree.to_text(precision=0)
+    print(text)
+    survival_png = survival_tree.to_image(
+        "png",
+        dpi=dpi,
+        background_color="transparent",
+        orientation="left-to-right",
+        precision=0,
+    )
+    _write_png(output_path, survival_png)
+    response_png = survival_tree.to_image(
+        "png",
+        kind="response",
+        dpi=dpi,
+        background_color="transparent",
+    )
+    _write_png(_response_png_path(output_path), response_png)
+
+
+def _print_dataset_header(name: str) -> None:
+    """Print a section header for a dataset."""
+    print(f"\n=== {name} dataset ===\n")
+
+
+def _write_png(output_path: str, png_bytes: bytes) -> None:
+    """Write png_bytes to output_path and print a confirmation line."""
+    with open(output_path, "wb") as file:
+        file.write(png_bytes)
+    print(f"{output_path} ({len(png_bytes)} bytes)")
+
+
+def _response_png_path(output_path: str) -> str:
+    """Return the companion <stem>_response.png path for output_path."""
+    stem, extension = os.path.splitext(output_path)
+    companion = f"{stem}_response{extension}"
+    return companion
+
+
+def _cached_download(url: str, filename: str) -> str:
+    """Return the cached local path for url, downloading it on first miss."""
+    path = os.path.join(_CACHE_DIR, filename)
+    if not os.path.exists(path):
+        os.makedirs(_CACHE_DIR, exist_ok=True)
+        with urllib.request.urlopen(url) as response:
+            payload = response.read()
+        with open(path, "wb") as file:
+            file.write(payload)
+    return path
+
+
+if __name__ == "__main__":
+    status = run()
+    sys.exit(status)

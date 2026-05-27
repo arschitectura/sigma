@@ -1,0 +1,19 @@
+# Operating System
+.*
+~*
+*~
+Thumbs.db
+
+# Toolchain
+!.gitignore
+!.gitmodules
+!.claude/
+*.local.*
+*.lock
+build/
+__pycache__/
+*.egg-info/
+*.pyc
+
+# Demo artifacts
+demo_*

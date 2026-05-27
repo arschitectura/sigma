@@ -1,0 +1,1266 @@
+Sigma License
+
+Copyright (c) 2023-2026 ArsChitectura SAS. All rights reserved.
+
+-------------------------------------------------------------------------------
+NOTICE - READ BEFORE USE
+
+This is a SOURCE-AVAILABLE license, not an OSI-approved open source license.
+Key points, in plain language:
+
+  - ArsChitectura SAS may REVOKE this license AT ANY TIME, for any reason or
+    no reason, in its sole discretion, by notice delivered by any means
+    reasonably calculated to apprise you of the Revocation, including
+    (without limitation) email, postal mail, courier, huissier or
+    process-server service, any direct or indirect communication channel,
+    or public announcement on Licensor's organization website (currently
+    arschitectura.com, or any successor domain or URL) or on the Software's
+    project homepage (currently the Canonical Repository on GitHub, or any
+    successor URL or platform). Licensee shall consult Licensor's
+    organization website and the Software's project homepage at least once
+    every ninety (90) days. If revoked, you must stop using the Software
+    and every Derivative Work within thirty (30) days (longer in some
+    cases; see Section 13).
+  - You MAY NOT use, train, feed, ingest, or inspire any AI, ML, or automated
+    system with the Software or with any Derivative Work, in any form. This
+    includes pasting source into AI chats, asking an AI to explain or
+    rewrite the Software, or running automated crawlers over the Software.
+    A NARROW EXCEPTION (Section 7.7) permits using AI coding assistants to
+    generate your own client code that calls Sigma's public API, when you
+    submit only the public API surface and the README usage examples.
+  - You MUST preserve attribution (copyright notice, license file, short-form
+    Notice to Recipients) on every copy and every Derivative Work, and
+    surface the license to every downstream recipient.
+  - French law governs. Paris courts have exclusive jurisdiction.
+  - NO WARRANTY. Licensor's liability is excluded in full, including
+    against class, mass, and collective actions (Section 12). No support,
+    no maintenance, no updates are owed.
+  - A paid non-revocable commercial license is available on request
+    (Section 22).
+  - Legal counsel is recommended before production reliance.
+
+If any of these terms is unacceptable, DO NOT USE the Software.
+-------------------------------------------------------------------------------
+
+1. Definitions
+
+"Software" means the Sigma library in any form, including source code, object
+code, bytecode (.pyc, .pyo), compiled native artefacts (.so, .pyd, .dll,
+.dylib), transpiled, obfuscated, minified, statically linked, or dynamically
+loaded; reproduced in whole or in substantial part within the meaning of
+article L122-4 of the French Code de la propriete intellectuelle ("CPI");
+whether or not bearing the name "Sigma" or "sigma".
+
+"Canonical Repository" means the source repository identified by the
+[project.urls].Repository entry in pyproject.toml of the latest release, or,
+if that entry is absent, the repository from which the Licensee obtained its
+copy.
+
+"Protected Expression" means, collectively: (a) the literal source and object
+code of the Software; (b) the API surface, including function and method
+signatures, class hierarchies, parameter names and orders, return and
+exception types, and default values; (c) the specific structure, sequence,
+and organization of the Software; (d) the documentation, docstrings, and
+examples distributed with the Software; (e) any non-literal structure; and
+(f) any adaptation, translation (including cross-language port),
+transformation, or re-expression of any of the foregoing, in whole or in
+substantial part. Unprotectable ideas, algorithms, procedures, processes,
+systems, and methods of operation are not Protected Expression; see the
+residual-risk disclosure in license-plan.md.
+
+"Derivative Work" means any work falling within articles L113-2
+(definitions of oeuvre composite, oeuvre de collaboration, oeuvre
+collective), L113-4 (ownership of oeuvre composite), or L122-4
+(reproduction in whole or substantial part) of the French Code de la
+propriete intellectuelle ("CPI"), or within the definition of
+"derivative work" under 17 U.S.C. section 101, and any work of a
+kind analogous under the applicable national law, including without
+limitation: (a) modifications, patches, adaptations,
+and forks of the Software; (b) software that imports, invokes, links to
+(statically or dynamically), embeds, or depends upon the Software at build
+time or runtime; (c) software whose design, architecture, algorithm
+selection, or API surface was informed by access to the Software or to
+Software documentation; (d) translations, ports, and re-expressions of the
+Software in any programming language, by any means (human, automated, or
+AI-assisted); (e) outputs of any automated system that ingested, processed,
+was trained, fine-tuned, prompted, or retrieval-augmented on any portion of
+the Software (directly or indirectly, in whole or in part), whether or not
+such ingestion was authorized, and whether or not such output is itself
+copyrightable, provided that an Integration Output as defined in
+Section 7.7 is not a Derivative Work to the extent it so qualifies;
+(f) re-implementations by any person or team in which any participant
+had prior access to the Software (presumption of derivation reversible
+only by clear and convincing evidence, see Section 9.1); and
+(g) combinations and aggregations containing the Software, regardless of
+whether the parties would otherwise characterize the relationship as
+"aggregation" rather than "derivation".
+
+"AI System" means any artificial intelligence system, machine learning
+model, large language model, neural network, foundation model,
+general-purpose AI model within the meaning of EU Regulation 2024/1689
+art. 3(63) (AI Act), code-completion assistant, automated refactoring
+tool, retrieval-augmented system, AI agent, or analogous automated
+system, whether commercial or non-commercial, hosted or on-device.
+
+"Distribution" means any act by which the Software or a Derivative Work is
+made available, communicated, transmitted, conveyed, dispatched, published,
+delivered, mirrored, cached, embedded, bundled, linked, streamed, screened,
+narrated, printed, photographed, or otherwise caused to be perceivable,
+executable, or extractable by any person other than the Licensee itself,
+whether intentional or incidental, automated or manual, gratuitous or for
+consideration. Schedule 1 enumerates non-exhaustively the vectors within
+"Distribution".
+
+"Access Grant" means any act, omission, or configuration by which a third
+party is placed in a position to invoke, exercise, observe, inspect, or
+benefit from the functionality of the Software or a Derivative Work, even
+when no copy leaves Licensee's infrastructure. Access Grant includes
+software-as-a-service exposure, remote procedure call, shared notebook,
+screen sharing, terminal sharing, and rendered outputs that expose behavior
+sufficient to reconstruct the Software.
+
+"Downstream Recipient" means any person or entity that receives, accesses,
+or benefits from a Distribution or an Access Grant, directly or through any
+chain of intermediaries, voluntary or involuntary.
+
+"Licensee" means any natural or legal person who downloads, installs,
+imports, executes, compiles, copies, modifies, redistributes, or otherwise
+uses the Software, or who creates, distributes, or uses a Derivative Work,
+regardless of the method of acquisition and regardless of whether acceptance
+was affirmatively manifested. Use of the Software constitutes Licensee
+status and acceptance of this License. Licensee is responsible for the acts
+and omissions of its employees, contractors, agents, and subcontractors
+given access to the Software.
+
+"Revocation" means the termination of this License by Licensor pursuant to
+Section 4, effective upon delivery of notice per the Effectiveness clause
+of Section 4.
+
+"Attribution Notices" means (a) the copyright line above, (b) the SPDX
+identifier "LicenseRef-ArsChitectura-Sigma", and (c) a complete unmodified
+copy of this License text, reproduced at every surface required by
+Section 5.
+
+"Licensor" means ArsChitectura SAS, a French societe par actions simplifiee.
+
+2. Grant of License and Acceptance
+
+Subject to the terms of this License, Licensor grants to Licensee a
+non-exclusive, worldwide, royalty-free, revocable-at-will,
+non-sublicensable license to:
+
+(a) install, run, and use the Software for any lawful purpose, including
+    commercial, operational, and production purposes;
+(b) modify the Software and create Derivative Works; and
+(c) Distribute and provide Access Grants of the Software and Derivative
+    Works,
+
+provided at all times that (i) Attribution Notices are preserved verbatim on
+every copy, Derivative Work, and user-facing surface; (ii) the License is
+surfaced to every Downstream Recipient in accordance with Section 5; and
+(iii) every Downstream Recipient is bound directly to Licensor under
+Section 3, not by sublicense from Licensee.
+
+Acceptance is formed by Licensee's first act of use, reproduction,
+modification, Distribution, or Access Grant. No runtime registration,
+click-through, or phone-home is required; the License text is binding
+without registration, and is reproduced in full in the LICENSE.txt file at
+the root of every Distribution.
+
+Co-Terminous Clause. Every right granted in this Section 2 with respect to
+a Derivative Work is expressly conditioned upon, and co-terminous with, the
+continued effectiveness of the License with respect to the underlying
+Software. No right in any Derivative Work survives Revocation of the
+License to the underlying Software. Licensee's own original contribution to
+a Derivative Work, to the extent independently copyrightable, is retained
+by Licensee subject to this License in its entirety and subject to the
+practical fact that Licensee cannot exploit that contribution without also
+exploiting copyrighted portions of the Software for which rights have been
+Revoked.
+
+3. Direct License to Downstream Recipients (Stipulation pour autrui)
+
+Every Distribution and every Access Grant is made on behalf of Licensor,
+solely as a permitted act under this License, and is never a sublicense.
+Licensee has no power to sublicense and makes no promises to any Downstream
+Recipient on Licensor's behalf.
+
+Each Downstream Recipient receives a direct license from Licensor on the
+terms of this License as reproduced in the LICENSE.txt file of the
+distributed copy, formed as a stipulation pour autrui under article 1205
+of the French Code civil (accepted tacitly by the Downstream Recipient's
+first act of use), or in the alternative as an offre a personne
+indeterminee accepted by execution under article 1114 Code civil.
+
+Distributors shall:
+
+(a) reproduce the full LICENSE.txt at the canonical path in every
+    distributed copy;
+(b) preserve all Attribution Notices verbatim;
+(c) surface the Notice to Recipients (Schedule 2) in accordance with
+    Section 5;
+(d) not purport to grant Downstream Recipients weaker, stronger, or
+    inconsistent terms; and
+(e) not bind Downstream Recipients to any side agreement conferring rights
+    that survive Revocation or that are inconsistent with Sections 3, 4,
+    or 5.
+
+4. At-Will Revocation - Master Clause
+
+LICENSOR MAY EXERCISE REVOCATION AT ANY TIME, IN WHOLE OR IN PART, WITH
+RESPECT TO ANY LICENSEE, CLASS OF LICENSEES, DERIVATIVE WORK, OR
+DISTRIBUTION CHANNEL, FOR ANY REASON OR NO REASON, IN ITS SOLE AND ABSOLUTE
+DISCRETION. NO CAUSE, JUSTIFICATION, BREACH, RISK, PRIOR NOTICE, OR
+PREDICATE CONDITION IS REQUIRED. REVOCATION IS A SUBSTANTIVE RIGHT OF
+LICENSOR, NOT A REMEDY.
+
+Effectiveness. Revocation takes effect upon Licensor's dispatch,
+transmission, publication, or other emission of a notice by any means
+reasonably calculated, under all the circumstances, to apprise the
+Licensee of the Revocation, in Licensor's sole discretion. Without
+limiting the foregoing, such means include, by way of illustration and
+not limitation:
+
+(a) electronic mail, SMS, MMS, RCS, fax, in-app message, push
+    notification, instant message, social-media direct message, voice
+    message, or any other electronic, digital, or telecommunications
+    channel, now existing or hereafter devised, addressed to any
+    electronic identifier associated with the Licensee, whether
+    obtained from the Licensee, from public records (including
+    without limitation WHOIS, RCS / INPI / Infogreffe / BODACC,
+    Companies House, SEC EDGAR, or any equivalent registry in any
+    jurisdiction), from the Licensee's own publications or websites,
+    from third parties, or from any other source;
+
+(b) postal mail, registered mail with or without acknowledgement of
+    receipt (including lettre recommandee avec accuse de reception),
+    courier, express courier, hand delivery, service by a French
+    commissaire de justice or huissier de justice, service by any
+    equivalent process server, judicial officer, or bailiff in any
+    jurisdiction, service under the Hague Service Convention or any
+    other applicable international instrument, or delivery by any
+    other physical means, to any physical address associated with the
+    Licensee from any source described in (a);
+
+(c) any direct or indirect communication channel, account, handle, or
+    identifier publicly or privately associated with the Licensee,
+    whether or not the Licensee has previously used that channel to
+    correspond with Licensor;
+
+(d) public announcement on either or both of the following two
+    surfaces, and only on these two surfaces:
+
+    (i)  Licensor's principal organization website, currently
+         operated under the arschitectura.com domain, together with
+         any successor domain or URL operated by Licensor, by
+         Licensor's successor in interest, or by any acquiring or
+         merging entity following an acquisition, merger,
+         rebranding, restructuring, change of control, or any other
+         corporate event affecting Licensor; and
+
+    (ii) the Software's official project homepage on its then-
+         current hosting platform, currently the Canonical
+         Repository at https://github.com/arschitectura/sigma on
+         GitHub, together with any successor URL on that platform
+         and any successor or replacement hosting platform to which
+         the project migrates; for purposes of this channel "the
+         project homepage" includes any surface of that homepage,
+         such as release notes, tags, advisories, discussions, wiki,
+         README, pinned items, files, or any other feature now
+         existing or hereafter devised on the then-current hosting
+         platform.
+
+Licensor may use channel (d) alone, or in combination with any other
+channel, for any Revocation including individual Revocation,
+regardless of whether Licensor has a practicable individual channel
+to the Licensee. Notice is deemed effective at the earliest of (i)
+the moment of dispatch, transmission, publication, or emission; (ii)
+any earlier moment of actual receipt or awareness that Licensor can
+prove; or (iii) any later moment that Licensor expressly designates
+in the notice. Where multiple channels are used, Licensor may elect
+which effective date governs. The enumeration in (a) through (d) is
+illustrative and shall not be construed under the eiusdem generis
+canon or any analogous rule to limit the general "reasonably
+calculated" standard, and the parties expressly agree that articles
+1188 and 1190 of the Code civil shall be applied so as to give the
+broadest reasonable scope to Licensor's choice of means consistent
+with article 1104.
+
+Licensee's duty to check. Licensee shall, at intervals of no more
+than ninety (90) days, consult for Revocation announcements (i)
+Licensor's website at any URL then operated by Licensor under the
+arschitectura.com domain or any successor domain, and any subdomain,
+path, or successor surface thereof, and (ii) the Canonical Repository
+project page on its then-current hosting platform, including any
+successor or replacement platform to which the project has migrated,
+and including all surfaces of that page (release notes, tags,
+advisories, discussions, wiki, README, pinned items, and any other
+feature now existing or hereafter devised). It is Licensee's
+responsibility to locate the then-current addresses of (i) and (ii);
+migration, redirection, or rebranding by Licensor does not excuse the
+duty. Failure to check does not delay the effectiveness of any
+Revocation. Licensor may, but is not required to, maintain a stable
+revocation index; the absence of such an index does not narrow this
+duty.
+
+Transition. Upon Revocation, every right granted under this License - with
+respect to the Software AND with respect to every Derivative Work in the
+Licensee's possession, control, or distribution - immediately terminates,
+subject to a thirty (30)-day transition period from the effective date.
+During the transition period, the Licensee shall (a) cease all use; (b)
+destroy all copies in its possession or control, including backups except
+as preserved by non-waivable mandatory law (see Section 11); (c) cause
+Downstream Recipients to whom it has Distributed to do the same; and (d)
+certify destruction in writing on Licensor's written request. Notice-
+scaled transition periods for established Licensees are in Section 13.
+
+Perpetuity and non-waiver. The Revocation right is perpetual. It cannot be
+waived by conduct, silence, delay, acceptance of consideration, course of
+dealing, course of performance, or passage of time. Only an express
+written waiver signed by a duly authorized officer of Licensor, identifying
+this Section 4 by name, operates as waiver.
+
+Scope. Revocations may be (i) universal (revoking all licenses to all
+Licensees), (ii) class-based (revoking the licenses of a defined class), or
+(iii) individual (revoking a specific Licensee). All forms are effective
+upon delivery of notice per the Effectiveness clause above. No individual
+naming is required for universal or class-based Revocations; Licensor may
+also effect individual Revocations by any channel listed in the
+Effectiveness clause, including channel (d) alone.
+
+Good-faith guardrail. Licensor acknowledges its duty of good faith under
+article 1104 Code civil (non-waivable). The enumeration in Section 4.1 is
+illustrative and non-exhaustive; it does NOT convert the Revocation right
+into a for-cause right, which remains fully discretionary subject only to
+the mandatory good-faith floor.
+
+4.1 Non-exhaustive factors. Without being required to disclose any reason,
+Licensor may consider any of the following: (a) commercial strategy; (b)
+legal, regulatory, reputational, or security risk; (c) response to
+perceived misuse; (d) change of control of Licensee; (e) competitive
+dynamics; (f) protection of author moral rights; (g) pivot or
+discontinuation of the Software; and (h) any other legitimate interest of
+Licensor. This factor list is furnished to defeat any challenge based on
+condition purement potestative under article 1304-2 Code civil, while
+preserving the discretionary character of the right.
+
+5. Flow-Through to Redistribution, Derivatives, and Downstream Recipients
+
+Every Distribution and every Access Grant shall:
+
+(a) include the full License text at the canonical path LICENSE.txt in the
+    distributed copy, and the short-form Notice to Recipients (Schedule 2)
+    in any rendered metadata or user-facing surface;
+(b) surface the License to the Downstream Recipient before any access, by
+    one of the following, in order of preference: (i) an interstitial
+    acknowledgement screen; (ii) an unambiguous link in primary navigation;
+    (iii) an auto-displayed modal on first session; (iv) a printed annex to
+    a paper contract; or (v) for package-registry distribution, the
+    PEP 639 License-Expression and License-File fields plus the License
+    text in the long description rendered on the registry page;
+(c) propagate machine-readable license metadata in accordance with
+    Section 8; and
+(d) record Distributions and the identities of Downstream Recipients,
+    where feasible, in an internal register maintained for at least five
+    (5) years and produced to Licensor on thirty (30) days' written
+    request. No transmission of this register to Licensor is required
+    absent enforcement.
+
+Revocation of a Licensee's rights transitively revokes all rights of every
+Downstream Recipient in that Licensee's chain (nemo plus iuris ad alium
+transferre potest quam ipse habet). Continued use of the Software or any
+Derivative Work after the effective date of Revocation per Section 4 is
+unlicensed and constitutes contrefacon under articles L335-2 and L335-3
+CPI and analogous provisions, regardless of whether the Downstream
+Recipient has received individual notice.
+
+Joint and several liability. Licensee is solidairement liable under
+article 1310 Code civil with each Downstream Recipient in its chain for
+any breach of this License by that Downstream Recipient, to the extent
+attributable to Licensee's failure to propagate the License, Attribution
+Notices, or Section 8 technical measures, or to notify Licensor of the
+Distribution within thirty (30) days of Licensor's written request.
+
+6. Restrictions
+
+Licensee shall not:
+
+(a) remove, alter, or obscure any Attribution Notice;
+(b) sublicense the Software or any Derivative Work, or purport to grant
+    any recipient greater or inconsistent rights;
+(c) execute, accept, or rely on any side agreement purporting to grant
+    rights in the Software or any Derivative Work that are inconsistent
+    with Sections 3, 4, or 5, or that purport to survive Revocation;
+(d) circumvent or attempt to circumvent the Revocation right, including
+    by (i) clean-room or observation-based re-implementation by any person
+    or team in which any participant had prior access to the Software
+    (already within the definition of Derivative Work in Section 1); (ii)
+    AI-assisted or automated rewriting (already prohibited by Section 7);
+    (iii) abstraction, API cloning, or paraphrasing of the Software's
+    structure, sequence, or organization; or (iv) laundering the Software
+    through intermediate works, entities, or jurisdictions;
+(e) use the ArsChitectura SAS name, logos, or trademarks without separate
+    prior written permission;
+(f) reverse engineer, decompile, or disassemble the Software, except to
+    the extent expressly permitted by non-waivable mandatory applicable
+    law (the exercise of such non-waivable rights being conditional on
+    Licensee's good standing; see Section 11); or
+(g) conceal the Software's provenance (by renaming, relabelling,
+    misdeclaring, or obfuscating the Software's identity in SBOMs,
+    package metadata, or elsewhere). Conduct under this paragraph (g) is
+    faute lourde within the meaning of French contract law and excludes
+    any cap or limitation on damages that would otherwise apply.
+
+7. Prohibition on Artificial Intelligence and Automated Use
+
+Without limiting the generality of Section 6, the following activities are
+strictly prohibited without prior express written consent of ArsChitectura
+SAS:
+
+(a) Using any part of the Software as training data, fine-tuning data,
+    evaluation data, or input for any machine learning model, artificial
+    intelligence system, neural network, language model, or any other automated
+    learning system, whether commercial or non-commercial.
+
+(b) Ingesting, indexing, scraping, crawling, caching, embedding, vectorizing,
+    or otherwise processing any part of the Software by any automated system,
+    algorithm, bot, spider, or software agent.
+
+(c) Analyzing, summarizing, paraphrasing, rewriting, extracting information
+    from, or generating any derivative output based on any part of the Software,
+    whether by artificial intelligence, machine learning, natural language
+    processing, or any other automated or semi-automated means.
+
+(d) Performing any form of data mining, text mining, content extraction,
+    pattern recognition, or statistical analysis on any part of the Software.
+
+(e) Including any part of the Software in any dataset, corpus, knowledge base,
+    retrieval system, or any other collection intended for use by or accessible
+    to any automated system.
+
+7.1 Input prohibition. Licensee shall not input, transmit, paste, upload,
+embed, reference, or cite any part of the Software or any Derivative Work
+to any AI system (including large language models, code-completion
+assistants, automated refactoring tools, and equivalent systems) for any
+purpose, except as expressly permitted by Section 7.7.
+
+7.2 Output status. Any output of an AI system that was provided the
+Software as input, directly or indirectly, is a Derivative Work regardless
+of whether that output is itself copyrightable, except to the extent the
+output qualifies as Integration Output under Section 7.7. Licensee's
+obligations under this Section 7 are contractual covenants that do not
+depend on the copyright status of the output.
+
+7.3 Tooling exclusion. Licensee shall not use any AI System that is
+publicly known, or that a reasonable user exercising due diligence
+would have grounds to believe, was trained, fine-tuned, adapted, or
+prompted on the Software or any Derivative Work, whether or not such
+training was authorized, except that Licensee may use a Permitted
+Integration Tool for Integration Use under Section 7.7. Where an AI
+System operator publicly states that it does not train on the
+Software, Licensee may rely on that statement absent specific contrary
+knowledge.
+
+7.4 Documentation-as-input. Subsections 7.1 through 7.3 apply equally to
+the Software's documentation, including README files, docstrings, and
+examples, subject to Section 7.7, under which the public README usage
+examples and the call-signature portion of public docstrings constitute
+Public API Material that may be submitted for Integration Use.
+
+7.5 EU AI Act Art. 53(1)(c) and DSM Directive Art. 4(3) reservation.
+Licensor hereby exercises (i) the rightsholder reservation permitted
+under article 4(3) of Directive (EU) 2019/790 ("DSM") and (ii) the
+equivalent reservation that providers of general-purpose AI models
+within the meaning of EU Regulation 2024/1689 ("AI Act") article 3(63)
+are required to identify and respect under AI Act article 53(1)(c).
+Per AI Act article 113(b), the substantive GPAI provider obligations
+under article 53 apply from 2 August 2025; the AI Office's enforcement
+powers with respect to those obligations apply from 2 August 2026
+following a one-year transition. Machine-readable expression of this
+reservation is published by way of the files and metadata listed in
+Section 8. The absence or failure of any one machine-readable signal
+shall not be construed as a waiver of this reservation where other
+signals are present.
+
+7.6 Damages for AI breach. Breach of this Section 7 entitles Licensor to
+actual damages as assessed by the competent court, including disgorgement
+of profits attributable to the breach. The parties acknowledge that
+damages for AI breach may be difficult to quantify and agree that the
+court may award such additional amount as reflects a genuine pre-estimate
+of loss and not a penalty, consistent with article 1231-5 Code civil.
+Licensor's rights under this Section 7.6 are contractual, are not
+dependent upon a finding of copyright infringement, and survive any
+defense based on fair use, idea-expression dichotomy, non-copyrightability
+of AI outputs, or analogous doctrines.
+
+7.7 Permitted AI Integration Use (carve-out from 7.1, 7.2, 7.3, 7.4)
+
+Notwithstanding 7.1, 7.2, 7.3, and 7.4, but subject in all respects to
+6(d), 7(a) through 7(e), 7.5, and 7.6, Licensee may engage in Integration
+Use of Public API Material with a Permitted Integration Tool to produce
+Integration Output, provided that all conditions of this Section 7.7 are
+continuously met.
+
+7.7.1 Definitions (this Section only).
+
+"Public API Material" means, taken cumulatively and in the aggregate no
+more than is reasonably necessary for the Integration Use:
+
+  (a) the names of public classes, public functions, and public methods of
+      the Software (a symbol is "public" if its identifier does not begin
+      with an underscore and the symbol is exported from a top-level
+      package module);
+
+  (b) the parameter names, parameter type annotations, parameter default
+      values, return type annotations, and raised-exception type
+      annotations of those public symbols;
+
+  (c) the verbatim text of the public docstring attached to a public
+      symbol, but only the portion describing how to call that symbol
+      (parameters, return value, raised exceptions, brief usage note);
+
+  (d) the verbatim text of the usage examples in the README distributed
+      with the Software, limited to the code blocks intended to be
+      executed by Licensees;
+
+  (e) the SPDX identifier and the unmodified License text and Notice; and
+
+  (f) version number, package name, and other neutral metadata.
+
+Public API Material does NOT include, and Licensee shall not submit to
+any AI system under this Section: any source-code body of any function,
+method, or constructor; any private symbol (whether or not its name
+begins with an underscore); any test code; the contents of any module
+not listed as a public entry point; any algorithm description, design
+note, mathematical derivation, complexity discussion, or rationale prose
+contained in docstrings or documentation; any portion of license-plan.md
+or analogous design documents; or any file taken in bulk (for example, by
+attaching, uploading, or auto-context-including the entirety of an
+installed copy of the Software).
+
+"Integration Use" means submitting Public API Material to a Permitted
+Integration Tool for the sole and exclusive purpose of producing
+Integration Output. The following are NOT Integration Use and remain
+prohibited under 7.1 through 7.4: requesting an explanation, summary,
+paraphrase, rewrite, translation, port, critique, review, or analysis of
+the Software or any part thereof; requesting the reproduction or
+reconstruction of any non-public Protected Expression; generating
+training, fine-tuning, evaluation, retrieval-augmentation, or knowledge-
+base data; producing materials intended to teach a third party how the
+Software works internally; or producing any output other than Integration
+Output.
+
+"Integration Output" means source code authored by or for Licensee that
+(i) imports, invokes, or otherwise calls the Software through its Public
+API; (ii) is intended for Licensee's own application, deployment, or
+downstream Distribution as the Licensee's own work; (iii) does not
+reproduce, restate, transcribe, port, paraphrase, or describe any non-
+public Protected Expression of the Software; and (iv) does not reproduce
+more of the Public API Material than is functionally necessary to make
+the API call. Output that fails any of (i) through (iv) is not
+Integration Output and is governed by 7.2 in full (i.e., remains a
+Derivative Work).
+
+"Permitted Integration Tool" means a general-purpose AI coding assistant
+or large language model offered to the public by a third party
+(including, by way of non-exhaustive example, ChatGPT, Claude, Gemini,
+GitHub Copilot, and Cursor), used in its ordinary public-facing capacity.
+A tool is NOT a Permitted Integration Tool if it (a) was knowingly
+trained, fine-tuned, adapted, or prompted on the Software in violation of
+this License, (b) operates as a circumvention of Revocation under
+Section 4, or (c) is operated for the purpose of extracting,
+reconstructing, or laundering the Software's non-public Protected
+Expression.
+
+7.7.2 Conditions on Integration Use. The carve-out in this Section 7.7
+applies only while Licensee, with respect to each Integration Use:
+
+  (a) submits no material other than Public API Material;
+
+  (b) takes commercially reasonable measures to configure any agentic
+      or auto-context tooling (for example, repository-wide indexing,
+      IDE workspace context, or retrieval-augmented assistants) to
+      exclude all installed copies of the Software's source files
+      other than what falls within Public API Material; the burden is
+      on Licensee, but inadvertent submission promptly remediated upon
+      discovery is not by itself a breach where Licensee can
+      demonstrate that commercially reasonable preventative measures
+      were in place;
+
+  (c) reviews each Output before any further use and discards any Output
+      that is not Integration Output as defined above;
+
+  (d) does not request, and does not knowingly retain, any Output
+      describing, summarizing, paraphrasing, or reconstructing any non-
+      public Protected Expression of the Software;
+
+  (e) does not chain Integration Use with any prohibited use, including
+      by feeding Integration Outputs back into model training,
+      evaluation, retrieval, or fine-tuning corpora; and
+
+  (f) preserves the prohibition in 7(a) through 7(e) in full -
+      Integration Use does not authorize training, ingestion, indexing,
+      scraping, embedding, vectorization, dataset inclusion, or
+      knowledge-base inclusion of the Software, whether by Licensee, by
+      the Permitted Integration Tool, or by the Tool's operator.
+
+7.7.3 Output status of Integration Output. Solely to the extent it
+qualifies as Integration Output under 7.7.1, an Output of a Permitted
+Integration Tool is not a Derivative Work for purposes of Section 1
+clause (e), Section 7.2, or Section 6(d)(ii); the rights and obligations
+applicable to Integration Output are those of Licensee's own client code
+under this License. All other Outputs remain Derivative Works under 7.2.
+
+7.7.4 Preservation of training opt-out. Nothing in this Section 7.7
+authorizes any third party (including any operator of a Permitted
+Integration Tool) to use the Software, the Public API Material, or any
+Integration Output as training, fine-tuning, evaluation, or retrieval-
+augmentation data. The reservation under 7.5 (Directive (EU) 2019/790
+article 4(3)) and the machine-readable signals listed in Section 8 remain
+in force unaffected. Where a Permitted Integration Tool's terms of
+service would cause Licensee's submitted material to be used by the
+Tool's operator for model training in a manner that would breach this
+License if performed by Licensee, Licensee shall configure the Tool to
+disable such use (for example, by enabling a no-training, zero-data-
+retention, or privacy mode where offered) or shall not use that Tool for
+Integration Use.
+
+7.7.5 No relaxation of anti-circumvention. Nothing in this Section 7.7
+relaxes Section 6(d), Section 9.4, or any other anti-circumvention or
+post-Revocation prohibition. Integration Use is not authorized after
+Revocation; Integration Outputs produced before Revocation are governed
+by Section 9.4 (pre-Revocation acts in compliance remain licensed), but
+no new Integration Use may be commenced after the effective date of
+Revocation.
+
+7.7.6 Burden of proof. In any dispute, the burden of demonstrating that
+a particular Output constitutes Integration Output, that the inputs were
+limited to Public API Material, and that the Tool was used as a Permitted
+Integration Tool rests on the Licensee, who shall preserve reasonable
+contemporaneous records of prompts and outputs for the duration
+applicable under Section 5(d).
+
+7.7.7 No implied broader carve-out. The carve-out in this Section 7.7
+is construed strictly (article L131-3 CPI). Activities not expressly
+permitted by this Section 7.7 remain prohibited by 7.1 through 7.6 and
+by Section 6.
+
+7.8 General reverse burden of proof for Section 7 anti-AI compliance.
+
+In any dispute concerning any subsection of this Section 7, the
+burden of demonstrating compliance rests on Licensee, not on
+Licensor. Specifically, Licensee shall preserve, for not less than
+five (5) years from each act of use, contemporaneous records
+sufficient to demonstrate that:
+
+(a) no part of the Software has been used as input to, or training,
+    fine-tuning, evaluation, or retrieval-augmentation data for, any
+    AI System (other than as expressly permitted by Section 7.7);
+(b) no part of the Software has been ingested, indexed, scraped,
+    crawled, cached, embedded, vectorized, or otherwise processed by
+    any automated system or AI System;
+(c) no part of the Software has been included in any dataset, corpus,
+    knowledge base, retrieval system, or AI-accessible collection;
+(d) all Integration Use complied with the Section 7.7 conditions;
+    and
+(e) any AI System used by Licensee that had access to the Software's
+    installation directory, source files, or related artefacts was
+    configured to exclude such material from training, indexing,
+    retention, and downstream sharing per the Section 7.7.2(b)
+    "commercially reasonable measures" standard.
+
+Licensor's prima facie showing of breach (e.g., demonstrable similarity
+between an output and the Software's non-public Protected Expression;
+appearance of Software fragments in a third party's training-data
+manifest; presence of the Software's source in an AI System's
+retrieved-context logs) shifts no further production-of-evidence
+burden onto Licensor: Licensee bears the positive duty to produce
+records exonerating its compliance. Failure or refusal to produce
+such records on Licensor's reasonable written request creates a
+rebuttable presumption of breach of the corresponding Section 7
+subsection. This reversal of the burden of proof is a contractual
+stipulation under French law (renversement contractuel de la charge
+de la preuve), enforceable in B2B contexts; in B2C contexts (if any),
+it applies only to the extent permitted by mandatory consumer-
+protection law.
+
+8. Machine-Readable Metadata and Opt-Out Signals
+
+Licensor publishes, in this repository, the following files:
+
+  - LICENSE.txt (full License text, at the root);
+  - NOTICE.txt (Schedule 2 short-form notice, at the root);
+  - ai.txt (Spawning.ai-format opt-out, hosted at /ai.txt per the
+    Spawning.ai specification);
+  - llms.txt (per llmstxt.org, Markdown index file at /llms.txt;
+    precautionary candidate signal - the EU AI Act Code of
+    Practice (final 11 July 2025) names robots.txt (RFC 9309)
+    unconditionally and accepts other formats including this one
+    only conditionally on standardization-body adoption or
+    "state-of-the-art" status; publishing it adds belt-and-braces
+    coverage if and when standardization occurs);
+  - robots.txt (universal disallow; the file disallows every bot,
+    crawler, scraper, indexer, archiver, and automated agent without
+    enumeration of specific user-agents; the legal effect of the
+    file binds every automated processor of the Software, and does
+    NOT depend on the bot operator's adherence to the Robot
+    Exclusion Protocol RFC 9309 or to any other protocol or
+    convention - the legal restriction flows from Section 7 of this
+    License and from the reservations under Section 7.5; no omission
+    of any specific user-agent shall be construed as an implicit
+    permission, an opt-in, or a waiver of any restriction);
+  - .well-known/tdmrep.json (W3C TDMRep reservation per the W3C
+    Community Group Final Report, supporting Section 7.5).
+
+No hosted endpoint outside this repository is required for the machine-
+readable reservation to take effect.
+
+Licensee shall propagate, with every Distribution:
+
+(a) the SPDX identifier "LicenseRef-ArsChitectura-Sigma" in every SBOM
+    (SPDX or CycloneDX);
+(b) the Python PEP 639 License-Expression and License-File fields;
+(c) the OCI image label org.opencontainers.image.licenses;
+(d) the Debian DEP-5 debian/copyright where applicable;
+(e) the npm, Cargo, Go, or equivalent manifest license field where
+    applicable; and
+(f) REUSE-compliant per-file SPDX-License-Identifier headers where
+    reasonably feasible.
+
+9. Termination and Transition
+
+9.1 Forms of termination. This License terminates by: (i) Revocation
+under Section 4; (ii) automatic termination on material breach; (iii)
+convenience termination by the Licensee at any time; or (iv) automatic
+statutory termination under Section 14 (sanctions, export). Termination
+under (iv) is not a Revocation and is not subject to the Section 9.2
+transition period.
+
+9.2 Transition. Thirty (30) days from the effective date of termination,
+extendable to not more than ninety (90) days where a court finds thirty
+(30) days inadequate under article L442-1, II Code de commerce. Notice-
+scaled periods for established Licensees are in Section 13.
+
+9.3 Scope. Revocation terminates licensed rights prospectively. Pre-
+Revocation acts in compliance with the License remain licensed as of the
+time performed. Post-Revocation use, reproduction, Distribution, or
+Access Grant (other than acts falling within Section 11 non-waivable
+exceptions) is unlicensed and constitutes contrefacon under articles
+L335-2 and L335-3 CPI and analogous provisions.
+
+9.4 Re-acceptance. A person in possession of a copy of the Software or
+any Derivative Work originating from a revoked or non-compliant source
+holds no license. Such a person may apply to Licensor for Re-Acceptance,
+which Licensor may grant, deny, or condition at its sole discretion.
+Pending Re-Acceptance, continued use is infringement.
+
+9.5 Clean-room re-establishment. Licensee's duty to notify Licensor of a
+residual copy or non-compliant fork of which it becomes aware is a
+continuing duty under this License, discharged by written notice within
+ten (10) business days of Licensee becoming aware.
+
+9.6 Survival. Sections 1, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 16, 17,
+18, 19, 20, 21, 23, 26, Exhibit A, and Exhibit B survive termination.
+
+10. Intellectual Property and Data
+
+The Software is proprietary to ArsChitectura SAS. All rights not expressly
+granted are reserved.
+
+As between Licensor and Licensee:
+
+(a) Licensee retains all rights in User Data;
+(b) Licensor retains all right, title, and interest in the Software and
+    in all improvements, derivatives, and modifications of the Software
+    made by Licensor;
+(c) Licensee retains such rights as arise by operation of law in
+    Licensee's own original contributions to any Derivative Work,
+    subject in their entirety to this License and in particular subject
+    to the Co-Terminous Clause of Section 2.
+
+No right, title, or interest in any output of the Software is granted or
+assigned to Licensee except the limited right to use such output in
+accordance with this License.
+
+If Licensee provides suggestions, enhancement requests, or other feedback
+regarding the Software, Licensee grants Licensor a perpetual, irrevocable,
+worldwide, royalty-free, fully paid-up, transferable, sublicensable
+license to use, reproduce, modify, distribute, and otherwise exploit
+such feedback without restriction and without obligation to Licensee.
+
+11. Non-Waivable Mandatory Rights
+
+Notwithstanding any other provision of this License, Licensee retains
+rights mandatory under applicable law and incapable of contractual
+exclusion, including without limitation:
+
+  - article L122-6-1 CPI (backup copy, observation and study,
+    decompilation for interoperability);
+  - Directive 2009/24/EC articles 5(2), 5(3), and 6, as transposed into
+    the national law of each European Economic Area Member State;
+  - sections 69d and 69e of the German Urheberrechtsgesetz;
+  - 17 U.S.C. section 117 (essential-step and archival copies), subject
+    to the characterization in Exhibit A; and
+  - analogous provisions in other jurisdictions.
+
+Revocation does not purport to, and shall not be construed to,
+extinguish these non-waivable rights. However, (i) such rights are
+conditioned on Licensee being a "lawful user"; upon Revocation, Licensee
+ceases to be a lawful user and the non-waivable exceptions cease to
+apply prospectively to that Licensee; and (ii) Directive 2009/24 article
+5(1) "error correction" is waivable by specific contractual stipulation
+under L122-6-1 I, and is hereby expressly waived - Licensee shall report
+errors to Licensor in lieu of self-correction.
+
+12. No Warranty and Limitation of Liability
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, ARSCHITECTURA SAS SHALL NOT
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY,
+OR PUNITIVE DAMAGES, NOR FOR ANY LOSS OF PROFITS, REVENUE, DATA, GOODWILL, OR
+BUSINESS INTERRUPTION, NOR FOR ANY DAMAGES WHATSOEVER, WHETHER IN CONTRACT,
+TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY, OR OTHERWISE, ARISING FROM OR
+RELATED TO THIS LICENSE OR THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGES.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE TOTAL AGGREGATE LIABILITY
+OF ARSCHITECTURA SAS, ITS AFFILIATES, OFFICERS, DIRECTORS, EMPLOYEES, AND
+CONTRACTORS, ARISING FROM OR RELATED TO THIS LICENSE OR THE SOFTWARE - WHETHER
+ASSERTED INDIVIDUALLY OR IN THE AGGREGATE BY ALL LICENSEES COMBINED, AND
+WHETHER BY SINGLE ACTION, CONSOLIDATED ACTION, COLLECTIVE ACTION, CLASS ACTION,
+REPRESENTATIVE ACTION, MASS ARBITRATION, OR OTHERWISE - IS EXCLUDED IN FULL.
+NO SUM IS OWED.
+
+WHERE APPLICABLE LAW PROHIBITS THE COMPLETE EXCLUSION OF A HEAD OF LIABILITY,
+LIABILITY FOR THAT HEAD IS LIMITED TO THE MINIMUM AMOUNT REQUIRED BY THAT LAW
+AND IS IN EVERY CASE CAPPED AT THE FEES (IF ANY) ACTUALLY PAID BY THE PARTICULAR
+CLAIMANT TO ARSCHITECTURA SAS IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM;
+ARSCHITECTURA SAS'S LIABILITY TO A LICENSEE WHO PAID NO FEES IS ZERO EXCEPT
+WHERE NON-WAIVABLE LAW OTHERWISE REQUIRES.
+
+NOTHING IN THIS LICENSE EXCLUDES OR LIMITS LIABILITY THAT CANNOT BE EXCLUDED OR
+LIMITED UNDER APPLICABLE LAW, INCLUDING LIABILITY FOR DEATH OR PERSONAL INJURY
+CAUSED BY NEGLIGENCE, FOR FRAUD OR FRAUDULENT MISREPRESENTATION, AND FOR ANY
+OTHER MATTER FOR WHICH EXCLUSION WOULD BE VOID UNDER APPLICABLE LAW.
+
+13. Notice Scaling for Established Licensees
+
+Where Licensee has operated continuously under this License for more than
+twenty-four (24) months, the transition period under Section 9.2 shall
+be not less than ninety (90) days. Where Licensee has operated
+continuously for more than sixty (60) months, not less than one hundred
+eighty (180) days. These periods are stipulated to satisfy article
+L442-1, II Code de commerce (rupture brutale des relations commerciales
+etablies), without converting Section 4 Revocation into a for-cause right.
+
+14. Statutory Termination (Sanctions, Export, Regulatory)
+
+This License terminates automatically, without notice and without
+requirement of any further formality, if and to the extent that the
+continued grant would violate any sanctions, export-control, embargo, or
+other regulatory regime applicable to either party, including without
+limitation EU Regulation 833/2014 and successor instruments, OFAC
+sanctions programs, and French decrees on dual-use items. Statutory
+termination under this Section 14 is not a Revocation under Section 4
+and is not subject to the Section 9.2 transition period or Section 13
+notice scaling.
+
+15. Reserved
+
+The prior draft of this License contemplated a hosted Licensee registry
+for direct-notice and data-protection purposes. No such registry exists;
+Licensor does not collect personal data absent enforcement. Licensee's
+duty to check Licensor's organization website and the Software's project
+homepage for Revocation announcements is set forth in Section 4.
+
+16. Severability and Supervening-Law Cascade
+
+If any provision of this License is held unenforceable in whole or in
+part by a court or tribunal of competent jurisdiction:
+
+(i) the provision shall be modified to the minimum extent necessary to
+    render it enforceable, preserving to the greatest extent possible the
+    parties' original intent;
+(ii) if such modification is prohibited in the relevant jurisdiction
+     (including under the German BGH doctrine on section 306(2) BGB
+     prohibiting geltungserhaltende Reduktion, and analogous rules
+     elsewhere), severance shall apply only as to parties for whom
+     that jurisdiction's law governs; and
+(iii) unaffected provisions and the effect of this License in other
+      jurisdictions shall remain in full force.
+
+Where Section 4 Revocation is held by a court or tribunal of competent
+jurisdiction to be unenforceable in whole or in part under the mandatory
+or public-policy law of a Licensee's jurisdiction, the Revocation right
+shall be reduced to the broadest form enforceable in that jurisdiction
+according to the following cascade:
+
+(a) unilateral at-will with the transition periods in Sections 9.2 and
+    13;
+(b) unilateral for good cause, with no notice period for material breach
+    and with ninety (90) days' notice otherwise;
+(c) unilateral for material breach uncured after thirty (30) days'
+    written notice.
+
+This cascade applies automatically and sequentially; application at level
+(b) or (c) in one jurisdiction does not affect the operation at level (a)
+in jurisdictions that accept it.
+
+17. Anti-Assignment and Change of Control
+
+This License is personal to the Licensee. Licensee shall not assign,
+transfer, sublicense, or otherwise convey this License or any right
+hereunder, in whole or in part, by operation of law, contract, merger,
+acquisition, reorganization, dissolution, spin-off, or any other means,
+without Licensor's prior express written consent, which may be withheld
+in Licensor's sole discretion. Any purported assignment without consent
+is void ab initio and terminates this License automatically.
+
+"Change of Control" means any transaction or series of transactions
+resulting in (a) a person or group acquiring, directly or indirectly,
+more than twenty-five percent (25%) of the voting rights or equity of
+Licensee; (b) the sale, transfer, or other disposition of all or
+substantially all of Licensee's assets to which this License relates;
+(c) a merger, demerger (scission), or similar reorganization of Licensee;
+or (d) a change in the ultimate beneficial ownership of Licensee.
+Licensee shall notify Licensor in writing of any contemplated Change of
+Control at least sixty (60) days in advance. Failure to obtain prior
+consent terminates this License on the closing date of the Change of
+Control; no acquirer or successor has any right in the Software or any
+Derivative Work unless it affirmatively re-accepts this License.
+
+Revocation binds predecessors, successors, assigns, affiliates, parents,
+subsidiaries, and controlling shareholders of the Licensee, jointly and
+severally.
+
+18. Insolvency
+
+This License terminates automatically upon (i) the opening against
+Licensee of any procedure de sauvegarde, redressement judiciaire, or
+liquidation judiciaire under the French Code de commerce, or any
+equivalent foreign proceeding (including without limitation US Title 11
+Chapter 7, 11, or 15); (ii) the appointment of a mandataire ad hoc,
+conciliateur, administrateur judiciaire, trustee, or equivalent; or
+(iii) Licensee's general assignment for the benefit of creditors. This
+License is intuitu personae. The relevant insolvency officer may not
+continue the License without Licensor's prior written consent.
+
+19. Anti-Waiver
+
+No failure or delay by Licensor in exercising any right under this
+License, and no other act or omission of Licensor, shall constitute a
+waiver, election of remedies, estoppel, laches, or acquiescence. Without
+limitation, none of the following operates as waiver: knowledge of breach
+followed by inaction; acceptance of payments; engagement with Licensee;
+response to issues or pull requests; public acknowledgment of Licensee's
+use; participation in conferences or events attended by Licensee; or any
+course of dealing, course of performance, or industry custom. Only an
+express written waiver signed by a duly authorized officer of Licensor,
+expressly identified as a waiver and identifying the clause waived, is
+effective.
+
+20. Anti-Evasion
+
+Licensee shall not take any action, directly or through any affiliate or
+third party, the purpose or effect of which is to invoke the law of a
+jurisdiction more protective of licensees than French law in order to
+defeat or circumvent Section 4, Section 5, Section 7, or any other
+provision of this License. Any such action terminates this License
+automatically. Licensor may seek injunctive relief in the Paris courts,
+and the costs of such proceedings are borne by the Licensee.
+
+21. Acknowledged Risk; No Reliance; No Implied License
+
+Licensee expressly acknowledges and agrees: (a) this License is revocable
+at-will by Licensor without cause; (b) Licensee has been placed on
+explicit notice of this risk prior to commencing use; (c) any investment,
+business, deployment, integration, or reliance undertaken by Licensee is
+at Licensee's sole risk; (d) Licensee waives any reliance-based claim,
+including promissory estoppel, detrimental reliance, and any claim under
+article 1195 Code civil (imprevision) or analogous doctrines; and (e) the
+Revocation right is material consideration reflected in the no-fee grant
+of this License.
+
+No rights are granted by implication, estoppel, exhaustion, silence, or
+otherwise, except as expressly set forth in this License. Article L131-3
+CPI requires strict written interpretation of any transfer of author's
+rights; all uses not expressly authorized are reserved. Publication of
+the Software on any public repository, package registry, or distribution
+channel grants only the rights expressly stated in this License.
+
+22. Paid Non-Revocable Commercial License Alternative
+
+A paid, non-revocable commercial license is available on disclosed terms.
+Licensee may request such a license by contacting ArsChitectura SAS at
+the email address published under [project.urls].Contact in pyproject.toml
+or by any other channel disclosed by ArsChitectura SAS from time to time.
+The present License is offered as one option among several; revocability
+is the bargained-for consideration for the no-fee, no-support, no-
+warranty character of this option. The availability of the negotiated
+paid alternative is relied upon to rebut any characterization of this
+License as an unreviewable contrat d'adhesion under article 1171 Code
+civil.
+
+23. Governing Law and Jurisdiction
+
+This license is governed by the laws of France, without regard to conflict of
+law principles.
+
+Any dispute arising out of or in connection with this license shall be subject
+to the exclusive jurisdiction of the competent courts of Paris, France.
+
+The parties further agree, to the maximum extent enforceable, that disputes
+shall be resolved individually and not on a class, mass, or collective
+basis. Where Regulation (EU) 1215/2012 articles 17-19 or analogous
+mandatory rules confer jurisdiction on a different forum (notably for
+consumers, if any), that forum applies only to the extent required by
+those mandatory rules, and the Paris forum governs all other claims.
+
+24. Third-Party Components
+
+The Software may include or be distributed with third-party components subject
+to separate license terms. Where required by applicable third-party licenses,
+those terms apply to the corresponding components and prevail for those
+components only.
+
+25. Compliance With Laws
+
+You are responsible for complying with all laws and regulations applicable to
+your use of the Software, including export control and sanctions laws.
+
+26. General
+
+This license constitutes the entire agreement between you and ArsChitectura SAS
+regarding the Software and supersedes all prior or contemporaneous
+understandings on that subject.
+
+If any provision of this license is held unenforceable, the remaining provisions
+remain in full force and effect.
+
+A failure to enforce any provision of this license is not a waiver of future
+enforcement of that or any other provision.
+
+You may not assign this license without prior written consent from
+ArsChitectura SAS. ArsChitectura SAS may assign this license in connection with
+a merger, acquisition, corporate reorganization, or sale of substantially all
+assets.
+
+-------------------------------------------------------------------------------
+EXHIBIT A - United States Addendum
+
+For Licensees whose principal establishment is in the United States, or
+where this License is enforced in a United States forum notwithstanding
+Section 23:
+
+A.1 Licensee status (17 U.S.C. section 117 / Vernor). Licensee is a mere
+licensee of the Software and not an owner of any copy. Licensee's rights
+in any installed copy terminate upon Revocation or breach. Licensee is
+subject to significant use restrictions, and this License is non-
+transferable. These characteristics are intended to place Licensee
+outside the scope of 17 U.S.C. section 117 per Vernor v. Autodesk, 621
+F.3d 1102, 1110-11 (9th Cir. 2010), under which the user is a licensee
+(not an owner) when (i) the copyright owner specifies that the user is
+granted a license; (ii) the copyright owner significantly restricts the
+user's ability to transfer the software; and (iii) the copyright owner
+imposes notable use restrictions.
+
+A.2 Bankruptcy (11 U.S.C. section 365(n)). This License is not an
+"executory contract" within the meaning of 11 U.S.C. section 365;
+Licensor has fully performed the grant at inception and has no material
+ongoing obligation to Licensee. In any proceeding where section 365(n)
+is asserted, Licensee's election is limited to the Protected Expression
+as it existed at the filing date, does not extend to future versions or
+updates, does not create any affirmative support, maintenance, or
+delivery duty on Licensor, and does not defeat the Section 4 Revocation
+right.
+
+A.3 Fair use. The Section 7 AI prohibition operates as a contractual
+covenant independent of the copyright status of any particular use.
+Breach of Section 7 is actionable in contract without proof of
+infringement; defenses based on fair use, idea-expression dichotomy, or
+non-copyrightability of AI outputs do not excuse breach of covenant.
+
+A.4 Unconscionability and state law. For Licensees in Maryland and
+Virginia, UCITA principles apply. For Licensees in other states, the
+Section 16 severability and supervening-law cascade governs.
+
+A.5 California Business and Professions Code section 17200. Claims
+brought under section 17200, if any, shall be resolved by arbitration
+administered by JAMS pursuant to the JAMS International Arbitration
+Rules (current version as of the dispute date), with Paris, France as
+the seat of arbitration, in English, before three arbitrators. This
+arbitration carve-out does not displace Section 23 for any other
+category of claim.
+
+A.6 CCPA. No personal data of Licensees is collected by Licensor absent
+enforcement (Section 15). Any enforcement-related collection is limited
+to data strictly necessary for the assertion, exercise, or defense of
+legal claims.
+
+-------------------------------------------------------------------------------
+EXHIBIT B - Germany, European Economic Area, and United Kingdom Addendum
+
+For Licensees whose principal establishment is in the Federal Republic of
+Germany, or where German law applies to the Licensee by virtue of article
+6 or article 9 of Regulation (EC) 593/2008 or sections 305 ff. BGB:
+
+B.1 Replacement of Section 4 Revocation. Section 4 Revocation is
+replaced, as to such Licensees, by: (i) termination for good cause
+("aus wichtigem Grund") under section 314 BGB, and (ii) convenience
+termination upon ninety (90) days' written notice. The factors in
+Section 4.1 are illustrative grounds of good cause. This accommodation
+applies only as against Germany-seated Licensees; Section 4 in its full
+at-will form continues to apply elsewhere per Section 16(iii). Section
+307 BGB content control is preserved in the B2B context by section
+310(1) BGB (which disapplies sections 308 and 309 to B2B but preserves
+section 307, with appropriate consideration of trade customs).
+
+B.2 Non-waivable software-copyright exceptions. Sections 69d and 69e
+UrhG are preserved in full.
+
+B.3 Zweckubertragungslehre. The purpose of this License is to enable
+Licensor to distribute the Software on a source-available basis while
+retaining prospective Revocation. The prospective-revocation character
+is an essential purpose (Vertragszweck); narrow construction shall not
+diminish Revocation below what that purpose requires.
+
+For Licensees whose principal establishment is in the European Economic
+Area generally:
+
+B.4 Rome I and Brussels Ia accommodations. The choice of French law in
+Section 23 does not displace the application of mandatory or overriding
+provisions of the Licensee's habitual residence under article 6, 9, or
+11 of Regulation (EC) 593/2008, nor the forum allocations of articles 17
+through 19 of Regulation (EU) 1215/2012 for consumer proceedings.
+
+B.5 DSM article 3. Qualifying research organizations and cultural
+heritage institutions may exercise the non-waivable text-and-data-mining
+exception under article 3 of Directive (EU) 2019/790 for non-commercial
+scientific research, notwithstanding Section 7. This is an
+acknowledgement of the state of EU law, not a waiver of Section 7 in any
+other respect.
+
+For Licensees whose principal establishment is in the United Kingdom:
+
+B.6 UCTA reasonableness. Section 12's exclusion of liability is intended
+to be given effect to the fullest extent permitted by the Unfair Contract
+Terms Act 1977 and other applicable UK statutes. Where UCTA or any other
+mandatory UK rule requires that Licensor bear some residual liability for
+a particular head, such liability is limited to the minimum amount that
+the court deems reasonable under UCTA section 11, having regard, by
+analogy where applicable, to the factors enumerated in UCTA Schedule 2
+(which apply expressly only to UCTA sections 6(1A), 7(1A) and (4), 20,
+and 21, but are treated by UK courts as commonly relevant by analogy in
+other contexts), and in no event exceeds the fees (if any) paid by the
+claimant to Licensor in the twelve (12) months preceding the claim.
+Liability for death or personal injury caused by negligence, for fraud,
+or for any other matter not lawfully capable of exclusion under UCTA is
+not excluded.
+
+B.7 CDPA. The non-commercial-research TDM exception of section 29A of
+the Copyright, Designs and Patents Act 1988 is acknowledged as
+non-waivable.
+
+-------------------------------------------------------------------------------
+SCHEDULE 1 - Non-Exhaustive Enumeration of Distribution Vectors
+
+"Distribution" includes, without limitation, each of the following
+vectors (article 1188 Code civil: the enumeration is illustrative of the
+parties' common intention of maximal coverage, and does not limit the
+generality of the definition in Section 1):
+
+Direct person-to-person: email attachment or link; chat, DM, SMS, MMS,
+file-transfer service, cloud-storage share link, peer-to-peer transfer;
+tangible media (USB, optical disc, magnetic media, paper listing,
+microform, printed poster, photograph of screen); paste into Slack,
+Discord, Teams, Matrix, IRC, or equivalent; paste into Pastebin, GitHub
+Gist, GitLab Snippets, hastebin, or equivalent public snippet services.
+
+Git and version-control: push to a public fork or mirror on GitHub,
+GitLab, Bitbucket, Gitea, Codeberg, Sourcehut, or self-hosted forge;
+push to a private repository shared with contractors, auditors, or
+investors; git submodule inclusion; subtree merge; vendoring; git
+archive tarballs and release-page archives; reflog and history rewrites
+whose effects persist on remote servers; mirrors to archive.org,
+Software Heritage, Google BigQuery GitHub Archive dataset, and similar;
+indexing by public code-search engines.
+
+Package registries and build artefacts: upload to PyPI, conda-forge,
+Anaconda Cloud, Artifactory, Nexus, devpi, bandersnatch, or equivalent;
+OS-distribution packaging via Debian, Ubuntu, Fedora, RHEL, Arch, Alpine,
+Homebrew, Nixpkgs, Guix, BSD ports, or equivalent; desktop installers
+(.pkg, MSI, .deb, .rpm, Flatpak, Snap, AppImage); container images (OCI,
+Docker, Singularity) and their push to registries (Docker Hub, GHCR,
+ECR, GCR, ACR, Harbor, Quay); orchestration artefacts (Helm charts,
+Operators, CRDs, Kustomize overlays); VM templates, AMIs, disk snapshots,
+cloud-marketplace listings, pre-baked CI runner images; compiled and
+frozen forms (Nuitka, PyInstaller, cx_Freeze, py2exe, PyOxidizer,
+Cython, mypyc); static linking into native binaries; obfuscated or
+minified distributions.
+
+Access-without-distribution (the "ASP loophole"): SaaS or hosted API
+(HTTP, gRPC, GraphQL, WebSocket); remote Jupyter, Colab, Deepnote, Hex,
+Observable, or equivalent shared-kernel environments; SSH or remote-
+desktop access to systems on which the Software is installed; screen
+sharing, pair programming, projection, and recorded screencasts that
+render the Software's source.
+
+Corporate-internal: sharing with contractors, staff augmentation, or
+staffing agencies; sharing with subsidiaries, affiliates, joint-venture
+partners, or seconded employees; data-room access during due diligence;
+M&A asset purchase, share purchase, merger, demerger; spin-off;
+bankruptcy estate.
+
+Training and educational: course materials, textbooks, blog posts,
+academic papers, conference talks, workshop handouts, university
+homework assignments; public workshops or bootcamps where attendees
+receive copies.
+
+AI and automated processing channels (interacting with Section 7): code-
+completion assistants and editor plugins (Copilot, Codeium, Cody, Cursor,
+Tabnine, and equivalent); retrieval-augmented-generation systems; fine-
+tuning corpora; model-training pipelines; AI chat services (paste of
+source into ChatGPT, Claude, Gemini, and equivalent) (note: limited
+Integration Use is permitted under Section 7.7).
+
+Indirect and involuntary: forks the Licensee does not know of; downstream
+recipients who obtain through third parties; archival crawls predating
+Revocation (Internet Archive, Software Heritage); search-engine caches;
+git reflog residues.
+
+Firmware, appliances, and embedded systems: inclusion in firmware
+images, bootable images, or appliance hardware shipped to end users.
+
+The Licensee agrees that the enumeration does not limit the generality of
+"Distribution" in Section 1. Vectors not listed but functionally analogous
+are within the definition.
+
+-------------------------------------------------------------------------------
+SCHEDULE 2 - Short-Form Notice to Recipients
+
+    NOTICE - SIGMA LIBRARY
+    This distribution includes Sigma, (c) ArsChitectura SAS. Governed by
+    the Sigma License (see LICENSE.txt in this distribution). Includes
+    an at-will revocation right running directly from ArsChitectura SAS
+    to you, exercisable by notice delivered per Section 4 of the
+    License (email, postal, courier, huissier, any direct or indirect
+    channel, or public announcement on Licensor's organization website
+    or on the Software's project homepage). Licensee shall consult
+    Licensor's organization website and the Software's project homepage
+    at least once every ninety (90) days. Your rights may be terminated
+    at any time by such notice. SPDX: LicenseRef-ArsChitectura-Sigma.
+
+Required surfaces (non-exhaustive): source-file header of every
+reproduced file; binary manifest or SBOM entry; installer EULA screen
+with affirmative acknowledgement; package-registry long description;
+README first screen; GUI "About" dialog; GUI splash screen displayed for
+not less than two (2) seconds where technically feasible; OCI image
+label com.arschitectura.sigma.notice; package metadata License,
+License-Expression, and License-File fields; HTTP response header
+X-Sigma-License; SSH or MOTD login banner; firmware boot screen and
+admin-console footer; video-recording frame and description; any other
+user-facing surface through which a Downstream Recipient may encounter
+the Software.

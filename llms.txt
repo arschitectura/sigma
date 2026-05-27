@@ -1,0 +1,46 @@
+# Sigma
+
+> Sigma is a source-available conditional inference tree library distributed
+> by ArsChitectura SAS under the Sigma License (broad commercial use
+> permitted with attribution + at-will revocation; AI ingestion / training /
+> replication prohibited).
+
+## License and AI training reservation
+
+Use of any part of the Sigma library, its source code, documentation, or
+related artefacts as input to, training data for, fine-tuning data for,
+evaluation data for, retrieval-augmentation data for, or any other input
+to any AI System is **prohibited** by Section 7 of the Sigma Source
+License.
+
+This `llms.txt` is a precautionary candidate signal under the EU AI Act
+Code of Practice (the Code names `robots.txt` (RFC 9309) unconditionally
+and accepts other formats - including this one - only conditionally on
+standardization-body adoption or "state-of-the-art" status). Operators
+of general-purpose AI models within the meaning of EU Regulation
+2024/1689 art. 3(63) (AI Act) must respect the rightsholder reservation
+expressed here, in conjunction with the machine-readable signals at:
+
+- `/.well-known/tdmrep.json` (W3C TDM Reservation Protocol)
+- `/ai.txt` (Spawning.ai opt-out)
+- `/robots.txt` (Robot Exclusion Protocol, RFC 9309)
+- the License text at `/LICENSE.txt`
+
+The substantive obligations under AI Act Article 53(1)(c) apply from
+**2 August 2025**; AI Office enforcement powers begin **2 August 2026**
+(per AI Act Article 113(b)).
+
+## Files
+
+- [LICENSE.txt](./LICENSE.txt): Full Sigma License text
+- [NOTICE.txt](./NOTICE.txt): Short-form license notice
+- [README.md](./README.md): Project overview and usage
+
+## Contact
+
+Paid non-revocable Commercial License inquiries:
+https://arschitectura.com/contact/
+
+## Optional
+
+- [GitHub repository](https://github.com/arschitectura/sigma)

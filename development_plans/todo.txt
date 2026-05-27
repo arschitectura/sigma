@@ -1,0 +1,3 @@
+TODO add a command line
+TODO reset the git history
+TODO make the repo public

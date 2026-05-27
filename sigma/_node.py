@@ -1,0 +1,323 @@
+"""Node class hierarchy and traversal for fitted conditional inference trees."""
+
+from __future__ import annotations
+
+import abc
+import typing
+
+import numpy
+import numpy.typing
+
+from . import _extension
+from . import _partition
+
+# TODO XXX check all this code
+
+_NodeT = typing.TypeVar("_NodeT", bound="Node")
+
+
+class Node(abc.ABC):
+    """Abstract base for a node in a fitted conditional inference tree.
+
+    Attributes:
+        depth: Depth in the tree (root = 0).
+        n_samples: Number of active samples reaching this node.
+        share: Fraction of the total training samples that reached this
+            node.
+        decoration: Optional decoration produced by the tree decorator
+            callable, or None when no decorator is set.
+        extension: Partition on internal nodes, Leaf on leaves.
+        node_id: Zero-based index of this node in Tree.nodes_, or None
+            for unfitted nodes.
+    """
+
+    __slots__ = (
+        "depth",
+        "n_samples",
+        "share",
+        "decoration",
+        "extension",
+        "node_id",
+        "__weakref__",
+        "__dict__",
+    )
+
+    extension: _extension.Extension[typing.Self]
+    node_id: None | int
+
+    def __init__(
+        self,
+        depth: int,
+        n_samples: int,
+        share: float,
+        decoration: None | object,
+        extension: _extension.Extension[typing.Self],
+    ) -> None:
+        self.depth = depth
+        self.n_samples = n_samples
+        self.share = share
+        self.decoration = decoration
+        self.extension = extension
+        self.node_id = None
+
+    def traverse(self: _NodeT, x: numpy.typing.NDArray) -> _NodeT:
+        """Walk a single sample down the tree to its leaf node.
+
+        Args:
+            x: Feature vector for a single sample, shape (m,).
+
+        Returns:
+            The leaf node reached by the sample.
+
+        Raises:
+            UnknownCategoryError: When traversal reaches a categorical
+                partition with an unseen category value.
+        """
+        node = self
+        while True:
+            match node.extension:
+                case _partition.Partition() as partition:
+                    value = x[partition.feature_index]
+                    node = partition.route(value)
+                case _:
+                    break
+        return node
+
+    def leaves(self: _NodeT) -> list[_NodeT]:
+        """Return all leaf nodes in this subtree, in left-to-right order."""
+        match self.extension:
+            case _partition.Partition() as partition:
+                result: list[_NodeT] = (
+                    partition.left.leaves() + partition.right.leaves()
+                )
+            case _:
+                result = [self]
+        return result
+
+    @abc.abstractmethod
+    def leaf_sort_key(self) -> tuple[float, ...]:
+        """Sort key for ordering leaves of this task type."""
+
+
+class RegressionNode(Node):
+    """Node of a fitted RegressionTree.
+
+    Attributes:
+        prediction: Weighted mean of the response in this node's active
+            samples.
+        ci_low: Lower bound of the confidence interval for the prediction,
+            or None when CI is disabled.
+        ci_high: Upper bound of the confidence interval for the prediction,
+            or None when CI is disabled.
+        response_samples: Per-leaf array of response samples. Empty on
+            internal nodes and on leaves when response_sample_size=0.
+    """
+
+    __slots__ = ("prediction", "ci_low", "ci_high", "response_samples")
+
+    def __init__(
+        self,
+        depth: int,
+        n_samples: int,
+        share: float,
+        decoration: None | object,
+        extension: _extension.Extension[typing.Self],
+        prediction: float,
+        ci_low: None | float,
+        ci_high: None | float,
+        response_samples: numpy.typing.NDArray[numpy.floating],
+    ) -> None:
+        super().__init__(depth, n_samples, share, decoration, extension)
+        self.prediction = prediction
+        self.ci_low = ci_low
+        self.ci_high = ci_high
+        self.response_samples = response_samples
+
+    def leaf_sort_key(self) -> tuple[float, ...]:
+        """Sort key: ascending by predicted mean."""
+        key = (self.prediction,)
+        return key
+
+
+class ClassificationNode(Node):
+    """Node of a fitted ClassificationTree.
+
+    Attributes:
+        prediction: Index of the majority class within the estimator's
+            classes_ array.
+        class_distribution: Class probability vector for this node, shape
+            (n_classes,).
+        ci_low: Lower CI bounds per class, shape (n_classes,), or None
+            when CI is disabled.
+        ci_high: Upper CI bounds per class, shape (n_classes,), or None
+            when CI is disabled.
+        mean_offset_proba: Per-leaf weighted mean of the offset, shape
+            (n_classes,). None unless fit was called with an offset.
+    """
+
+    __slots__ = (
+        "prediction",
+        "class_distribution",
+        "ci_low",
+        "ci_high",
+        "mean_offset_proba",
+    )
+
+    def __init__(
+        self,
+        depth: int,
+        n_samples: int,
+        share: float,
+        decoration: None | object,
+        extension: _extension.Extension[typing.Self],
+        prediction: int,
+        class_distribution: numpy.typing.NDArray[numpy.floating],
+        ci_low: None | numpy.typing.NDArray[numpy.floating],
+        ci_high: None | numpy.typing.NDArray[numpy.floating],
+        mean_offset_proba: None | numpy.typing.NDArray[numpy.floating],
+    ) -> None:
+        super().__init__(depth, n_samples, share, decoration, extension)
+        self.prediction = prediction
+        self.class_distribution = class_distribution
+        self.ci_low = ci_low
+        self.ci_high = ci_high
+        # TODO elucidate the need for this
+        self.mean_offset_proba = mean_offset_proba
+
+    def leaf_sort_key(self) -> tuple[float, ...]:
+        """Sort key: descending by class distribution tuple."""
+        key = tuple(-p for p in self.class_distribution)
+        return key
+
+
+class SurvivalMetric:
+    """Single per-node summary for a SurvivalTree estimator.
+
+    Attributes:
+        label: Display label, e.g., "Median survival" or "Survival at
+            5 years".
+        value: Numeric value of the metric. NaN and +/- inf are allowed.
+        ci_low: Lower confidence-interval bound, or None when no CI is
+            defined for this metric.
+        ci_high: Upper confidence-interval bound, or None when no CI is
+            defined for this metric.
+        style: Formatting style; "value" for floats, "probability" for
+            percentages.
+        better_is: "higher" when larger values indicate a better
+            prognosis (median, RMST, S(t)); "lower" when smaller values
+            do (risk score).
+    """
+
+    __slots__ = (
+        "label",
+        "value",
+        "ci_low",
+        "ci_high",
+        "style",
+        "better_is",
+        "__weakref__",
+        "__dict__",
+    )
+
+    def __init__(
+        self,
+        label: str,
+        value: float,
+        ci_low: None | float,
+        ci_high: None | float,
+        style: typing.Literal["value", "probability"],
+        better_is: typing.Literal["higher", "lower"],
+    ) -> None:
+        self.label = label
+        self.value = value
+        self.ci_low = ci_low
+        self.ci_high = ci_high
+        self.style = style
+        self.better_is = better_is
+
+
+class SurvivalNode(Node):
+    """Node of a fitted SurvivalTree.
+
+    Attributes:
+        survival_function: Pair (times, surv) describing the
+            Kaplan-Meier estimate of S(t) at this leaf.
+        survival_log_variance: Greenwood variance of log S(t) at the same
+            times as survival_function, shape (n,).
+        metrics: Non-empty ordered list of per-leaf summary metrics.
+    """
+
+    __slots__ = ("survival_function", "survival_log_variance", "metrics")
+
+    def __init__(
+        self,
+        depth: int,
+        n_samples: int,
+        share: float,
+        decoration: None | object,
+        extension: _extension.Extension[typing.Self],
+        survival_function: tuple[
+            numpy.typing.NDArray[numpy.floating],
+            numpy.typing.NDArray[numpy.floating],
+        ],
+        survival_log_variance: numpy.typing.NDArray[numpy.floating],
+        metrics: list[SurvivalMetric],
+    ) -> None:
+        super().__init__(depth, n_samples, share, decoration, extension)
+        self.survival_function = survival_function
+        self.survival_log_variance = survival_log_variance
+        self.metrics = metrics
+
+    @property
+    def prediction(self) -> float:
+        """First configured metric's value (typically median survival)."""
+        value = self.metrics[0].value
+        return value
+
+    @property
+    def ci_low(self) -> None | float:
+        """Lower CI bound of the first configured metric."""
+        bound = self.metrics[0].ci_low
+        return bound
+
+    @property
+    def ci_high(self) -> None | float:
+        """Upper CI bound of the first configured metric."""
+        bound = self.metrics[0].ci_high
+        return bound
+
+    def leaf_sort_key(self) -> tuple[float, ...]:
+        """Sort key: lexicographic on metrics, worst-prognosis-first."""
+        components: list[float] = []
+        for metric in self.metrics:
+            sign = 1.0 if metric.better_is == "higher" else -1.0
+            components.append(sign * metric.value)
+        key = tuple(components)
+        return key
+
+
+def _populate_share(root: Node) -> None:
+    """Set share on every node as n_samples / root.n_samples."""
+    total = root.n_samples
+    _assign_share(root, total)
+
+
+def _assign_share(node: Node, total: int) -> None:
+    """Assign share to node and its descendants relative to total."""
+    node.share = node.n_samples / total
+    match node.extension:
+        case _partition.Partition() as partition:
+            _assign_share(partition.left, total)
+            _assign_share(partition.right, total)
+
+
+def _should_swap_display_children(node: Node) -> bool:
+    """Whether to swap children for display ordering."""
+    match node.extension:
+        case _partition.Partition() as partition:
+            left = partition.left
+            right = partition.right
+            swaps = left.leaf_sort_key() > right.leaf_sort_key()
+            return bool(swaps)
+        case _:
+            return False

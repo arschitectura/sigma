@@ -1,0 +1,31 @@
+# Sigma - AI training and ingestion opt-out
+# Format: Spawning.ai ai.txt convention
+# Reference: https://site.spawning.ai/spawning-ai-txt
+# Legal basis: exercise of the rightsholder reservation permitted under
+# Article 4(3) of Directive (EU) 2019/790 (DSM Directive).
+# See LICENSE.txt Section 7 for the full prohibition.
+
+User-Agent: *
+Disallow: /
+
+# This repository and every file within it is excluded from:
+# - training, fine-tuning, evaluation, or inference-time retrieval by any
+#   machine-learning, language-model, code-completion, or AI system;
+# - ingestion, indexing, scraping, crawling, caching, embedding, or
+#   vectorization by any automated system;
+# - inclusion in any dataset, corpus, knowledge base, or retrieval
+#   system accessible to automated processing.
+
+# The Licensor (ArsChitectura SAS) does not and will not consent to any
+# such processing, whether commercial or non-commercial, except by
+# separate express written authorization. The absence or failure of any
+# one machine-readable signal shall not be construed as a waiver where
+# other signals are present.
+
+# NARROW USER-SIDE EXCEPTION (LICENSE.txt Section 7.7): A Licensee may
+# use a general-purpose AI coding assistant to produce CLIENT CODE that
+# calls Sigma's documented public API, submitting only the public API
+# surface and the README usage examples. This carve-out is user-side
+# only. It does NOT authorize AI vendors, crawlers, or training
+# pipelines to ingest, index, train on, or retrieval-augment with this
+# repository, which remains disallowed in full.

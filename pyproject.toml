@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools >= 68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ars-sigma"
+version = "1.0.0"
+description = "Conditional inference trees for Python"
+requires-python = ">= 3.11"
+license = "LicenseRef-ArsChitectura-Sigma"
+license-files = ["LICENSE.txt"]
+dependencies = [
+    "numpy >= 1.24",
+    "scipy >= 1.11",
+    "scikit-learn >= 1.3",
+]
+
+[project.optional-dependencies]
+viz = ["graphviz >= 0.20", "matplotlib >= 3.8"]
+
+[project.urls]
+Repository = "https://github.com/arschitectura/sigma"
+Documentation = "https://arschitectura.com/products/sigma/"
+Contact = "https://arschitectura.com/contact/"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.arschitectura.license]
+spdx = "LicenseRef-ArsChitectura-Sigma"
+license-file = "LICENSE.txt"
+notice-file = "NOTICE.txt"
+ai-optout-files = ["ai.txt", "robots.txt", ".well-known/tdmrep.json"]
+tdm-reservation = 1
+dsm-article-4-opt-out = true
+at-will-revocable = true
