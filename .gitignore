@@ -15,5 +15,6 @@ __pycache__/
 *.egg-info/
 *.pyc
 
-# Demo artifacts
+# Project
+development_plans/
 demo_*
