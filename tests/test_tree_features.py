@@ -918,10 +918,10 @@ class TestRegressionTreeResponseSamples(unittest.TestCase):
 
     __slots__ = ()
 
-    def test_default_size_is_100(self):
-        """Default constructor sets response_sample_size to 100."""
+    def test_default_size_is_1000(self):
+        """Default constructor sets response_sample_size to 1000."""
         tree = sigma._tree_regression.RegressionTree()
-        self.assertEqual(tree.response_sample_size, 100)
+        self.assertEqual(tree.response_sample_size, 1000)
 
     def test_size_zero_yields_empty_arrays(self):
         """response_sample_size=0 stores an empty array on every leaf."""

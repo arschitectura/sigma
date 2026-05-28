@@ -85,7 +85,7 @@ class RegressionTree(
         response_sample_size: Maximum number of response samples stored on
             each leaf for the response-distribution overlay in
             to_image(kind="response"). Set to 0 to disable (each leaf
-            carries an empty response_samples array). Defaults to 100. Must
+            carries an empty response_samples array). Defaults to 1000. Must
             be a non-negative integer.
 
     Attributes:
@@ -126,7 +126,7 @@ class RegressionTree(
         resamples: None | int = None,
         decorator: None | typing.Callable = None,
         random_state: None | int = None,
-        response_sample_size: int = 100,
+        response_sample_size: int = 1000,
         reverse_order: bool = False,
     ) -> None:
         _types._validate_literal_param(
