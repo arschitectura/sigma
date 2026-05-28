@@ -503,19 +503,24 @@ def _build_one_hot_sigma_and_correlation(
     numpy.typing.NDArray[numpy.floating],
 ]:
     """Build a singular one-hot Sigma plus its standardized correlation R."""
-    rng = numpy.random.default_rng(seed)
-    samples_per_level = 6
-    n = num_levels * samples_per_level
-    cat = numpy.repeat(numpy.arange(num_levels), samples_per_level).astype(
-        float
-    )
-    rng.shuffle(cat)
-    g_j = (cat[:, None] == numpy.arange(num_levels)).astype(float)
-    h = rng.standard_normal((n, 1))
-    weights = numpy.ones(n)
-    Sigma = sigma._statistics.compute_conditional_covariance(g_j, h, weights)
-    sd = numpy.sqrt(numpy.diag(Sigma))
-    R = Sigma / numpy.outer(sd, sd)
+    # TODO LATER remove this workaround once this is fixed:
+    # https://github.com/numpy/numpy/issues/28687
+    with numpy.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        rng = numpy.random.default_rng(seed)
+        samples_per_level = 6
+        n = num_levels * samples_per_level
+        cat = numpy.repeat(numpy.arange(num_levels), samples_per_level).astype(
+            float
+        )
+        rng.shuffle(cat)
+        g_j = (cat[:, None] == numpy.arange(num_levels)).astype(float)
+        h = rng.standard_normal((n, 1))
+        weights = numpy.ones(n)
+        Sigma = sigma._statistics.compute_conditional_covariance(
+            g_j, h, weights
+        )
+        sd = numpy.sqrt(numpy.diag(Sigma))
+        R = Sigma / numpy.outer(sd, sd)
     return Sigma, R
 
 
