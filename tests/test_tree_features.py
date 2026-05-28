@@ -660,7 +660,7 @@ class TestTreeDecorator(unittest.TestCase):
             self.assertLess(m, 100.0)
 
     def test_to_text_appends_decoration(self):
-        """to_text appends str(decoration) to the right of each node
+        """to_text shows str(decoration) in the unnamed column on every node
         line."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
@@ -679,8 +679,13 @@ class TestTreeDecorator(unittest.TestCase):
         regression_tree.fit(X, y)
 
         output = regression_tree.to_text()
-        for line in output.strip().split("\n")[2:]:
-            self.assertTrue(line.endswith(" TAG"), line)
+        lines = output.splitlines()
+        header_line = lines[0]
+        p_value_end = header_line.index("Split p-value") + len("Split p-value")
+        leaf_index_start = header_line.index("Leaf index")
+        for line in lines[2:]:
+            decoration_slice = line[p_value_end:leaf_index_start]
+            self.assertEqual(decoration_slice.strip(), "TAG", line)
 
     def test_to_text_skips_decoration_when_none(self):
         """to_text omits suffix on nodes whose decoration is None."""

@@ -198,19 +198,19 @@ class TestExportText(unittest.TestCase):
         self.assertEqual(result, from_method)
 
     def test_export_text_table_header_column_order(self):
-        """Header row lists leaf-index, prediction, count, share, p-value in order."""
+        """Header row lists prediction, count, share, p-value, leaf-index in order."""
         regression_tree = _fit_step_regression_tree()
         result = sigma.export_text(regression_tree)
         header_line = result.splitlines()[0]
-        leaf_index_index = header_line.index("Leaf index")
         predicted_index = header_line.index("Predicted mean")
         count_index = header_line.index("Obs. count")
         share_index = header_line.index("Obs. share")
         p_value_index = header_line.index("Split p-value")
-        self.assertLess(leaf_index_index, predicted_index)
+        leaf_index_index = header_line.index("Leaf index")
         self.assertLess(predicted_index, count_index)
         self.assertLess(count_index, share_index)
         self.assertLess(share_index, p_value_index)
+        self.assertLess(p_value_index, leaf_index_index)
 
     def test_export_text_leaf_index_cell_matches_chart_one_based_value(self):
         """Each leaf row shows leaf_id + 1 in the Leaf index column."""
@@ -300,8 +300,10 @@ class TestExportText(unittest.TestCase):
             ]
             self.assertEqual(cell.strip(), "")
 
-    def test_export_text_decoration_appears_as_trailing_tail(self):
-        """A node decoration is rendered as a trailing column without a header."""
+    def test_export_text_decoration_appears_between_p_value_and_leaf_index(
+        self,
+    ):
+        """A node decoration is rendered as an unnamed column left of the leaf index."""
         rng = numpy.random.RandomState(0)
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0) + 0.0 * rng.randn(40)
@@ -314,15 +316,17 @@ class TestExportText(unittest.TestCase):
         )
         decorated_tree.fit(X, y)
         result = sigma.export_text(decorated_tree)
-        header_line = result.splitlines()[0]
+        lines = result.splitlines()
+        header_line = lines[0]
         self.assertNotIn("stratum=A", header_line)
         self.assertNotIn("Decoration", header_line)
-        data_lines = [line for line in result.splitlines()[2:] if line.strip()]
+        p_value_end = header_line.index("Split p-value") + len("Split p-value")
+        leaf_index_start = header_line.index("Leaf index")
+        data_lines = [line for line in lines[2:] if line.strip()]
+        self.assertGreater(len(data_lines), 0)
         for data_line in data_lines:
-            self.assertTrue(
-                data_line.endswith("stratum=A"),
-                f"line did not end with decoration: {data_line!r}",
-            )
+            decoration_slice = data_line[p_value_end:leaf_index_start]
+            self.assertEqual(decoration_slice.strip(), "stratum=A")
 
 
 class TestExportTextBoolean(unittest.TestCase):

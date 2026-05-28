@@ -160,14 +160,15 @@ def export_text(
     # TODO XXX optimize/review these 2
     has_split = any(row.p_value_cell is not None for row in text_rows)
     has_decoration = any(row.decoration is not None for row in text_rows)
-    headers = ["", "Leaf index", *prediction_headers]
+    headers = ["", *prediction_headers]
     if has_split:
         headers.append("Split p-value")
     if has_decoration:
         headers.append("")
+    headers.append("Leaf index")
     rendered_rows: list[list[str]] = []
     for row in text_rows:
-        cells = [row.prefix, row.leaf_index_cell or ""]
+        cells = [row.prefix]
         prediction_cells = row.prediction_cells
         if prediction_cells:
             cells.extend(prediction_cells)
@@ -178,6 +179,7 @@ def export_text(
             cells.append(row.p_value_cell or "")
         if has_decoration:
             cells.append(row.decoration or "")
+        cells.append(row.leaf_index_cell or "")
         rendered_rows.append(cells)
     lines = _tree_text._format_aligned_headers(headers, rendered_rows)
     result = "\n".join(lines)
