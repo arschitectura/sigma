@@ -96,9 +96,12 @@ class Tree(
             offset; side_data_active is None when fit was called without
             side_data. The returned value (any object, or None) is stored on
             the node as node.decoration.
-        random_state: Seed for the random number generator used in permutation
-            resampling. Pass an integer for reproducibility. None uses an
-            unpredictable seed. Ignored unless test_type="monte_carlo".
+        random_state: Seed for stochastic operations. Pass an integer for
+            reproducibility; None uses an unpredictable seed. Controls
+            min-P permutation resampling under test_type="monte_carlo",
+            the bootstrap-family CI methods of RegressionTree
+            ("bayesian_bootstrap", "bca", "log_normal_gci"), and the
+            jitter of to_image(kind="response") raincloud plots.
 
     Attributes:
         content_: Root node of the fitted tree structure.
@@ -137,6 +140,7 @@ class Tree(
     test_type_enum_: _types.TestType
     _fit_with_offset: bool
     _rng_: numpy.random.Generator
+    _rng_ci_: numpy.random.Generator
 
     def __init__(
         self,
@@ -263,7 +267,10 @@ class Tree(
                 raise ValueError(
                     "resamples must be set when test_type='monte_carlo'"
                 )
-            self._rng_ = numpy.random.default_rng(self.random_state)
+            seed_seq = numpy.random.SeedSequence(self.random_state)
+            ss_fit, ss_ci = seed_seq.spawn(2)
+            self._rng_ = numpy.random.default_rng(ss_fit)
+            self._rng_ci_ = numpy.random.default_rng(ss_ci)
             self._fit_with_offset = offset_array is not None
             h = self._compute_influence(y, offset_array)
             y_transmuted, w_transmuted, offset_transmuted = (

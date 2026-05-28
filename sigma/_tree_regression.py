@@ -79,9 +79,12 @@ class RegressionTree(
         decorator: Optional callable producing a per-node decoration stored on
             the node and rendered by to_text and to_image. See Tree
             for full signature and behavior.
-        random_state: Seed for the random number generator used in permutation
-            resampling. Pass an integer for reproducibility. None uses an
-            unpredictable seed. Ignored unless test_type="monte_carlo".
+        random_state: Seed for stochastic operations. Pass an integer for
+            reproducibility; None uses an unpredictable seed. Controls
+            min-P permutation resampling under test_type="monte_carlo",
+            the bootstrap-family CI methods ("bayesian_bootstrap",
+            "bca", "log_normal_gci"), and the jitter of
+            to_image(kind="response") raincloud plots.
         response_sample_size: Maximum number of response samples stored on
             each leaf for the response-distribution overlay in
             to_image(kind="response"). Set to 0 to disable (each leaf
@@ -344,11 +347,11 @@ class RegressionTree(
         match ci_method_enum:
             case _types.CiMethodRegressionTree.BAYESIAN_BOOTSTRAP:
                 ci_low, ci_high = self._compute_ci_bayesian_bootstrap(
-                    y_active, w_active, alpha
+                    self._rng_ci_, y_active, w_active, alpha
                 )
             case _types.CiMethodRegressionTree.BCA:
                 ci_low, ci_high = self._compute_ci_bca(
-                    y_active, w_active, alpha
+                    self._rng_ci_, y_active, w_active, alpha
                 )
             case _types.CiMethodRegressionTree.BETA:
                 ci_low, ci_high = self._compute_ci_beta(
@@ -368,7 +371,7 @@ class RegressionTree(
                 )
             case _types.CiMethodRegressionTree.LOG_NORMAL_GCI:
                 ci_low, ci_high = self._compute_ci_log_normal_gci(
-                    y_active, w_active, alpha
+                    self._rng_ci_, y_active, w_active, alpha
                 )
             case _types.CiMethodRegressionTree.NORMAL:
                 ci_low, ci_high = self._compute_ci_normal(
@@ -390,13 +393,13 @@ class RegressionTree(
 
     @staticmethod
     def _compute_ci_bayesian_bootstrap(
+        rng: numpy.random.Generator,
         y_active: numpy.typing.NDArray[numpy.floating],
         w_active: numpy.typing.NDArray[numpy.floating],
         alpha: float,
     ) -> tuple[float, float]:
         """Bayesian bootstrap CI for the weighted mean via Dirichlet draws."""
         n_draws = 10_000
-        rng = numpy.random.default_rng()
         dirichlet_weights = rng.dirichlet(w_active, size=n_draws)
         means = numpy.dot(dirichlet_weights, y_active)
         ci_low = float(numpy.quantile(means, alpha))
@@ -405,6 +408,7 @@ class RegressionTree(
 
     @staticmethod
     def _compute_ci_bca(
+        rng: numpy.random.Generator,
         y_active: numpy.typing.NDArray[numpy.floating],
         w_active: numpy.typing.NDArray[numpy.floating],
         alpha: float,
@@ -419,7 +423,6 @@ class RegressionTree(
             return theta_hat, theta_hat
         n = len(y_active)
         n_draws = 10_000
-        rng = numpy.random.default_rng()
         probabilities = w_active / w_sum
         bootstrap_indices = rng.choice(
             n, size=(n_draws, n), replace=True, p=probabilities
@@ -554,6 +557,7 @@ class RegressionTree(
 
     @staticmethod
     def _compute_ci_log_normal_gci(
+        rng: numpy.random.Generator,
         y_active: numpy.typing.NDArray[numpy.floating],
         w_active: numpy.typing.NDArray[numpy.floating],
         alpha: float,
@@ -575,7 +579,6 @@ class RegressionTree(
             point = float(numpy.exp(mu_log + sigma_sq / 2.0))
             return point, point
         n_draws = 10_000
-        rng = numpy.random.default_rng()
         z = rng.standard_normal(n_draws)
         u = rng.chisquare(df=n_eff - 1.0, size=n_draws)
         r = mu_log - z * numpy.sqrt(sigma_sq / u) + n_eff * sigma_sq / (2.0 * u)

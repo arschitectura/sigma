@@ -300,7 +300,7 @@ when to choose each option.
 | `transmuter`                      | Per-node data transform with post-hoc split validation                       |
 | `resamples`                       | Number of permutations for `test_type="monte_carlo"`                         |
 | `decorator`                       | Per-node decoration callable rendered by `to_text` / `to_image`              |
-| `random_state`                    | Permutation RNG seed (only used by `test_type="monte_carlo"`)                |
+| `random_state`                    | RNG seed for permutation resampling, bootstrap CI methods, and plot jitter   |
 
 ### `correlation`
 
@@ -549,9 +549,15 @@ statistics.
 
 **Default**: `None`.
 
-Seed for the permutation RNG used by `test_type="monte_carlo"`.
-Ignored otherwise. Pass an integer for reproducibility; `None` uses
-an unpredictable seed.
+Seed for all stochastic operations in the estimator. Pass an integer
+for reproducibility; `None` uses an unpredictable seed. Controls:
+
+- min-P permutation resampling under `test_type="monte_carlo"`;
+- the bootstrap-family CI methods of `RegressionTree`
+  (`bayesian_bootstrap`, `bca`, `log_normal_gci`);
+- the jitter of `to_image(kind="response")` raincloud plots
+  (`RegressionTree` only; combined with the leaf index so each leaf
+  receives a distinct pattern).
 
 ## Algorithm
 

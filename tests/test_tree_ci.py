@@ -310,6 +310,7 @@ class TestRegressionTreeCiMethod(unittest.TestCase):
             regression_tree = sigma._tree_regression.RegressionTree(
                 ci_method=method
             )
+            regression_tree._rng_ci_ = numpy.random.default_rng(0)
             ci_low, ci_high = regression_tree._compute_ci(y, weights, None)
             assert ci_low is not None and ci_high is not None
             self.assertTrue(numpy.isfinite(ci_low))
@@ -326,6 +327,7 @@ class TestRegressionTreeCiMethod(unittest.TestCase):
             regression_tree = sigma._tree_regression.RegressionTree(
                 ci_method=method
             )
+            regression_tree._rng_ci_ = numpy.random.default_rng(0)
             ci_low, ci_high = regression_tree._compute_ci(y, weights, None)
             assert ci_low is not None and ci_high is not None
             self.assertLessEqual(ci_low, p_hat + 1e-12)
@@ -376,6 +378,7 @@ class TestRegressionTreeCiMethod(unittest.TestCase):
             regression_tree = sigma._tree_regression.RegressionTree(
                 ci_method=method
             )
+            regression_tree._rng_ci_ = numpy.random.default_rng(0)
             ci_low, ci_high = regression_tree._compute_ci(y, weights, None)
             assert ci_low is not None and ci_high is not None
             self.assertAlmostEqual(ci_low, 0.5, places=6)
@@ -390,6 +393,7 @@ class TestRegressionTreeCiMethod(unittest.TestCase):
             regression_tree = sigma._tree_regression.RegressionTree(
                 ci_method=method
             )
+            regression_tree._rng_ci_ = numpy.random.default_rng(0)
             ci_low, ci_high = regression_tree._compute_ci(y, weights, None)
             assert ci_low is not None and ci_high is not None
             self.assertTrue(numpy.isfinite(ci_low))
@@ -407,6 +411,8 @@ class TestRegressionTreeCiMethod(unittest.TestCase):
             reg_wide = sigma._tree_regression.RegressionTree(
                 ci_method=method, ci_coverage=0.99
             )
+            reg_narrow._rng_ci_ = numpy.random.default_rng(0)
+            reg_wide._rng_ci_ = numpy.random.default_rng(0)
             low_n, high_n = reg_narrow._compute_ci(y, weights, None)
             low_w, high_w = reg_wide._compute_ci(y, weights, None)
             assert low_n is not None and high_n is not None
@@ -454,6 +460,39 @@ class TestRegressionTreeCiMethod(unittest.TestCase):
                 self.assertGreaterEqual(ci_high, node.prediction - 1e-12)
 
 
+class TestRegressionTreeBayesianBootstrapCi(unittest.TestCase):
+    """Tests specific to ci_method='bayesian_bootstrap'."""
+
+    __slots__ = ()
+
+    def test_random_state_makes_ci_reproducible(self):
+        """Two fits with the same random_state produce identical leaf CIs."""
+        rng = numpy.random.default_rng(42)
+        n = 100
+        X = rng.standard_normal((n, 2))
+        y = 2.0 * X[:, 0] + rng.standard_normal(n) * 0.5
+        tree1 = sigma._tree_regression.RegressionTree(
+            correlation="normal",
+            ci_method="bayesian_bootstrap",
+            random_state=7,
+            min_splits=10,
+            min_buckets=5,
+        )
+        tree2 = sigma._tree_regression.RegressionTree(
+            correlation="normal",
+            ci_method="bayesian_bootstrap",
+            random_state=7,
+            min_splits=10,
+            min_buckets=5,
+        )
+        tree1.fit(X, y)
+        tree2.fit(X, y)
+        self.assertEqual(len(tree1.leaves_), len(tree2.leaves_))
+        for leaf1, leaf2 in zip(tree1.leaves_, tree2.leaves_):
+            self.assertEqual(leaf1.ci_low, leaf2.ci_low)
+            self.assertEqual(leaf1.ci_high, leaf2.ci_high)
+
+
 class TestRegressionTreeBcaCi(unittest.TestCase):
     """Tests specific to ci_method='bca'."""
 
@@ -466,6 +505,7 @@ class TestRegressionTreeBcaCi(unittest.TestCase):
         weights = numpy.ones(50)
         weighted_mean = float(numpy.average(y, weights=weights))
         regression_tree = sigma._tree_regression.RegressionTree(ci_method="bca")
+        regression_tree._rng_ci_ = numpy.random.default_rng(0)
         ci_low, ci_high = regression_tree._compute_ci(y, weights, None)
         assert ci_low is not None and ci_high is not None
         self.assertLessEqual(ci_low, weighted_mean)
@@ -476,6 +516,7 @@ class TestRegressionTreeBcaCi(unittest.TestCase):
         y = numpy.full(10, 3.5)
         weights = numpy.ones(10)
         regression_tree = sigma._tree_regression.RegressionTree(ci_method="bca")
+        regression_tree._rng_ci_ = numpy.random.default_rng(0)
         ci_low, ci_high = regression_tree._compute_ci(y, weights, None)
         self.assertEqual(ci_low, 3.5)
         self.assertEqual(ci_high, 3.5)
@@ -497,11 +538,39 @@ class TestRegressionTreeBcaCi(unittest.TestCase):
         regression_tree = sigma._tree_regression.RegressionTree(
             ci_method="bca", ci_coverage=0.99
         )
+        regression_tree._rng_ci_ = numpy.random.default_rng(0)
         ci_low, ci_high = regression_tree._compute_ci(y, weights, None)
         assert ci_low is not None and ci_high is not None
         self.assertTrue(numpy.isfinite(ci_low))
         self.assertTrue(numpy.isfinite(ci_high))
         self.assertLessEqual(ci_low, ci_high)
+
+    def test_random_state_makes_ci_reproducible(self):
+        """Two fits with the same random_state produce identical leaf CIs."""
+        rng = numpy.random.default_rng(42)
+        n = 100
+        X = rng.standard_normal((n, 2))
+        y = 2.0 * X[:, 0] + rng.standard_normal(n) * 0.5
+        tree1 = sigma._tree_regression.RegressionTree(
+            correlation="normal",
+            ci_method="bca",
+            random_state=7,
+            min_splits=10,
+            min_buckets=5,
+        )
+        tree2 = sigma._tree_regression.RegressionTree(
+            correlation="normal",
+            ci_method="bca",
+            random_state=7,
+            min_splits=10,
+            min_buckets=5,
+        )
+        tree1.fit(X, y)
+        tree2.fit(X, y)
+        self.assertEqual(len(tree1.leaves_), len(tree2.leaves_))
+        for leaf1, leaf2 in zip(tree1.leaves_, tree2.leaves_):
+            self.assertEqual(leaf1.ci_low, leaf2.ci_low)
+            self.assertEqual(leaf1.ci_high, leaf2.ci_high)
 
 
 class TestRegressionTreeStudentTCi(unittest.TestCase):
@@ -628,6 +697,7 @@ class TestRegressionTreeLogNormalGciCi(unittest.TestCase):
         regression_tree = sigma._tree_regression.RegressionTree(
             ci_method="log_normal_gci"
         )
+        regression_tree._rng_ci_ = numpy.random.default_rng(0)
         ci_low, ci_high = regression_tree._compute_ci(y, weights, None)
         assert ci_low is not None and ci_high is not None
         self.assertGreater(ci_low, 0.0)
@@ -645,6 +715,7 @@ class TestRegressionTreeLogNormalGciCi(unittest.TestCase):
         regression_tree = sigma._tree_regression.RegressionTree(
             ci_method="log_normal_gci"
         )
+        regression_tree._rng_ci_ = numpy.random.default_rng(0)
         ci_low, ci_high = regression_tree._compute_ci(y, weights, None)
         assert ci_low is not None and ci_high is not None
         self.assertLessEqual(ci_low, cox_mean)
@@ -657,8 +728,36 @@ class TestRegressionTreeLogNormalGciCi(unittest.TestCase):
         regression_tree = sigma._tree_regression.RegressionTree(
             ci_method="log_normal_gci"
         )
+        regression_tree._rng_ci_ = numpy.random.default_rng(0)
         with self.assertRaises(ValueError):
             regression_tree._compute_ci(y, weights, None)
+
+    def test_random_state_makes_ci_reproducible(self):
+        """Two fits with the same random_state produce identical leaf CIs."""
+        rng = numpy.random.default_rng(42)
+        n = 100
+        X = rng.standard_normal((n, 2))
+        y = numpy.exp(2.0 * X[:, 0] + rng.standard_normal(n) * 0.5)
+        tree1 = sigma._tree_regression.RegressionTree(
+            correlation="normal",
+            ci_method="log_normal_gci",
+            random_state=7,
+            min_splits=10,
+            min_buckets=5,
+        )
+        tree2 = sigma._tree_regression.RegressionTree(
+            correlation="normal",
+            ci_method="log_normal_gci",
+            random_state=7,
+            min_splits=10,
+            min_buckets=5,
+        )
+        tree1.fit(X, y)
+        tree2.fit(X, y)
+        self.assertEqual(len(tree1.leaves_), len(tree2.leaves_))
+        for leaf1, leaf2 in zip(tree1.leaves_, tree2.leaves_):
+            self.assertEqual(leaf1.ci_low, leaf2.ci_low)
+            self.assertEqual(leaf1.ci_high, leaf2.ci_high)
 
 
 class TestRegressionTreeGammaCi(unittest.TestCase):

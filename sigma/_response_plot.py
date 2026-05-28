@@ -161,7 +161,9 @@ def _plot_regression(
         leaf_id = _leaf_id(leaf)
         x = leaf_id + 1
         color = _palette._leaf_color(leaf_id, n_leaves)
-        _draw_response_raincloud(axes, x, leaf.response_samples, color)
+        _draw_response_raincloud(
+            axes, x, leaf.response_samples, color, tree.random_state
+        )
         ci_low = leaf.ci_low
         ci_high = leaf.ci_high
         if ci_low is not None and ci_high is not None:
@@ -201,15 +203,18 @@ def _draw_response_raincloud(
     x: int,
     samples: numpy.typing.NDArray[numpy.floating],
     color: str,
+    random_state: None | int,
 ) -> None:
     """Overlay a per-leaf raincloud (half-violin + box + jittered dots).
 
     Drawn at integer x-coordinate, with every shape in the given color.
     The violin renders to the right of x, the boxplot is centered on x,
-    and the raw dots scatter to the left of x with deterministic jitter
-    seeded by x for plot reproducibility. Skipped silently when fewer
-    than two samples are available (KDE requires at least two distinct
-    points).
+    and the raw dots scatter to the left of x. Jitter is seeded by the
+    fitted tree's random_state combined with the leaf column index, so
+    plots with the same random_state are byte-identical while adjacent
+    leaves still receive distinct jitter patterns. Skipped silently when
+    fewer than two samples are available (KDE requires at least two
+    distinct points).
     """
     import matplotlib.patches
 
@@ -286,7 +291,11 @@ def _draw_response_raincloud(
         linewidth=1.0,
         zorder=2,
     )
-    rng = numpy.random.default_rng(int(x))
+    if random_state is None:
+        rng = numpy.random.default_rng(int(x))
+    else:
+        seed_seq = numpy.random.SeedSequence(random_state, spawn_key=(int(x),))
+        rng = numpy.random.default_rng(seed_seq)
     jitter = rng.uniform(-0.18, -0.02, size=samples.size)
     axes.scatter(
         x + jitter,
