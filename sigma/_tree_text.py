@@ -12,6 +12,7 @@ import typing
 import numpy
 import numpy.typing
 
+from . import _extension
 from . import _node
 from . import _partition
 
@@ -325,6 +326,7 @@ class _TextRow(typing.NamedTuple):
     """One displayed line of the textual tree representation."""
 
     prefix: str
+    leaf_index_cell: None | str
     prediction_cells: list[str]
     p_value_cell: None | str
     decoration: None | str
@@ -581,13 +583,20 @@ def _append_text_row(
     match node.extension:
         case _partition.Partition() as partition:
             p_value_cell: None | str = _table_p_value_cell(partition)
+            leaf_index_cell: None | str = None
+        case _extension.Leaf() as leaf_extension:
+            p_value_cell = None
+            leaf_index_cell = str(leaf_extension.leaf_id + 1)
         case _:
             p_value_cell = None
+            leaf_index_cell = None
     if node.decoration is None:
         decoration: None | str = None
     else:
         decoration = str(node.decoration)
-    rows.append(_TextRow(prefix, cells, p_value_cell, decoration))
+    rows.append(
+        _TextRow(prefix, leaf_index_cell, cells, p_value_cell, decoration)
+    )
 
 
 def _append_child_text_rows(
@@ -608,7 +617,7 @@ def _append_child_text_rows(
         case _:
             return
     if max_depth is not None and node.depth >= max_depth:
-        rows.append(_TextRow(f"{indent}└── ...", [], None, None))
+        rows.append(_TextRow(f"{indent}└── ...", None, [], None, None))
         return
     left_label, right_label = _format_branch_labels(
         partition, category_labels, feature_names, precision=precision
