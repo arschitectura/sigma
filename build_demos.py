@@ -181,14 +181,14 @@ def _build_diabetes_tree(output_path: str, dpi: int) -> None:
         orientation="left-to-right",
         precision=1,
     )
-    _write_png(output_path, regression_tree_png)
+    _write_png(output_path, regression_tree_png, "tree")
     response_png = regression_tree.to_image(
         "png",
         kind="response",
         dpi=dpi,
         background_color="transparent",
     )
-    _write_png(_response_png_path(output_path), response_png)
+    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_titanic_tree(output_path: str, dpi: int) -> None:
@@ -252,14 +252,14 @@ def _build_titanic_tree(output_path: str, dpi: int) -> None:
         background_color="transparent",
         precision=1,
     )
-    _write_png(output_path, classification_tree_png)
+    _write_png(output_path, classification_tree_png, "tree")
     response_png = classification_tree.to_image(
         "png",
         kind="response",
         dpi=dpi,
         background_color="transparent",
     )
-    _write_png(_response_png_path(output_path), response_png)
+    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_german_credit_tree(output_path: str, dpi: int) -> None:
@@ -335,14 +335,14 @@ def _build_german_credit_tree(output_path: str, dpi: int) -> None:
         background_color="transparent",
         precision=1,
     )
-    _write_png(output_path, classification_tree_png)
+    _write_png(output_path, classification_tree_png, "tree")
     response_png = classification_tree.to_image(
         "png",
         kind="response",
         dpi=dpi,
         background_color="transparent",
     )
-    _write_png(_response_png_path(output_path), response_png)
+    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_insurance_tree(output_path: str, dpi: int) -> None:
@@ -404,14 +404,14 @@ def _build_insurance_tree(output_path: str, dpi: int) -> None:
         orientation="left-to-right",
         precision=0,
     )
-    _write_png(output_path, regression_tree_png)
+    _write_png(output_path, regression_tree_png, "tree")
     response_png = regression_tree.to_image(
         "png",
         kind="response",
         dpi=dpi,
         background_color="transparent",
     )
-    _write_png(_response_png_path(output_path), response_png)
+    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_breast_cancer_tree(output_path: str, dpi: int) -> None:
@@ -488,14 +488,14 @@ def _build_breast_cancer_tree(output_path: str, dpi: int) -> None:
         background_color="transparent",
         precision=1,
     )
-    _write_png(output_path, survival_png)
+    _write_png(output_path, survival_png, "tree")
     response_png = survival_tree.to_image(
         "png",
         kind="response",
         dpi=dpi,
         background_color="transparent",
     )
-    _write_png(_response_png_path(output_path), response_png)
+    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
@@ -608,26 +608,30 @@ def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
         orientation="left-to-right",
         precision=0,
     )
-    _write_png(output_path, survival_png)
+    _write_png(output_path, survival_png, "tree")
     response_png = survival_tree.to_image(
         "png",
         kind="response",
         dpi=dpi,
         background_color="transparent",
     )
-    _write_png(_response_png_path(output_path), response_png)
+    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _print_dataset_header(name: str) -> None:
     """Print a section header for a dataset."""
-    print(f"\n=== {name} dataset ===\n")
+    title = f"{name} dataset"
+    left = f"======== {title} "
+    right = "=" * (120 - len(left))
+    print(f"\n{left}{right}\n")
 
 
-def _write_png(output_path: str, png_bytes: bytes) -> None:
+def _write_png(output_path: str, png_bytes: bytes, label: str) -> None:
     """Write png_bytes to output_path and print a confirmation line."""
     with open(output_path, "wb") as file:
         file.write(png_bytes)
-    print(f"{output_path} ({len(png_bytes)} bytes)")
+    filename = os.path.basename(output_path)
+    print(f"Saved {label} to {filename} ({len(png_bytes)} bytes)")
 
 
 def _response_png_path(output_path: str) -> str:
