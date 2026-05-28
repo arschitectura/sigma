@@ -198,17 +198,62 @@ class TestExportText(unittest.TestCase):
         self.assertEqual(result, from_method)
 
     def test_export_text_table_header_column_order(self):
-        """Header row lists prediction, count, share, p-value columns in order."""
+        """Header row lists leaf-index, prediction, count, share, p-value in order."""
         regression_tree = _fit_step_regression_tree()
         result = sigma.export_text(regression_tree)
         header_line = result.splitlines()[0]
+        leaf_index_index = header_line.index("Leaf index")
         predicted_index = header_line.index("Predicted mean")
         count_index = header_line.index("Obs. count")
         share_index = header_line.index("Obs. share")
         p_value_index = header_line.index("Split p-value")
+        self.assertLess(leaf_index_index, predicted_index)
         self.assertLess(predicted_index, count_index)
         self.assertLess(count_index, share_index)
         self.assertLess(share_index, p_value_index)
+
+    def test_export_text_leaf_index_cell_matches_chart_one_based_value(self):
+        """Each leaf row shows leaf_id + 1 in the Leaf index column."""
+        regression_tree = _fit_three_step_regression_tree()
+        result = sigma.export_text(regression_tree)
+        lines = result.splitlines()
+        header_line = lines[0]
+        column_start = header_line.index("Leaf index")
+        column_width = len("Leaf index")
+        expected_values = {
+            leaf.extension.leaf_id + 1 for leaf in regression_tree.leaves_
+        }
+        observed_values: set[int] = set()
+        for line in lines[2:]:
+            cell = line[column_start : column_start + column_width].strip()
+            if not cell:
+                continue
+            observed_values.add(int(cell))
+        self.assertEqual(observed_values, expected_values)
+
+    def test_export_text_split_rows_have_empty_leaf_index_cell(self):
+        """Root and split-node rows leave the Leaf index column whitespace."""
+        regression_tree = _fit_step_regression_tree()
+        result = sigma.export_text(regression_tree)
+        lines = result.splitlines()
+        header_line = lines[0]
+        column_start = header_line.index("Leaf index")
+        column_width = len("Leaf index")
+        root_line = next(line for line in lines if "All records" in line)
+        root_cell = root_line[column_start : column_start + column_width]
+        self.assertEqual(root_cell.strip(), "")
+
+    def test_export_text_truncated_row_has_empty_leaf_index_cell(self):
+        """A max_depth-truncated '...' row leaves the Leaf index column blank."""
+        regression_tree = _fit_three_step_regression_tree()
+        result = sigma.export_text(regression_tree, max_depth=0)
+        lines = result.splitlines()
+        header_line = lines[0]
+        column_start = header_line.index("Leaf index")
+        column_width = len("Leaf index")
+        truncated_line = next(line for line in lines if "└── ..." in line)
+        cell = truncated_line[column_start : column_start + column_width]
+        self.assertEqual(cell.strip(), "")
 
     def test_export_text_dashed_separator_line(self):
         """The second output line carries dashed underlines for named headers."""

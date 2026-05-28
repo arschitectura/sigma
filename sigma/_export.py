@@ -160,14 +160,14 @@ def export_text(
     # TODO XXX optimize/review these 2
     has_split = any(row.p_value_cell is not None for row in text_rows)
     has_decoration = any(row.decoration is not None for row in text_rows)
-    headers = ["", *prediction_headers]
+    headers = ["", "Leaf index", *prediction_headers]
     if has_split:
         headers.append("Split p-value")
     if has_decoration:
         headers.append("")
     rendered_rows: list[list[str]] = []
     for row in text_rows:
-        cells = [row.prefix]
+        cells = [row.prefix, row.leaf_index_cell or ""]
         prediction_cells = row.prediction_cells
         if prediction_cells:
             cells.extend(prediction_cells)
