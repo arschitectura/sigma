@@ -91,6 +91,7 @@ class RegressionTree(
     Attributes:
         content_: Root node of the fitted tree structure.
         leaves_: List of leaf nodes, ordered by ascending prediction value.
+        nodes_: List of all nodes in pre-order DFS, ordered by node_id.
             Indices match the output of predict_index.
         n_features_in_: Number of features seen during fit.
         feature_types_: Per-feature CovariateType, shape (n_features,).
@@ -728,10 +729,10 @@ class RegressionTree(
             Predicted values, shape (n_samples,).
         """
         indices = self.predict_index(X)
-        leaf_predictions = numpy.array(
-            [leaf.prediction for leaf in self.leaves_]
+        node_predictions = numpy.array(
+            [node.prediction for node in self.nodes_]
         )
-        base = leaf_predictions[indices]
+        base = node_predictions[indices]
         if offset is None:
             if not self._fit_with_offset:
                 return base

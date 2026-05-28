@@ -11,6 +11,7 @@ import numpy.typing
 from . import _extension
 
 
+# TODO use it
 class UnknownCategoryError(ValueError):
     """Raised when a CategoricalPartition.route receives a category value
     that was not observed at the partition's node during training.
@@ -91,8 +92,10 @@ class Partition(
         self.right = right
 
     @abc.abstractmethod
-    def route(self, value: object) -> _extension.N:
-        """Return the child to descend into for a record's feature value."""
+    def route(self, value: object) -> None | _extension.N:
+        """Return the child to descend into for a record's feature value,
+        or None when the value is not routable from this partition.
+        """
 
 
 class NumericalPartition(Partition[_extension.N], typing.Generic[_extension.N]):
@@ -197,15 +200,13 @@ class CategoricalPartition(
         cats = self.left_categories | self.right_categories
         return cats
 
-    def route(self, value: object) -> _extension.N:
-        """Return the child whose category set contains value.
-
-        Raises:
-            UnknownCategoryError: When value belongs to neither the left
-                nor the right category set.
+    def route(self, value: object) -> None | _extension.N:
+        """Return the child whose category set contains value, or None
+        when value belongs to neither the left nor the right category
+        set.
         """
         if value in self.left_categories:
             return self.left
         if value in self.right_categories:
             return self.right
-        raise UnknownCategoryError(self.feature_name, value)
+        return None

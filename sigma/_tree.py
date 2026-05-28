@@ -103,7 +103,9 @@ class Tree(
     Attributes:
         content_: Root node of the fitted tree structure.
         leaves_: List of leaf nodes, ordered by ascending prediction value.
-            Indices match the output of predict_index.
+        nodes_: List of all nodes in pre-order DFS, ordered by node_id
+            (so nodes_[k].node_id == k). Indices match the output of
+            predict_index.
         n_features_in_: Number of features seen during fit.
         feature_types_: Per-feature CovariateType, shape (n_features,).
         response_name_in_: Display name captured from a named pandas Series y
@@ -428,13 +430,16 @@ class Tree(
         self,
         X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
     ) -> numpy.typing.NDArray[numpy.intp]:
-        """Predict leaf indices for the given samples.
+        """Predict node indices for the given samples.
 
         Args:
             X: Samples to predict, shape (n_samples, n_features).
 
         Returns:
-            Leaf indices, shape (n_samples,).
+            Node indices into self.nodes_, shape (n_samples,). When a
+            sample's categorical value is not routable at an internal
+            node, the index is that of the holding node rather than a
+            descendant leaf.
         """
         sklearn.utils.validation.check_is_fitted(self, "content_")
         X = _apply_categorical_encoding(X, self.category_labels_in_)
@@ -445,22 +450,24 @@ class Tree(
         n_samples = X_array.shape[0]
         indices = numpy.empty(n_samples, dtype=numpy.intp)
         for i in range(n_samples):
-            leaf = self.content_.traverse(X_array[i])
-            leaf_extension = typing.cast(_extension.Leaf, leaf.extension)
-            indices[i] = leaf_extension.leaf_id
+            node = self.content_.traverse(X_array[i])
+            indices[i] = node.node_id
         return indices
 
     def apply(
         self,
         X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
     ) -> numpy.typing.NDArray[numpy.intp]:
-        """Return the node_id of the leaf each sample is routed to.
+        """Return the node_id of the node each sample is routed to.
 
         Args:
             X: Samples to predict, shape (n_samples, n_features).
 
         Returns:
-            Leaf node_ids, shape (n_samples,).
+            Node ids, shape (n_samples,). For samples that reach a leaf
+            the id is that leaf's; for samples whose categorical value
+            is not routable at an internal node, the id is that of the
+            holding node.
         """
         sklearn.utils.validation.check_is_fitted(self, "content_")
         X = _apply_categorical_encoding(X, self.category_labels_in_)
@@ -471,8 +478,8 @@ class Tree(
         n_samples = X_array.shape[0]
         ids = numpy.empty(n_samples, dtype=numpy.intp)
         for i in range(n_samples):
-            leaf = self.content_.traverse(X_array[i])
-            ids[i] = typing.cast(int, leaf.node_id)
+            node = self.content_.traverse(X_array[i])
+            ids[i] = node.node_id
         return ids
 
     def decision_path(
@@ -487,6 +494,8 @@ class Tree(
         Returns:
             A scipy.sparse.csr_matrix of shape (n_samples, len(nodes_)),
             dtype numpy.intp, with 1s on visited nodes and 0s elsewhere.
+            For samples whose categorical value is not routable at an
+            internal node, the path ends at that holding node.
         """
         sklearn.utils.validation.check_is_fitted(self, "content_")
         X = _apply_categorical_encoding(X, self.category_labels_in_)
@@ -502,11 +511,15 @@ class Tree(
             x = X_array[i]
             node: _node.Node = self.content_
             while True:
-                indices.append(typing.cast(int, node.node_id))
+                indices.append(node.node_id)
                 match node.extension:
                     case _partition.Partition() as partition:
                         value = x[partition.feature_index]
-                        node = partition.route(value)
+                        # TODO: better distinguish this from new, unseen, categorical levels
+                        child = partition.route(value)
+                        if child is None:
+                            break
+                        node = child
                     case _:
                         break
             indptr[i + 1] = len(indices)

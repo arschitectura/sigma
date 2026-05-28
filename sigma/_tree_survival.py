@@ -125,7 +125,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
     Attributes:
         content_: Root node of the fitted tree structure.
         leaves_: List of leaf nodes, ordered by ascending value of the first
-            metric. Indices match the output of predict_index.
+            metric.
+        nodes_: List of all nodes in pre-order DFS, ordered by node_id.
+            Indices match the output of predict_index.
         n_features_in_: Number of features seen during fit.
         feature_types_: Per-feature CovariateType, shape (n_features,).
     """
@@ -268,10 +270,10 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         """
         indices = self.predict_index(X)
         if offset is None and not self._fit_with_offset:
-            leaf_predictions = numpy.array(
-                [leaf.prediction for leaf in self.leaves_]
+            node_predictions = numpy.array(
+                [node.prediction for node in self.nodes_]
             )
-            predictions = leaf_predictions[indices]
+            predictions = node_predictions[indices]
             return predictions
         event_grid = self.event_grid_
         n_indices = len(indices)
@@ -311,20 +313,20 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         Returns:
             Survival probabilities, shape (n_samples, n_times).
         """
-        leaf_indices = self.predict_index(X)
+        node_indices = self.predict_index(X)
         times_array = numpy.asarray(times, dtype=float)
-        n_samples = len(leaf_indices)
+        n_samples = len(node_indices)
         n_times = len(times_array)
         result = numpy.empty((n_samples, n_times), dtype=float)
-        leaf_curves = [leaf.survival_function for leaf in self.leaves_]
+        node_curves = [node.survival_function for node in self.nodes_]
         for i in range(n_samples):
-            curve = leaf_curves[leaf_indices[i]]
+            curve = node_curves[node_indices[i]]
             if curve is None:
                 result[i, :] = 1.0
                 continue
-            leaf_times, leaf_surv = curve
+            node_times, node_surv = curve
             result[i, :] = _evaluate_step_curve(
-                leaf_times, leaf_surv, times_array
+                node_times, node_surv, times_array
             )
         if offset is None:
             return result

@@ -81,6 +81,7 @@ class ClassificationTree(
     Attributes:
         content_: Root node of the fitted tree structure.
         leaves_: List of leaf nodes, ordered by ascending prediction value.
+        nodes_: List of all nodes in pre-order DFS, ordered by node_id.
             Indices match the output of predict_index.
         classes_: Unique class labels, shape (n_classes,).
         n_classes_: Number of classes.
@@ -464,11 +465,11 @@ class ClassificationTree(
             Predicted class labels, shape (n_samples,).
         """
         if offset is None and not self._fit_with_offset:
-            leaf_indices = self.predict_index(X)
+            node_indices = self.predict_index(X)
             class_indices = numpy.array(
-                [int(leaf.prediction) for leaf in self.leaves_]
+                [int(node.prediction) for node in self.nodes_]
             )
-            predictions = self.classes_[class_indices[leaf_indices]]
+            predictions = self.classes_[class_indices[node_indices]]
             return predictions
         proba = self.predict_proba(X, offset=offset)
         class_indices = numpy.argmax(proba, axis=1)
@@ -492,16 +493,16 @@ class ClassificationTree(
         Returns:
             Predicted class probabilities, shape (n_samples, n_classes).
         """
-        leaf_indices = self.predict_index(X)
-        leaves = self.leaves_
+        node_indices = self.predict_index(X)
+        nodes = self.nodes_
         all_distributions = numpy.array(
-            [leaf.class_distribution for leaf in leaves]
+            [node.class_distribution for node in nodes]
         )
-        leaf_p = all_distributions[leaf_indices]
-        n_pred = len(leaf_indices)
+        node_p = all_distributions[node_indices]
+        n_pred = len(node_indices)
         fit_with_offset = self._fit_with_offset
         if offset is None and not fit_with_offset:
-            return leaf_p
+            return node_p
         n_classes = self.n_classes_
         offset_eps = _tree._OFFSET_EPS
         if offset is None:
@@ -509,20 +510,20 @@ class ClassificationTree(
         else:
             offset_new = self._validate_predict_offset(offset, n_pred)
         log_term = numpy.log(numpy.maximum(offset_new, offset_eps)) + numpy.log(
-            numpy.maximum(leaf_p, offset_eps)
+            numpy.maximum(node_p, offset_eps)
         )
         if fit_with_offset:
-            mean_off_per_leaf = numpy.array(
+            mean_off_per_node = numpy.array(
                 [
                     mean_offset_proba
-                    if (mean_offset_proba := leaf.mean_offset_proba) is not None
+                    if (mean_offset_proba := node.mean_offset_proba) is not None
                     else numpy.full(n_classes, 1.0 / n_classes)
-                    for leaf in leaves
+                    for node in nodes
                 ]
             )
-            leaf_mean_off = mean_off_per_leaf[leaf_indices]
+            node_mean_off = mean_off_per_node[node_indices]
             log_term = log_term - numpy.log(
-                numpy.maximum(leaf_mean_off, offset_eps)
+                numpy.maximum(node_mean_off, offset_eps)
             )
         log_term = log_term - log_term.max(axis=1, keepdims=True)
         unnorm = numpy.exp(log_term)

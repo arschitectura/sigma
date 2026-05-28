@@ -529,10 +529,10 @@ class TestRegressionTreeOffset(unittest.TestCase):
         tree.fit(X, y, offset=baseline)
         offset_new = numpy.full(3, 100.0)
         predictions = tree.predict(X[:3], offset=offset_new)
-        leaf_values = numpy.array(
-            [tree.leaves_[i].prediction for i in tree.predict_index(X[:3])]
+        node_values = numpy.array(
+            [tree.nodes_[i].prediction for i in tree.predict_index(X[:3])]
         )
-        numpy.testing.assert_allclose(predictions, leaf_values + 100.0)
+        numpy.testing.assert_allclose(predictions, node_values + 100.0)
 
     def test_offset_predict_default_after_fit_with_offset(self):
         """predict without offset after fit with offset returns leaf values."""
@@ -542,10 +542,10 @@ class TestRegressionTreeOffset(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
         )
         tree.fit(X, y, offset=baseline)
-        leaf_values = numpy.array(
-            [tree.leaves_[i].prediction for i in tree.predict_index(X)]
+        node_values = numpy.array(
+            [tree.nodes_[i].prediction for i in tree.predict_index(X)]
         )
-        numpy.testing.assert_array_equal(tree.predict(X), leaf_values)
+        numpy.testing.assert_array_equal(tree.predict(X), node_values)
 
     def test_offset_shape_mismatch_raises(self):
         """Passing offset with wrong shape raises ValueError."""
@@ -634,7 +634,7 @@ class TestClassificationTreeOffset(unittest.TestCase):
         uniform_new = numpy.full((len(y), 2), 0.5)
         proba = tree.predict_proba(X, offset=uniform_new)
         empirical = numpy.array(
-            [tree.leaves_[i].class_distribution for i in tree.predict_index(X)]
+            [tree.nodes_[i].class_distribution for i in tree.predict_index(X)]
         )
         numpy.testing.assert_allclose(proba, empirical, atol=1e-9)
 

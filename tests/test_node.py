@@ -300,8 +300,8 @@ class TestTraverse(unittest.TestCase):
         self.assertIs(root.traverse(numpy.array([1.0])), left)
         self.assertIs(root.traverse(numpy.array([2.0])), right)
 
-    def test_categorical_unknown_value_raises(self):
-        """An unseen category raises UnknownCategoryError."""
+    def test_categorical_unknown_value_stops_at_holding_node(self):
+        """An unseen category stops traversal at the holding node."""
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
         partition = sigma._partition.CategoricalPartition(
@@ -327,10 +327,8 @@ class TestTraverse(unittest.TestCase):
             ci_high=None,
             response_samples=numpy.empty(0, dtype=float),
         )
-        with self.assertRaises(sigma._partition.UnknownCategoryError) as ctx:
-            root.traverse(numpy.array([2.0]))
-        self.assertEqual(ctx.exception.value, 2.0)
-        self.assertEqual(ctx.exception.feature_name, "cat")
+        result = root.traverse(numpy.array([2.0]))
+        self.assertIs(result, root)
 
 
 class TestLeavesAndShare(unittest.TestCase):
@@ -547,13 +545,13 @@ class TestNodeIdDefault(unittest.TestCase):
 
     __slots__ = ()
 
-    def test_freshly_constructed_leaf_has_none_node_id(self):
-        """A newly built leaf has node_id equal to None."""
+    def test_freshly_constructed_leaf_has_zero_node_id(self):
+        """A newly built leaf has node_id equal to the sentinel 0."""
         leaf = _leaf_regression(3.0)
-        self.assertIsNone(leaf.node_id)
+        self.assertEqual(leaf.node_id, 0)
 
-    def test_freshly_constructed_internal_node_has_none_node_id(self):
-        """A newly built internal node has node_id equal to None."""
+    def test_freshly_constructed_internal_node_has_zero_node_id(self):
+        """A newly built internal node has node_id equal to the sentinel 0."""
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
         partition = sigma._partition.NumericalPartition(
@@ -578,7 +576,7 @@ class TestNodeIdDefault(unittest.TestCase):
             ci_high=None,
             response_samples=numpy.empty(0, dtype=float),
         )
-        self.assertIsNone(root.node_id)
+        self.assertEqual(root.node_id, 0)
 
 
 if __name__ == "__main__":

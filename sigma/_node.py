@@ -27,8 +27,8 @@ class Node(abc.ABC):
         decoration: Optional decoration produced by the tree decorator
             callable, or None when no decorator is set.
         extension: Partition on internal nodes, Leaf on leaves.
-        node_id: Zero-based index of this node in Tree.nodes_, or None
-            for unfitted nodes.
+        node_id: Zero-based index of this node in Tree.nodes_. Set by
+            Tree.fit; defaults to 0 in unfitted nodes.
     """
 
     __slots__ = (
@@ -43,7 +43,7 @@ class Node(abc.ABC):
     )
 
     extension: _extension.Extension[typing.Self]
-    node_id: None | int
+    node_id: int
 
     def __init__(
         self,
@@ -58,27 +58,29 @@ class Node(abc.ABC):
         self.share = share
         self.decoration = decoration
         self.extension = extension
-        self.node_id = None
+        self.node_id = 0
 
     def traverse(self: _NodeT, x: numpy.typing.NDArray) -> _NodeT:
-        """Walk a single sample down the tree to its leaf node.
+        """Walk a single sample down the tree to its deepest reached node.
 
         Args:
             x: Feature vector for a single sample, shape (m,).
 
         Returns:
-            The leaf node reached by the sample.
-
-        Raises:
-            UnknownCategoryError: When traversal reaches a categorical
-                partition with an unseen category value.
+            The leaf node reached when traversal completes; otherwise the
+            internal node holding the categorical partition whose route
+            did not match the sample's value.
         """
         node = self
         while True:
             match node.extension:
                 case _partition.Partition() as partition:
                     value = x[partition.feature_index]
-                    node = partition.route(value)
+                    # TODO: better distinguish this from new, unseen, categorical levels
+                    child = partition.route(value)
+                    if child is None:
+                        break
+                    node = child
                 case _:
                     break
         return node

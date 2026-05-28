@@ -483,7 +483,7 @@ class TestRegressionTreePredictIndex(unittest.TestCase):
         self.assertTrue(numpy.issubdtype(indices.dtype, numpy.integer))
 
     def test_values_in_range(self):
-        """All indices fall in [0, len(leaves_))."""
+        """All indices fall in [0, len(nodes_))."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
@@ -491,12 +491,12 @@ class TestRegressionTreePredictIndex(unittest.TestCase):
         )
         regression_tree.fit(X, y)
         indices = regression_tree.predict_index(X)
-        n_leaves = len(regression_tree.leaves_)
+        n_nodes = len(regression_tree.nodes_)
         self.assertTrue(numpy.all(indices >= 0))
-        self.assertTrue(numpy.all(indices < n_leaves))
+        self.assertTrue(numpy.all(indices < n_nodes))
 
     def test_consistent_with_predict(self):
-        """Leaf predictions via indices match predict output."""
+        """Node predictions via indices match predict output."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
@@ -505,7 +505,7 @@ class TestRegressionTreePredictIndex(unittest.TestCase):
         regression_tree.fit(X, y)
         indices = regression_tree.predict_index(X)
         from_index = numpy.array(
-            [regression_tree.leaves_[i].prediction for i in indices]
+            [regression_tree.nodes_[i].prediction for i in indices]
         )
         from_predict = regression_tree.predict(X)
         numpy.testing.assert_allclose(from_index, from_predict)
@@ -558,7 +558,7 @@ class TestClassificationTreePredictIndex(unittest.TestCase):
         classification_tree.fit(X, y)
         indices = classification_tree.predict_index(X)
         class_indices = numpy.array(
-            [int(classification_tree.leaves_[i].prediction) for i in indices]
+            [int(classification_tree.nodes_[i].prediction) for i in indices]
         )
         from_index = classification_tree.classes_[class_indices]
         from_predict = classification_tree.predict(X)
@@ -574,7 +574,7 @@ class TestClassificationTreePredictIndex(unittest.TestCase):
         classification_tree.fit(X, y)
         indices = classification_tree.predict_index(X)
         from_index = numpy.array(
-            [classification_tree.leaves_[i].class_distribution for i in indices]
+            [classification_tree.nodes_[i].class_distribution for i in indices]
         )
         from_proba = classification_tree.predict_proba(X)
         numpy.testing.assert_allclose(from_index, from_proba)
@@ -632,8 +632,8 @@ class TestLeafId(unittest.TestCase):
         expected = list(range(len(regression_tree.leaves_)))
         self.assertEqual(observed, expected)
 
-    def test_leaf_id_matches_predict_index(self):
-        """leaf_id of each routed leaf equals predict_index for that sample."""
+    def test_node_id_matches_predict_index(self):
+        """node_id of each routed node equals predict_index for that sample."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
@@ -642,10 +642,8 @@ class TestLeafId(unittest.TestCase):
         regression_tree.fit(X, y)
         indices = regression_tree.predict_index(X)
         for i in range(X.shape[0]):
-            leaf = regression_tree.content_.traverse(X[i])
-            extension = leaf.extension
-            assert isinstance(extension, sigma._extension.Leaf)
-            self.assertEqual(extension.leaf_id, indices[i])
+            node = regression_tree.content_.traverse(X[i])
+            self.assertEqual(node.node_id, indices[i])
 
     def test_leaf_id_zero_for_single_leaf_root(self):
         """A fitted tree with no splits has content_.extension.leaf_id equal to 0."""
@@ -1053,3 +1051,108 @@ class TestClassificationTreeLeaves(unittest.TestCase):
         for leaf in classification_tree.leaves_:
             self.assertIsNone(leaf.ci_low)
             self.assertIsNone(leaf.ci_high)
+
+
+class TestPredictFallbackOnUnknownCategorical(unittest.TestCase):
+    """Predict falls back to the holding node when a categorical level is
+    missing from a Partition.
+    """
+
+    __slots__ = ()
+
+    def _fit_regression_on_two_categories(
+        self,
+    ) -> sigma._tree_regression.RegressionTree:
+        """Fit a regression tree where the root splits on a categorical."""
+        category = numpy.repeat([0.0, 1.0], 20)
+        y = numpy.where(category == 0.0, 0.0, 10.0)
+        X = category.reshape(-1, 1)
+        tree = sigma._tree_regression.RegressionTree(
+            correlation="normal",
+            categorical_features=[0],
+            min_splits=2,
+            min_buckets=1,
+            alpha=0.05,
+        )
+        tree.fit(X, y)
+        return tree
+
+    def _fit_classification_on_two_categories(
+        self,
+    ) -> sigma._tree_classification.ClassificationTree:
+        """Fit a classification tree where the root splits on a categorical."""
+        category = numpy.repeat([0.0, 1.0], 20)
+        y = numpy.where(category == 0.0, 0, 1)
+        X = category.reshape(-1, 1)
+        tree = sigma._tree_classification.ClassificationTree(
+            correlation="normal",
+            categorical_features=[0],
+            min_splits=2,
+            min_buckets=1,
+            alpha=0.05,
+        )
+        tree.fit(X, y)
+        return tree
+
+    def _fit_survival_on_two_categories(
+        self,
+    ) -> sigma._tree_survival.SurvivalTree:
+        """Fit a survival tree where the root splits on a categorical."""
+        rng = numpy.random.default_rng(0)
+        category = numpy.repeat([0.0, 1.0], 100)
+        time = rng.exponential(1.0 + 3.0 * category, size=200)
+        event = numpy.ones(200)
+        X = category.reshape(-1, 1)
+        y = numpy.column_stack([time, event])
+        tree = sigma._tree_survival.SurvivalTree(
+            correlation="normal",
+            categorical_features=[0],
+            min_splits=10,
+            min_buckets=5,
+        )
+        tree.fit(X, y)
+        return tree
+
+    def test_regression_predict_uses_holding_node(self):
+        """RegressionTree.predict returns the root prediction for an unseen category."""
+        tree = self._fit_regression_on_two_categories()
+        self.assertIsInstance(
+            tree.content_.extension, sigma._partition.CategoricalPartition
+        )
+        X_new = numpy.array([[2.0]])
+        predictions = tree.predict(X_new)
+        self.assertEqual(predictions.shape, (1,))
+        self.assertAlmostEqual(float(predictions[0]), tree.content_.prediction)
+
+    def test_regression_predict_index_returns_holding_node_id(self):
+        """RegressionTree.predict_index returns the holding node id for an unseen category."""
+        tree = self._fit_regression_on_two_categories()
+        X_new = numpy.array([[2.0]])
+        indices = tree.predict_index(X_new)
+        self.assertEqual(int(indices[0]), tree.content_.node_id)
+
+    def test_classification_predict_uses_holding_node(self):
+        """ClassificationTree.predict and predict_proba fall back to the root."""
+        tree = self._fit_classification_on_two_categories()
+        self.assertIsInstance(
+            tree.content_.extension, sigma._partition.CategoricalPartition
+        )
+        X_new = numpy.array([[2.0]])
+        proba = tree.predict_proba(X_new)
+        numpy.testing.assert_allclose(
+            proba[0], tree.content_.class_distribution
+        )
+        predictions = tree.predict(X_new)
+        expected = tree.classes_[int(tree.content_.prediction)]
+        self.assertEqual(predictions[0], expected)
+
+    def test_survival_predict_uses_holding_node(self):
+        """SurvivalTree.predict returns the root prediction for an unseen category."""
+        tree = self._fit_survival_on_two_categories()
+        self.assertIsInstance(
+            tree.content_.extension, sigma._partition.CategoricalPartition
+        )
+        X_new = numpy.array([[2.0]])
+        predictions = tree.predict(X_new)
+        self.assertEqual(predictions.shape, (1,))
+        self.assertAlmostEqual(float(predictions[0]), tree.content_.prediction)
