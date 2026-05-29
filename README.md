@@ -59,8 +59,8 @@ pip install ars-sigma
 
 ## 4. Sample Trees
 
-Six trees fitted on classic datasets. Each subsection shows the fit
-code, the `to_text` rendering, and the rendered tree and response
+Three trees fitted on classic datasets. Each subsection shows the
+fit code, the `to_text` rendering, and the rendered tree and response
 images. Click an image to view it at full size.
 
 ### 4.1. German Credit (classification)
@@ -154,6 +154,8 @@ All records                                                      70.0% (67.1% to
 <table>
   <tr>
     <td><a href="https://arschitectura.com/medias/sigma_german_credit.png"><img src="https://arschitectura.com/medias/sigma_german_credit.png" alt="Tree fitted on the German Credit dataset"></a></td>
+  </tr>
+  <tr>
     <td><a href="https://arschitectura.com/medias/sigma_german_credit_response.png"><img src="https://arschitectura.com/medias/sigma_german_credit_response.png" alt="Response plot for the German Credit dataset"></a></td>
   </tr>
 </table>
@@ -246,97 +248,13 @@ All records                                  152.1 (145.1 to 159.3)        442  
 <table>
   <tr>
     <td><a href="https://arschitectura.com/medias/sigma_diabetes.png"><img src="https://arschitectura.com/medias/sigma_diabetes.png" alt="Tree fitted on the Diabetes dataset"></a></td>
+  </tr>
+  <tr>
     <td><a href="https://arschitectura.com/medias/sigma_diabetes_response.png"><img src="https://arschitectura.com/medias/sigma_diabetes_response.png" alt="Response plot for the Diabetes dataset"></a></td>
   </tr>
 </table>
 
-### 4.3. GBSG-2 breast cancer (survival)
-
-Predicting recurrence-free years with a Brookmeyer-Crowley 95%
-confidence interval at each leaf - splits on positive lymph nodes,
-hormone therapy, and progesterone receptor level.
-
-```python
-import urllib.request
-
-import pandas
-import scipy.io.arff
-
-import sigma
-
-urllib.request.urlretrieve(
-    "https://raw.githubusercontent.com/sebp/scikit-survival"
-    "/master/sksurv/datasets/data/GBSG2.arff",
-    "GBSG2.arff",
-)
-arff_data, _ = scipy.io.arff.loadarff("GBSG2.arff")
-breast_cancer_dataframe = pandas.DataFrame(arff_data)
-for column in breast_cancer_dataframe.select_dtypes([object]).columns:
-    breast_cancer_dataframe[column] = breast_cancer_dataframe[column].str.decode("utf-8")
-X = pandas.DataFrame({
-    "Hormone therapy": breast_cancer_dataframe["horTh"].map(
-        {"no": False, "yes": True}
-    ).astype(bool),
-    "Age": breast_cancer_dataframe["age"].astype("float64"),
-    "Menopausal status": pandas.Categorical(
-        breast_cancer_dataframe["menostat"], categories=["Pre", "Post"]
-    ).rename_categories({"Pre": "pre", "Post": "post"}),
-    "Tumor size": breast_cancer_dataframe["tsize"].astype("float64"),
-    "Tumor grade": pandas.Categorical(
-        breast_cancer_dataframe["tgrade"], categories=["I", "II", "III"]
-    ),
-    "Positive lymph nodes": breast_cancer_dataframe["pnodes"].astype("float64"),
-    "Progesterone receptor level": breast_cancer_dataframe["progrec"].astype("float64"),
-    "Estrogen receptor level": breast_cancer_dataframe["estrec"].astype("float64"),
-})
-y = pandas.DataFrame({
-    "recurrence-free years": (
-        breast_cancer_dataframe["time"].astype("float64") / 365.25
-    ),
-    "event": breast_cancer_dataframe["cens"].astype("float64"),
-})
-
-tree = sigma.SurvivalTree(
-    test_type="monte_carlo",
-    resamples=5000,
-    random_state=0,
-    min_splits=20,
-    min_buckets=7,
-    alpha=0.05,
-    metrics=("median", ("survival", 5.0, "years")),
-)
-tree.fit(X, y)
-print(tree.to_text(precision=1))
-tree.to_image("png", "breast_cancer.png", precision=1)
-tree.to_image("png", "breast_cancer_response.png", kind="response")
-```
-
-```
-                                              Median Recurrence-free years    Survival at 5 years Obs. count Obs. share Split p-value Leaf index
-                                              ---------------------------- ---------------------- ---------- ---------- ------------- ----------
-All records                                               4.9 (4.2 to 5.5) 49.2% (44.6% to 53.6%)        686     100.0%         0.02%
-├── Tumor size <= 19                              unknown (5.4 to unknown) 65.6% (55.4% to 73.9%)        135      19.7%         0.04%
-│   ├── Positive lymph nodes <= 2                 unknown (unknown bounds) 80.7% (68.2% to 88.7%)         77      11.2%                        7
-│   └── Positive lymph nodes > 2                          4.7 (2.6 to 5.5) 44.7% (29.2% to 59.1%)         58       8.5%         3.52%
-│       ├── Age > 41                                  5.4 (3.5 to unknown) 54.6% (36.2% to 69.8%)         49       7.1%                        5
-│       └── Age <= 41                                     1.3 (0.7 to 3.2)          0% (0% to 0%)          9       1.3%                        1
-└── Tumor size > 19                                       4.3 (3.7 to 5.0) 44.9% (39.7% to 49.9%)        551      80.3%         0.02%
-    ├── Positive lymph nodes <= 4                     5.7 (4.8 to unknown) 54.7% (47.7% to 61.0%)        332      48.4%         1.10%
-    │   ├── Hormone therapy is true               unknown (5.6 to unknown) 67.7% (56.3% to 76.7%)        114      16.6%                        6
-    │   └── Hormone therapy is false                  4.8 (3.9 to unknown) 47.1% (38.3% to 55.4%)        218      31.8%                        4
-    └── Positive lymph nodes > 4                          2.4 (2.0 to 3.1) 29.9% (22.6% to 37.5%)        219      31.9%         0.10%
-        ├── Progesterone receptor level > 24              4.1 (2.7 to 5.5) 43.8% (31.4% to 55.4%)        107      15.6%                        3
-        └── Progesterone receptor level <= 24             1.7 (1.4 to 2.2) 17.3% (10.0% to 26.3%)        112      16.3%                        2
-```
-
-<table>
-  <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_breast_cancer.png"><img src="https://arschitectura.com/medias/sigma_breast_cancer.png" alt="Tree fitted on the GBSG-2 breast cancer dataset"></a></td>
-    <td><a href="https://arschitectura.com/medias/sigma_breast_cancer_response.png"><img src="https://arschitectura.com/medias/sigma_breast_cancer_response.png" alt="Response plot for the GBSG-2 breast cancer dataset"></a></td>
-  </tr>
-</table>
-
-### 4.4. Titanic (classification)
+### 4.3. Titanic (classification)
 
 Predicting survival probability with a Jeffreys 95% confidence
 interval at each leaf - surfaces passenger class, sex, and age.
@@ -417,258 +335,9 @@ All records                           59.6% (55.9% to 63.1%) 40.4% (36.9% to 44.
 <table>
   <tr>
     <td><a href="https://arschitectura.com/medias/sigma_titanic.png"><img src="https://arschitectura.com/medias/sigma_titanic.png" alt="Tree fitted on the Titanic dataset"></a></td>
+  </tr>
+  <tr>
     <td><a href="https://arschitectura.com/medias/sigma_titanic_response.png"><img src="https://arschitectura.com/medias/sigma_titanic_response.png" alt="Response plot for the Titanic dataset"></a></td>
-  </tr>
-</table>
-
-### 4.5. Insurance (regression)
-
-Predicting medical insurance charges with a Bayesian-bootstrap 95%
-confidence interval at each leaf - surfaces age, smoking status, and
-number of children.
-
-```python
-import pandas
-
-import sigma
-
-insurance_dataframe = pandas.read_csv(
-    "https://raw.githubusercontent.com/stedy"
-    "/Machine-Learning-with-R-datasets/master/insurance.csv",
-    usecols=["age", "sex", "bmi", "children", "smoker", "region", "charges"],
-    dtype={
-        "age": "int64",
-        "sex": "object",
-        "bmi": "float64",
-        "children": "int64",
-        "smoker": "object",
-        "region": "object",
-        "charges": "float64",
-    },
-).dropna()
-X = pandas.DataFrame({
-    "Age": insurance_dataframe["age"],
-    "Sex": pandas.Categorical(
-        insurance_dataframe["sex"], categories=["female", "male"]
-    ),
-    "BMI": insurance_dataframe["bmi"],
-    "Number of children": insurance_dataframe["children"],
-    "Smoking status": insurance_dataframe["smoker"].map(
-        {"no": False, "yes": True}
-    ).astype(bool),
-    "Region": pandas.Categorical(
-        insurance_dataframe["region"],
-        categories=["northeast", "northwest", "southeast", "southwest"],
-    ),
-})
-y = insurance_dataframe["charges"].rename("Charges")
-
-tree = sigma.RegressionTree(
-    test_type="monte_carlo",
-    resamples=5000,
-    random_state=0,
-    min_splits=20,
-    min_buckets=7,
-    max_depth=4,
-    alpha=0.05,
-    reverse_order=True,
-    response_sample_size=200,
-)
-tree.fit(X, y)
-print(tree.to_text(precision=0))
-tree.to_image("png", "insurance.png", orientation="left-to-right", precision=0)
-tree.to_image("png", "insurance_response.png", kind="response")
-```
-
-```
-                                                  Charges mean Obs. count Obs. share Split p-value Leaf index
-                                        ---------------------- ---------- ---------- ------------- ----------
-All records                             13270 (12648 to 13915)       1338     100.0%         0.02%
-├── Age <= 41                            10198 (9375 to 11055)        728      54.4%         0.02%
-│   ├── Age <= 26                         8839 (7676 to 10119)        334      25.0%         0.02%
-│   │   ├── Age <= 21                      8139 (6636 to 9767)        194      14.5%         0.02%
-│   │   │   ├── Number of children <= 1    7399 (5919 to 9112)        165      12.3%                       16
-│   │   │   └── Number of children > 1   12348 (8443 to 16981)         29       2.2%                        9
-│   │   └── Age > 21                      9811 (7902 to 11964)        140      10.5%         0.02%
-│   │       ├── Number of children <= 1   8278 (6284 to 10612)        102       7.6%                       15
-│   │       └── Number of children > 1  13924 (10009 to 18443)         38       2.8%                        8
-│   └── Age > 26                        11350 (10308 to 12507)        394      29.4%         0.02%
-│       ├── Age <= 32                    10645 (8972 to 12551)        163      12.2%         0.02%
-│       │   ├── Number of children <= 0   9999 (7271 to 13360)         53       4.0%                       13
-│       │   └── Number of children > 0   10957 (9032 to 13278)        110       8.2%                       12
-│       └── Age > 32                    11848 (10467 to 13339)        231      17.3%         0.02%
-│           ├── Number of children <= 1  11838 (9952 to 13984)        127       9.5%                       11
-│           └── Number of children > 1  11861 (10041 to 14084)        104       7.8%                       10
-└── Age > 41                            16937 (16041 to 17919)        610      45.6%         0.02%
-    ├── Age <= 51                       15364 (14041 to 16835)        283      21.2%         0.02%
-    │   ├── Age > 46                    15283 (13650 to 17177)        144      10.8%         0.02%
-    │   │   ├── Number of children <= 1 14077 (12256 to 16321)         93       7.0%                        7
-    │   │   └── Number of children > 1  17484 (14627 to 20927)         51       3.8%                        5
-    │   └── Age <= 46                   15447 (13448 to 17727)        139      10.4%         0.02%
-    │       ├── Smoking status is false    8945 (8314 to 9831)        103       7.7%                       14
-    │       └── Smoking status is true  34049 (30476 to 37705)         36       2.7%                        1
-    └── Age > 51                        18298 (17100 to 19622)        327      24.4%         0.02%
-        ├── Age <= 58                   16430 (15051 to 18071)        188      14.1%         0.02%
-        │   ├── Number of children <= 1 15197 (13740 to 17019)        130       9.7%                        6
-        │   └── Number of children > 1  19192 (16317 to 22650)         58       4.3%                        4
-        └── Age > 58                    20825 (18948 to 22986)        139      10.4%         0.02%
-            ├── Age <= 62               20481 (18215 to 23129)         94       7.0%                        3
-            └── Age > 62                21543 (18378 to 25409)         45       3.4%                        2
-```
-
-<table>
-  <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_insurance.png"><img src="https://arschitectura.com/medias/sigma_insurance.png" alt="Tree fitted on the Insurance dataset"></a></td>
-    <td><a href="https://arschitectura.com/medias/sigma_insurance_response.png"><img src="https://arschitectura.com/medias/sigma_insurance_response.png" alt="Response plot for the Insurance dataset"></a></td>
-  </tr>
-</table>
-
-### 4.6. IBM Telco Customer Churn (survival)
-
-Predicting time to churn with a Brookmeyer-Crowley 95% confidence
-interval at each leaf - homes in on contract type, internet service,
-and online security.
-
-```python
-import pandas
-
-import sigma
-
-telco_dataframe = pandas.read_csv(
-    "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d"
-    "/master/data/Telco-Customer-Churn.csv",
-    usecols=[
-        "Contract",
-        "InternetService",
-        "OnlineSecurity",
-        "TechSupport",
-        "PaymentMethod",
-        "MonthlyCharges",
-        "Partner",
-        "Dependents",
-        "tenure",
-        "Churn",
-    ],
-    dtype={
-        "Contract": "object",
-        "InternetService": "object",
-        "OnlineSecurity": "object",
-        "TechSupport": "object",
-        "PaymentMethod": "object",
-        "MonthlyCharges": "float64",
-        "Partner": "object",
-        "Dependents": "object",
-        "tenure": "int64",
-        "Churn": "object",
-    },
-)
-telco_dataframe = telco_dataframe[telco_dataframe["tenure"] > 0].copy()
-X = pandas.DataFrame({
-    "Contract type": pandas.Categorical(
-        telco_dataframe["Contract"],
-        categories=["Month-to-month", "One year", "Two year"],
-    ).rename_categories({
-        "Month-to-month": "month-to-month",
-        "One year": "1 year",
-        "Two year": "2 years",
-    }),
-    "Internet service": pandas.Categorical(
-        telco_dataframe["InternetService"],
-        categories=["DSL", "Fiber optic", "No"],
-    ).rename_categories({
-        "DSL": "DSL", "Fiber optic": "fiber", "No": "no internet",
-    }),
-    "Online security": pandas.Categorical(
-        telco_dataframe["OnlineSecurity"],
-        categories=["No", "Yes", "No internet service"],
-    ).rename_categories({
-        "No": "no", "Yes": "yes", "No internet service": "no internet",
-    }),
-    "Tech support": pandas.Categorical(
-        telco_dataframe["TechSupport"],
-        categories=["No", "Yes", "No internet service"],
-    ).rename_categories({
-        "No": "no", "Yes": "yes", "No internet service": "no internet",
-    }),
-    "Payment method": pandas.Categorical(
-        telco_dataframe["PaymentMethod"],
-        categories=[
-            "Bank transfer (automatic)",
-            "Credit card (automatic)",
-            "Electronic check",
-            "Mailed check",
-        ],
-    ).rename_categories({
-        "Bank transfer (automatic)": "bank transfer",
-        "Credit card (automatic)": "credit card",
-        "Electronic check": "electronic check",
-        "Mailed check": "mailed check",
-    }),
-    "Monthly charges": telco_dataframe["MonthlyCharges"],
-    "Has a partner": telco_dataframe["Partner"].map(
-        {"No": False, "Yes": True}
-    ).astype(bool),
-    "Has dependents": telco_dataframe["Dependents"].map(
-        {"No": False, "Yes": True}
-    ).astype(bool),
-})
-y = pandas.DataFrame({
-    "Tenure (months)": telco_dataframe["tenure"].astype("float64"),
-    "event": telco_dataframe["Churn"].map({"No": 0.0, "Yes": 1.0}),
-})
-
-tree = sigma.SurvivalTree(
-    test_type="monte_carlo",
-    resamples=5000,
-    random_state=0,
-    min_splits=20,
-    min_buckets=7,
-    max_depth=4,
-    alpha=0.05,
-    metrics=("median", ("survival", 12.0, "months")),
-)
-tree.fit(X, y)
-print(tree.to_text(precision=0))
-tree.to_image("png", "telco_churn.png", orientation="left-to-right", precision=0)
-tree.to_image("png", "telco_churn_response.png", kind="response")
-```
-
-```
-                                                                                          Median Tenure (months) Survival at 12 months Obs. count Obs. share Split p-value Leaf index
-                                                                                        ------------------------ --------------------- ---------- ---------- ------------- ----------
-All records                                                                             unknown (unknown bounds)      84% (83% to 85%)       7032     100.0%         0.02%
-├── Contract type is "1 year" or "2 years"                                              unknown (unknown bounds)    100% (99% to 100%)       3157      44.9%         0.02%
-│   ├── Contract type is "2 years"                                                      unknown (unknown bounds)   100% (100% to 100%)       1685      24.0%         0.02%
-│   │   ├── Internet service is "no internet"                                           unknown (unknown bounds)   100% (100% to 100%)        633       9.0%         0.02%
-│   │   │   ├── Payment method is "mailed check"                                        unknown (unknown bounds)   100% (100% to 100%)        247       3.5%                       14
-│   │   │   └── Payment method is "bank transfer", "credit card", or "electronic check" unknown (unknown bounds)   100% (100% to 100%)        386       5.5%                       13
-│   │   └── Internet service is "DSL" or "fiber"                                        unknown (unknown bounds)   100% (100% to 100%)       1052      15.0%         0.02%
-│   │       ├── Online security is "yes"                                                unknown (unknown bounds)   100% (100% to 100%)        743      10.6%                       12
-│   │       └── Online security is "no"                                                 unknown (unknown bounds)   100% (100% to 100%)        309       4.4%                       11
-│   └── Contract type is "1 year"                                                        unknown (72 to unknown)      99% (98% to 99%)       1472      20.9%         0.16%
-│       ├── Online security is "yes" or "no internet"                                    unknown (72 to unknown)     99% (99% to 100%)        915      13.0%                       10
-│       └── Online security is "no"                                                      unknown (70 to unknown)      99% (97% to 99%)        557       7.9%         2.68%
-│           ├── Payment method is "bank transfer" or "credit card"                      unknown (unknown bounds)     99% (97% to 100%)        305       4.3%                        9
-│           └── Payment method is "electronic check" or "mailed check"                             68 (65 to 72)      98% (95% to 99%)        252       3.6%                        5
-└── Contract type is "month-to-month"                                                              35 (32 to 38)      70% (69% to 72%)       3875      55.1%         0.02%
-    ├── Internet service is "DSL" or "no internet"                                                 54 (44 to 59)      74% (72% to 76%)       1747      24.8%         0.02%
-    │   ├── Online security is "yes" or "no internet"                                         61 (61 to unknown)      82% (79% to 84%)        890      12.7%         0.22%
-    │   │   ├── Has a partner is true                                                    unknown (61 to unknown)      90% (85% to 93%)        281       4.0%                        8
-    │   │   └── Has a partner is false                                                   unknown (40 to unknown)      77% (73% to 81%)        609       8.7%                        6
-    │   └── Online security is "no"                                                                42 (31 to 53)      67% (63% to 70%)        857      12.2%         0.02%
-    │       ├── Tech support is "yes"                                                    unknown (55 to unknown)      79% (72% to 84%)        216       3.1%                        7
-    │       └── Tech support is "no"                                                               35 (21 to 43)      62% (58% to 66%)        641       9.1%                        2
-    └── Internet service is "fiber"                                                                30 (27 to 32)      68% (66% to 70%)       2128      30.3%         0.02%
-        ├── Online security is "yes"                                                               55 (48 to 71)      86% (82% to 90%)        354       5.0%                        4
-        └── Online security is "no"                                                                25 (23 to 28)      64% (62% to 67%)       1774      25.2%         0.02%
-            ├── Tech support is "yes"                                                              44 (38 to 56)      83% (77% to 87%)        250       3.6%                        3
-            └── Tech support is "no"                                                               22 (19 to 25)      61% (59% to 64%)       1524      21.7%                        1
-```
-
-<table>
-  <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_telco_churn.png"><img src="https://arschitectura.com/medias/sigma_telco_churn.png" alt="Tree fitted on the IBM Telco Customer Churn dataset"></a></td>
-    <td><a href="https://arschitectura.com/medias/sigma_telco_churn_response.png"><img src="https://arschitectura.com/medias/sigma_telco_churn_response.png" alt="Response plot for the IBM Telco Customer Churn dataset"></a></td>
   </tr>
 </table>
 
