@@ -18,26 +18,19 @@ Every statistical method in Sigma comes from a [peer-reviewed paper](#references
 
 Governed by the [**Sigma License**](./LICENSE.txt). This is a
 source-available license, not OSI-approved open source. Commercial use
-is permitted with attribution. **ArsChitectura SAS retains an at-will
-right to revoke the license, at any time, for any reason.** Revocations
-are effected by notice per §4 of the License (any means reasonably
-calculated to apprise you, including email, postal mail, courier,
-huissier, any direct or indirect channel, or public announcement on
-Licensor's organization website or on the Software's project homepage).
-Licensee shall consult Licensor's organization website and the
-Software's project homepage at least once every ninety (90) days.
+is permitted with attribution. ArsChitectura SAS retains an at-will right to
+revoke the license, at any time, for any reason. Licensee shall consult
+Licensor's organization website and the Software's project homepage at least
+once every ninety (90) days.
+
 **AI, ML, and other automated ingestion of this library, its
-documentation, or any derivative work is prohibited** (see
-`LICENSE.txt` §7, `ai.txt`, `robots.txt`, `.well-known/tdmrep.json`).
-A narrow exception in §7.7 permits using AI coding assistants to
+documentation, or any derivative work is prohibited**, excepted to
 generate your own client code that calls Sigma's public API.
 
 External contributors must sign the CLA in [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 before a pull request can be accepted.
 
-A paid, non-revocable commercial license is available on request;
-contact details are published in `pyproject.toml` and on ArsChitectura
-SAS's [corporate website](https://arschitectura.com/contact/).
+If your needs exceeds this, a paid, non-revocable commercial license is available on [request](https://arschitectura.com/contact/).
 
 ## 2. Support
 
