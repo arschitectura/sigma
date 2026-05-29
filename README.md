@@ -63,62 +63,49 @@ Three trees fitted on classic datasets. Each subsection shows the
 fit code, the `to_text` rendering, and the rendered tree and response
 images. Click an image to view it at full size.
 
-### 4.1. German Credit (classification)
+### 4.1. Titanic (classification)
 
-Predicting missed-payment probability with a Jeffreys 95% confidence
-interval at each leaf - surfaces checking-account balance, loan
-duration, and savings balance.
+Predicting survival probability with a Jeffreys 95% confidence
+interval at each leaf - surfaces passenger class, sex, and age.
 
 ```python
-import urllib.request
-
 import pandas
-import scipy.io.arff
 
 import sigma
 
-urllib.request.urlretrieve(
-    "https://www.openml.org/data/v1/download/31/credit-g.arff",
-    "credit-g.arff",
-)
-arff_data, _ = scipy.io.arff.loadarff("credit-g.arff")
-credit_frame = pandas.DataFrame(arff_data)
-for column in credit_frame.select_dtypes([object]).columns:
-    credit_frame[column] = credit_frame[column].str.decode("utf-8")
-credit_dataframe = credit_frame[[
-    "checking_status", "duration", "credit_amount",
-    "savings_status", "age", "housing", "class",
-]].astype({
-    "checking_status": "category",
-    "duration": "int64",
-    "credit_amount": "int64",
-    "savings_status": "category",
-    "age": "int64",
-    "housing": "category",
-    "class": "category",
-}).dropna()
+titanic_dataframe = pandas.read_csv(
+    "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv",
+    usecols=["Pclass", "Sex", "Age", "Embarked", "Survived"],
+    dtype={
+        "Pclass": "int64",
+        "Sex": "object",
+        "Age": "float64",
+        "Embarked": "object",
+        "Survived": "int64",
+    },
+).dropna()
 X = pandas.DataFrame({
-    "Checking account balance": credit_dataframe["checking_status"].cat.rename_categories(
-        {"0<=X<200": "0-200", "no checking": "no account"}
+    "Passenger class": pandas.Categorical(
+        titanic_dataframe["Pclass"].map({1: "1st", 2: "2nd", 3: "3rd"}),
+        categories=["1st", "2nd", "3rd"],
     ),
-    "Loan duration": credit_dataframe["duration"],
-    "Loan amount": credit_dataframe["credit_amount"],
-    "Savings balance": credit_dataframe["savings_status"].cat.rename_categories({
-        "100<=X<500": "100-500",
-        "500<=X<1000": "500-1000",
-        "no known savings": "no account",
-    }),
-    "Age": credit_dataframe["age"],
-    "Housing": credit_dataframe["housing"],
+    "Sex": pandas.Categorical(
+        titanic_dataframe["Sex"], categories=["female", "male"]
+    ),
+    "Age": titanic_dataframe["Age"].astype("float64"),
+    "Port of embarkation": pandas.Categorical(
+        titanic_dataframe["Embarked"].map(
+            {"C": "Cherbourg", "Q": "Queenstown", "S": "Southampton"}
+        ),
+        categories=["Cherbourg", "Queenstown", "Southampton"],
+    ),
 })
 y = pandas.Series(
     pandas.Categorical(
-        credit_dataframe["class"].map(
-            {"good": "Met all payments", "bad": "Missed payments"}
-        ),
-        categories=["Met all payments", "Missed payments"],
+        titanic_dataframe["Survived"].map({0: "died", 1: "survived"}),
+        categories=["died", "survived"],
     ),
-    name="Payments",
+    name="Survived",
 )
 
 tree = sigma.ClassificationTree(
@@ -129,34 +116,37 @@ tree = sigma.ClassificationTree(
     min_buckets=7,
     alpha=0.05,
     ci_method="jeffreys",
-    reverse_order=True,
 )
 tree.fit(X, y)
 print(tree.to_text(precision=1))
-tree.to_image("png", "german_credit.png", precision=1)
-tree.to_image("png", "german_credit_response.png", kind="response")
+tree.to_image("png", "titanic.png", precision=1)
+tree.to_image("png", "titanic_response.png", kind="response")
 ```
 
 ```
-                                                                Met all payments proba. Missed payments proba. Obs. count Obs. share Split p-value Leaf index
-                                                                ----------------------- ---------------------- ---------- ---------- ------------- ----------
-All records                                                      70.0% (67.1% to 72.8%) 30.0% (27.2% to 32.9%)       1000     100.0%         0.02%
-├── Checking account balance is ">=200" or "no account"          86.9% (83.5% to 89.7%) 13.1% (10.3% to 16.5%)        457      45.7%                        4
-└── Checking account balance is "0-200" or "<0"                  55.8% (51.6% to 59.9%) 44.2% (40.1% to 48.4%)        543      54.3%         0.02%
-    ├── Loan duration <= 21                                      65.4% (59.9% to 70.5%) 34.6% (29.5% to 40.1%)        306      30.6%                        3
-    └── Loan duration > 21                                       43.5% (37.3% to 49.8%) 56.5% (50.2% to 62.7%)        237      23.7%         0.54%
-        ├── Savings balance is ">=1000" or "no account"          70.7% (55.8% to 82.9%) 29.3% (17.1% to 44.2%)         41       4.1%         0.32%
-        │   ├── Checking account balance is "0-200"              91.7% (75.9% to 98.2%)   8.3% (1.8% to 24.1%)         24       2.4%                        5
-        │   └── Checking account balance is "<0"                 41.2% (20.7% to 64.4%) 58.8% (35.6% to 79.3%)         17       1.7%                        2
-        └── Savings balance is "100-500", "500-1000", or "<100"  37.8% (31.2% to 44.7%) 62.2% (55.3% to 68.8%)        196      19.6%                        1
+                                                 Died proba.        Survived proba. Obs. count Obs. share Split p-value Leaf index
+                                      ---------------------- ---------------------- ---------- ---------- ------------- ----------
+All records                           59.6% (55.9% to 63.1%) 40.4% (36.9% to 44.1%)        712     100.0%         0.02%
+├── Passenger class is "1st" or "2nd" 43.1% (38.1% to 48.3%) 56.9% (51.7% to 61.9%)        357      50.1%         0.02%
+│   ├── Sex is "female"                 5.7% (2.9% to 10.2%) 94.3% (89.8% to 97.1%)        157      22.1%                        6
+│   └── Sex is "male"                 72.5% (66.0% to 78.3%) 27.5% (21.7% to 34.0%)        200      28.1%         0.08%
+│       ├── Passenger class is "1st"  60.4% (50.7% to 69.5%) 39.6% (30.5% to 49.3%)        101      14.2%         1.02%
+│       │   ├── Age <= 53.0           53.2% (42.2% to 63.9%) 46.8% (36.1% to 57.8%)         79      11.1%                        5
+│       │   └── Age > 53.0            86.4% (67.9% to 96.0%)  13.6% (4.0% to 32.1%)         22       3.1%                        2
+│       └── Passenger class is "2nd"  84.8% (76.8% to 90.9%)  15.2% (9.1% to 23.2%)         99      13.9%         0.62%
+│           ├── Age <= 12.0                 0% (0% to 23.8%)   100% (76.2% to 100%)          9       1.3%                        7
+│           └── Age > 12.0            93.3% (86.8% to 97.2%)   6.7% (2.8% to 13.2%)         90      12.6%                        1
+└── Passenger class is "3rd"          76.1% (71.4% to 80.3%) 23.9% (19.7% to 28.6%)        355      49.9%         0.02%
+    ├── Sex is "female"               53.9% (44.3% to 63.4%) 46.1% (36.6% to 55.7%)        102      14.3%                        4
+    └── Sex is "male"                 85.0% (80.2% to 89.0%) 15.0% (11.0% to 19.8%)        253      35.5%                        3
 ```
 
 <table>
   <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_german_credit.png"><img src="https://arschitectura.com/medias/sigma_german_credit.png" alt="Tree fitted on the German Credit dataset"></a></td>
+    <td><a href="https://arschitectura.com/medias/sigma_titanic.png"><img src="https://arschitectura.com/medias/sigma_titanic.png" alt="Tree fitted on the Titanic dataset"></a></td>
   </tr>
   <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_german_credit_response.png"><img src="https://arschitectura.com/medias/sigma_german_credit_response.png" alt="Response plot for the German Credit dataset"></a></td>
+    <td><a href="https://arschitectura.com/medias/sigma_titanic_response.png"><img src="https://arschitectura.com/medias/sigma_titanic_response.png" alt="Response plot for the Titanic dataset"></a></td>
   </tr>
 </table>
 
@@ -254,49 +244,62 @@ All records                                  152.1 (145.1 to 159.3)        442  
   </tr>
 </table>
 
-### 4.3. Titanic (classification)
+### 4.3. German Credit (classification)
 
-Predicting survival probability with a Jeffreys 95% confidence
-interval at each leaf - surfaces passenger class, sex, and age.
+Predicting missed-payment probability with a Jeffreys 95% confidence
+interval at each leaf - surfaces checking-account balance, loan
+duration, and savings balance.
 
 ```python
+import urllib.request
+
 import pandas
+import scipy.io.arff
 
 import sigma
 
-titanic_dataframe = pandas.read_csv(
-    "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv",
-    usecols=["Pclass", "Sex", "Age", "Embarked", "Survived"],
-    dtype={
-        "Pclass": "int64",
-        "Sex": "object",
-        "Age": "float64",
-        "Embarked": "object",
-        "Survived": "int64",
-    },
-).dropna()
+urllib.request.urlretrieve(
+    "https://www.openml.org/data/v1/download/31/credit-g.arff",
+    "credit-g.arff",
+)
+arff_data, _ = scipy.io.arff.loadarff("credit-g.arff")
+credit_frame = pandas.DataFrame(arff_data)
+for column in credit_frame.select_dtypes([object]).columns:
+    credit_frame[column] = credit_frame[column].str.decode("utf-8")
+credit_dataframe = credit_frame[[
+    "checking_status", "duration", "credit_amount",
+    "savings_status", "age", "housing", "class",
+]].astype({
+    "checking_status": "category",
+    "duration": "int64",
+    "credit_amount": "int64",
+    "savings_status": "category",
+    "age": "int64",
+    "housing": "category",
+    "class": "category",
+}).dropna()
 X = pandas.DataFrame({
-    "Passenger class": pandas.Categorical(
-        titanic_dataframe["Pclass"].map({1: "1st", 2: "2nd", 3: "3rd"}),
-        categories=["1st", "2nd", "3rd"],
+    "Checking account balance": credit_dataframe["checking_status"].cat.rename_categories(
+        {"0<=X<200": "0-200", "no checking": "no account"}
     ),
-    "Sex": pandas.Categorical(
-        titanic_dataframe["Sex"], categories=["female", "male"]
-    ),
-    "Age": titanic_dataframe["Age"].astype("float64"),
-    "Port of embarkation": pandas.Categorical(
-        titanic_dataframe["Embarked"].map(
-            {"C": "Cherbourg", "Q": "Queenstown", "S": "Southampton"}
-        ),
-        categories=["Cherbourg", "Queenstown", "Southampton"],
-    ),
+    "Loan duration": credit_dataframe["duration"],
+    "Loan amount": credit_dataframe["credit_amount"],
+    "Savings balance": credit_dataframe["savings_status"].cat.rename_categories({
+        "100<=X<500": "100-500",
+        "500<=X<1000": "500-1000",
+        "no known savings": "no account",
+    }),
+    "Age": credit_dataframe["age"],
+    "Housing": credit_dataframe["housing"],
 })
 y = pandas.Series(
     pandas.Categorical(
-        titanic_dataframe["Survived"].map({0: "died", 1: "survived"}),
-        categories=["died", "survived"],
+        credit_dataframe["class"].map(
+            {"good": "Met all payments", "bad": "Missed payments"}
+        ),
+        categories=["Met all payments", "Missed payments"],
     ),
-    name="Survived",
+    name="Payments",
 )
 
 tree = sigma.ClassificationTree(
@@ -307,37 +310,34 @@ tree = sigma.ClassificationTree(
     min_buckets=7,
     alpha=0.05,
     ci_method="jeffreys",
+    reverse_order=True,
 )
 tree.fit(X, y)
 print(tree.to_text(precision=1))
-tree.to_image("png", "titanic.png", precision=1)
-tree.to_image("png", "titanic_response.png", kind="response")
+tree.to_image("png", "german_credit.png", precision=1)
+tree.to_image("png", "german_credit_response.png", kind="response")
 ```
 
 ```
-                                                 Died proba.        Survived proba. Obs. count Obs. share Split p-value Leaf index
-                                      ---------------------- ---------------------- ---------- ---------- ------------- ----------
-All records                           59.6% (55.9% to 63.1%) 40.4% (36.9% to 44.1%)        712     100.0%         0.02%
-├── Passenger class is "1st" or "2nd" 43.1% (38.1% to 48.3%) 56.9% (51.7% to 61.9%)        357      50.1%         0.02%
-│   ├── Sex is "female"                 5.7% (2.9% to 10.2%) 94.3% (89.8% to 97.1%)        157      22.1%                        6
-│   └── Sex is "male"                 72.5% (66.0% to 78.3%) 27.5% (21.7% to 34.0%)        200      28.1%         0.08%
-│       ├── Passenger class is "1st"  60.4% (50.7% to 69.5%) 39.6% (30.5% to 49.3%)        101      14.2%         1.02%
-│       │   ├── Age <= 53.0           53.2% (42.2% to 63.9%) 46.8% (36.1% to 57.8%)         79      11.1%                        5
-│       │   └── Age > 53.0            86.4% (67.9% to 96.0%)  13.6% (4.0% to 32.1%)         22       3.1%                        2
-│       └── Passenger class is "2nd"  84.8% (76.8% to 90.9%)  15.2% (9.1% to 23.2%)         99      13.9%         0.62%
-│           ├── Age <= 12.0                 0% (0% to 23.8%)   100% (76.2% to 100%)          9       1.3%                        7
-│           └── Age > 12.0            93.3% (86.8% to 97.2%)   6.7% (2.8% to 13.2%)         90      12.6%                        1
-└── Passenger class is "3rd"          76.1% (71.4% to 80.3%) 23.9% (19.7% to 28.6%)        355      49.9%         0.02%
-    ├── Sex is "female"               53.9% (44.3% to 63.4%) 46.1% (36.6% to 55.7%)        102      14.3%                        4
-    └── Sex is "male"                 85.0% (80.2% to 89.0%) 15.0% (11.0% to 19.8%)        253      35.5%                        3
+                                                                Met all payments proba. Missed payments proba. Obs. count Obs. share Split p-value Leaf index
+                                                                ----------------------- ---------------------- ---------- ---------- ------------- ----------
+All records                                                      70.0% (67.1% to 72.8%) 30.0% (27.2% to 32.9%)       1000     100.0%         0.02%
+├── Checking account balance is ">=200" or "no account"          86.9% (83.5% to 89.7%) 13.1% (10.3% to 16.5%)        457      45.7%                        4
+└── Checking account balance is "0-200" or "<0"                  55.8% (51.6% to 59.9%) 44.2% (40.1% to 48.4%)        543      54.3%         0.02%
+    ├── Loan duration <= 21                                      65.4% (59.9% to 70.5%) 34.6% (29.5% to 40.1%)        306      30.6%                        3
+    └── Loan duration > 21                                       43.5% (37.3% to 49.8%) 56.5% (50.2% to 62.7%)        237      23.7%         0.54%
+        ├── Savings balance is ">=1000" or "no account"          70.7% (55.8% to 82.9%) 29.3% (17.1% to 44.2%)         41       4.1%         0.32%
+        │   ├── Checking account balance is "0-200"              91.7% (75.9% to 98.2%)   8.3% (1.8% to 24.1%)         24       2.4%                        5
+        │   └── Checking account balance is "<0"                 41.2% (20.7% to 64.4%) 58.8% (35.6% to 79.3%)         17       1.7%                        2
+        └── Savings balance is "100-500", "500-1000", or "<100"  37.8% (31.2% to 44.7%) 62.2% (55.3% to 68.8%)        196      19.6%                        1
 ```
 
 <table>
   <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_titanic.png"><img src="https://arschitectura.com/medias/sigma_titanic.png" alt="Tree fitted on the Titanic dataset"></a></td>
+    <td><a href="https://arschitectura.com/medias/sigma_german_credit.png"><img src="https://arschitectura.com/medias/sigma_german_credit.png" alt="Tree fitted on the German Credit dataset"></a></td>
   </tr>
   <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_titanic_response.png"><img src="https://arschitectura.com/medias/sigma_titanic_response.png" alt="Response plot for the Titanic dataset"></a></td>
+    <td><a href="https://arschitectura.com/medias/sigma_german_credit_response.png"><img src="https://arschitectura.com/medias/sigma_german_credit_response.png" alt="Response plot for the German Credit dataset"></a></td>
   </tr>
 </table>
 
