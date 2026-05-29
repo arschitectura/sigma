@@ -409,17 +409,19 @@ How the multivariate score is aggregated into a scalar test statistic.
 
 **Default**: `"sidak"`.
 
-Multiplicity adjustment applied across covariates before the stopping
-rule.
+Multiplicity adjustment applied across the $m$ candidate covariates
+(indexed by $j$), transforming each raw p-value $P_j$ before the
+stopping rule fires.
 
 - `"bonferroni"` is the closed-form $\min(m P_j, 1)$. The simplest and
   best-known correction, strictly more conservative than Sidak under
   independence; prefer `"sidak"` unless matching an external reference.
 - `"monte_carlo"` is the Westfall-Young min-P resampling procedure.
   More powerful than Sidak when covariates are correlated, at the cost
-  of $B \cdot m$ extra statistic evaluations per node. Choose when
-  covariates are highly collinear and you can afford the resampling
-  budget; requires a positive `resamples`.
+  of $B \cdot m$ extra statistic evaluations per node, where $B$ is the
+  number of response permutations (controlled by `resamples`). Choose
+  when covariates are highly collinear and you can afford the
+  resampling budget; requires a positive `resamples`.
 - `"sidak"` (default) is the closed-form $1 - (1 - P_j)^m$. Powerful
   under independence or positive dependence of test statistics. The
   recommended default.
@@ -471,15 +473,19 @@ trees. Leave `None` to let the p-value stopping rule fully control depth.
 List of feature columns to treat as categorical. Entries may be
 column-name strings (resolved against the DataFrame columns at fit
 time, i.e. `feature_names_in_`) or integer column indices; mixing the
-two forms is allowed. Categorical features use exhaustive split
-enumeration for $K \le 10$ levels and an ordered-merge heuristic for
-$K > 10$ (see the Algorithm section).
+two forms is allowed. Letting $K$ denote the number of levels in a
+categorical feature, Sigma uses exhaustive split enumeration for
+$K \le 10$ and an ordered-merge heuristic for $K > 10$ (see the
+Algorithm section).
 
 ### `ci_method` (`RegressionTree` only)
 
 **Default**: `"bayesian_bootstrap"`.
 
-Method for the confidence interval on each leaf's mean prediction.
+Method for the confidence interval on each leaf's mean prediction. In
+the descriptions below, $y$ denotes the per-row response, $n$ the
+sample size at the leaf, and $n_{\text{eff}}$ the Kish effective
+sample size at the leaf.
 
 - `"bayesian_bootstrap"` (default) uses Dirichlet resampling of the
   weighted mean. Nonparametric: makes no assumption on the response
@@ -487,15 +493,15 @@ Method for the confidence interval on each leaf's mean prediction.
   less powerful than a method tailored to the response's actual
   distribution.
 - `"bca"` is the bias-corrected and accelerated bootstrap interval
-  (Efron, 1987): resample $B = 10{,}000$ times from the
-  empirical distribution, then read percentiles corrected for median
+  (Efron, 1987): resample $10{,}000$ times from the empirical
+  distribution, then read percentiles corrected for median
   bias ($z_0$) and skewness ($a$, computed via jackknife).
   Nonparametric and second-order accurate ($O(1/n)$ coverage error);
   transformation-respecting. Choose for the frequentist counterpart of
   `"bayesian_bootstrap"` when an external benchmark specifies a
   frequentist confidence interval. Non-deterministic across calls.
 - `"beta"` is a Clopper-Pearson-style Beta interval for proportional
-  responses in $[0, 1]$. Choose when y is naturally a rate or
+  responses in $[0, 1]$. Choose when $y$ is naturally a rate or
   proportion (conversion rate, click-through rate).
 - `"exponential"` is the exact chi-squared interval for an Exponential
   mean (Gamma with shape $= 1$); requires $y \ge 0$. Choose when
@@ -516,10 +522,12 @@ Method for the confidence interval on each leaf's mean prediction.
   Choose when $n_{\text{eff}}$ is very small with large $\log y$ variance, where
   Cox's symmetric Wald form begins to lose calibration.
   Non-deterministic across calls.
-- `"normal"` is a Wald-style interval $\bar{Y} \pm z \cdot \text{SE}$ with the Kish
-  effective sample size. Tight and cheap. Choose when the central
-  limit theorem applies comfortably ($n_{\text{eff}}$ well above 30, finite
-  response variance).
+- `"normal"` is a Wald-style interval $\bar{Y} \pm z \cdot \text{SE}$
+  ($\bar{Y}$ the leaf weighted mean of $y$, $z$ a standard normal
+  quantile, $\text{SE}$ the standard error) with the Kish effective
+  sample size. Tight and cheap. Choose when the central limit theorem
+  applies comfortably ($n_{\text{eff}}$ well above 30, finite response
+  variance).
 - `"poisson"` is the exact Garwood chi-squared interval for a Poisson
   mean rate; requires $y \ge 0$. The conservative choice with
   guaranteed coverage (Patil & Kulkarni, 2012). Choose for count
@@ -531,9 +539,9 @@ Method for the confidence interval on each leaf's mean prediction.
   responses at moderate rates when you do not require Garwood's
   guaranteed coverage.
 - `"student_t"` has the same form as `"normal"` but uses a Student-t
-  quantile at $\text{df} = n_{\text{eff}} - 1$. Wider than `"normal"` for small
-  effective sample sizes. Choose when $n_{\text{eff}}$ is borderline and
-  small-sample coverage matters.
+  quantile with $n_{\text{eff}} - 1$ degrees of freedom. Wider than
+  `"normal"` for small effective sample sizes. Choose when
+  $n_{\text{eff}}$ is borderline and small-sample coverage matters.
 
 ### `ci_method` (`ClassificationTree` only)
 
@@ -568,8 +576,9 @@ proportions.
   speed and class proportions are not extreme.
 - `"wilson_cc"` is the Wilson score interval with Newcombe's
   continuity correction. Slightly wider than `"wilson"`, restoring
-  lower-tail coverage at small sample sizes. Choose when leaf
-  $w_{\text{total}}$ is small and plain Wilson under-covers.
+  lower-tail coverage at small sample sizes. Choose when the leaf
+  total weight $w_{\text{total}}$ is small and plain Wilson
+  under-covers.
 
 ### `ci_coverage`
 
@@ -642,18 +651,19 @@ use permutation-based p-values to decouple variable selection from split
 search.
 
 The framework is generic: the only difference between regression and
-classification is the influence function $h$. For regression,
-$h(Y_i) = Y_i$ (identity). For classification with $J$ classes,
-$h(Y_i) = e_J(Y_i)$ (one-hot encoding of the class label). All test
-statistics, p-value computations, and splitting criteria use the same
-formulas.
+classification is the influence function $h$ applied to the response
+$Y_i$ of observation $i$. For regression, $h(Y_i) = Y_i$ (identity).
+For classification with $J$ classes, $h(Y_i) = e_J(Y_i)$ (one-hot
+encoding of the class label). All test statistics, p-value
+computations, and splitting criteria use the same formulas.
 
 ### Step 1: Variable selection and stopping
 
 Given $n$ observations with response values $Y_i$, covariate values
-$X_{ji}$ (the $j$-th covariate for observation $i$), and case weights
-$w_i$, define $g_j$ as the score function for covariate $X_j$ (identity
-for numeric covariates, dummy encoding for categorical ones). When
+$X_{ji}$ (the value of the $j$-th covariate $X_j$ for observation $i$),
+and case weights $w_i$, define $g_j$ as the score function for
+covariate $X_j$ (identity for numeric covariates, dummy encoding for
+categorical ones). When
 `correlation="rank"` (the default), continuous covariates and regression
 responses are rank-transformed within each node before computing the
 test statistics, yielding Spearman-like nonparametric tests that are
@@ -665,9 +675,9 @@ $$T_j = \text{vec}\!\left(\sum_{i=1}^{n} w_i \cdot g_j(X_{ji}) \cdot h(Y_i)^\top
 
 and derives its conditional expectation $\mu_j$ and covariance
 $\Sigma_j$ under the null hypothesis of independence between $X_j$ and
-$Y$. A test statistic (quadratic-form or maximum-type) is computed and
-converted to a p-value. A multiplicity adjustment is applied across all
-$m$ covariates, and recursion stops when
+the response $Y$. A test statistic (quadratic-form or maximum-type) is
+computed and converted to a p-value $P_j$. A multiplicity adjustment is
+applied across all $m$ covariates, and recursion stops when
 $\min_j(\text{adjusted } P_j) > \alpha$. Otherwise the covariate with
 the smallest adjusted p-value is selected.
 
@@ -729,8 +739,8 @@ and per-leaf predictions are empirically verified to match
 Three deliberate deviations from partykit are worth knowing about:
 
 1. **`test_type="sidak"` is the default**, matching partykit's effective
-   behavior. Partykit's `testtype="Bonferroni"` is a naming error: the
-   adjustment it computes is mathematically the Sidak formula
+   behavior. Partykit's `testtype="Bonferroni"` is a naming error on their
+   part: the adjustment it computes is mathematically the Sidak formula
    $1 - (1 - P_j)^m$, not the textbook Bonferroni $\min(m P_j, 1)$.
    Sigma exposes both options under their correct names; pass
    `test_type="bonferroni"` for the textbook Bonferroni formula, or `test_type="sidak"`
