@@ -313,7 +313,25 @@ CASE
             WHEN "Sex" IN ('female') THEN
                 0.9426751592356688 -- Leaf 6
             WHEN "Sex" IN ('male') THEN
-                -- ... (deeper splits on "Passenger class" and "Age" omitted)
+                CASE
+                    WHEN "Passenger class" IN ('1st') THEN
+                        CASE
+                            WHEN "Age" <= 53.0 THEN
+                                0.46835443037974683 -- Leaf 5
+                            WHEN "Age" > 53.0 THEN
+                                0.13636363636363635 -- Leaf 2
+                            ELSE NULL
+                        END
+                    WHEN "Passenger class" IN ('2nd') THEN
+                        CASE
+                            WHEN "Age" <= 12.0 THEN
+                                1.0 -- Leaf 7
+                            WHEN "Age" > 12.0 THEN
+                                0.06666666666666667 -- Leaf 1
+                            ELSE NULL
+                        END
+                    ELSE NULL
+                END
             ELSE NULL
         END
     WHEN "Passenger class" IN ('3rd') THEN
@@ -331,7 +349,7 @@ END
 For `ClassificationTree`, pass `target_class=` to pick which class
 probability the expression should emit. Unseen categories and `NULL`
 inputs yield `NULL`; wrap in `COALESCE(..., default)` to substitute a
-fallback.
+fallback value.
 
 ## Parameters
 
