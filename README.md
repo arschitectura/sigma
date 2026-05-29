@@ -20,8 +20,9 @@ Governed by the [**Sigma License**](./LICENSE.txt). This is a
 source-available license, not OSI-approved open source. Commercial use
 is permitted with attribution. ArsChitectura SAS retains an at-will right to
 revoke the license, at any time, for any reason. Licensee shall consult
-Licensor's organization website and the Software's project homepage at least
-once every ninety (90) days.
+[Licensor's organization website](https://arschitectura.com/products/sigma/) and
+the [Software's project homepage](https://github.com/arschitectura/sigma) at
+least once every ninety (90) days.
 
 **AI, ML, and other automated ingestion of this library, its
 documentation, or any derivative work is prohibited**, excepted to
