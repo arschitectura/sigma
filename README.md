@@ -14,7 +14,7 @@ scikit-learn.
 
 Every statistical method in Sigma comes from a [peer-reviewed paper](#references).
 
-## License
+## 1 License
 
 Governed by the [**Sigma License**](./LICENSE.txt). This is a
 source-available license, not OSI-approved open source. Commercial use
@@ -39,7 +39,7 @@ A paid, non-revocable commercial license is available on request;
 contact details are published in `pyproject.toml` and on ArsChitectura
 SAS's [corporate website](https://arschitectura.com/contact/).
 
-## Support
+## 2 Support
 
 Read the [documentation](https://arschitectura.com/products/sigma/).
 
@@ -51,23 +51,105 @@ Have questions, feedback, or need help getting started? We'd love to hear from y
   </a>
 </div>
 
-## Installation
+## 3 Installation
 
 ```bash
 pip install ars-sigma
 ```
 
-## Sample Trees
+## 4 Sample Trees
 
-Trees fitted by Sigma with default hyperparameters on six classic
-datasets. Each panel pairs the rendered tree (left) with the response
-plot (right); click an image to view it at full size.
+Six trees fitted on classic datasets. Each subsection shows the fit
+code, the `to_text` rendering, and the rendered tree and response
+images. Click an image to view it at full size.
 
-### German Credit (classification)
+### 4.1 German Credit (classification)
 
 Predicting missed-payment probability with a Jeffreys 95% confidence
 interval at each leaf - surfaces checking-account balance, loan
 duration, and savings balance.
+
+```python
+import urllib.request
+
+import pandas
+import scipy.io.arff
+
+import sigma
+
+urllib.request.urlretrieve(
+    "https://www.openml.org/data/v1/download/31/credit-g.arff",
+    "credit-g.arff",
+)
+arff_data, _ = scipy.io.arff.loadarff("credit-g.arff")
+credit_frame = pandas.DataFrame(arff_data)
+for column in credit_frame.select_dtypes([object]).columns:
+    credit_frame[column] = credit_frame[column].str.decode("utf-8")
+credit_dataframe = credit_frame[[
+    "checking_status", "duration", "credit_amount",
+    "savings_status", "age", "housing", "class",
+]].astype({
+    "checking_status": "category",
+    "duration": "int64",
+    "credit_amount": "int64",
+    "savings_status": "category",
+    "age": "int64",
+    "housing": "category",
+    "class": "category",
+}).dropna()
+X = pandas.DataFrame({
+    "Checking account balance": credit_dataframe["checking_status"].cat.rename_categories(
+        {"0<=X<200": "0-200", "no checking": "no account"}
+    ),
+    "Loan duration": credit_dataframe["duration"],
+    "Loan amount": credit_dataframe["credit_amount"],
+    "Savings balance": credit_dataframe["savings_status"].cat.rename_categories({
+        "100<=X<500": "100-500",
+        "500<=X<1000": "500-1000",
+        "no known savings": "no account",
+    }),
+    "Age": credit_dataframe["age"],
+    "Housing": credit_dataframe["housing"],
+})
+y = pandas.Series(
+    pandas.Categorical(
+        credit_dataframe["class"].map(
+            {"good": "Met all payments", "bad": "Missed payments"}
+        ),
+        categories=["Met all payments", "Missed payments"],
+    ),
+    name="Payments",
+)
+
+tree = sigma.ClassificationTree(
+    test_type="monte_carlo",
+    resamples=5000,
+    random_state=0,
+    min_splits=20,
+    min_buckets=7,
+    alpha=0.05,
+    ci_method="jeffreys",
+    reverse_order=True,
+)
+tree.fit(X, y)
+print(tree.to_text(precision=1))
+tree.to_image("png", "german_credit.png", precision=1)
+tree.to_image("png", "german_credit_response.png", kind="response")
+```
+
+```
+                                                                Met all payments proba. Missed payments proba. Obs. count Obs. share Split p-value Leaf index
+                                                                ----------------------- ---------------------- ---------- ---------- ------------- ----------
+All records                                                      70.0% (67.1% to 72.8%) 30.0% (27.2% to 32.9%)       1000     100.0%         0.02%
+├── Checking account balance is ">=200" or "no account"          86.9% (83.5% to 89.7%) 13.1% (10.3% to 16.5%)        457      45.7%                        4
+└── Checking account balance is "0-200" or "<0"                  55.8% (51.6% to 59.9%) 44.2% (40.1% to 48.4%)        543      54.3%         0.02%
+    ├── Loan duration <= 21                                      65.4% (59.9% to 70.5%) 34.6% (29.5% to 40.1%)        306      30.6%                        3
+    └── Loan duration > 21                                       43.5% (37.3% to 49.8%) 56.5% (50.2% to 62.7%)        237      23.7%         0.54%
+        ├── Savings balance is ">=1000" or "no account"          70.7% (55.8% to 82.9%) 29.3% (17.1% to 44.2%)         41       4.1%         0.32%
+        │   ├── Checking account balance is "0-200"              91.7% (75.9% to 98.2%)   8.3% (1.8% to 24.1%)         24       2.4%                        5
+        │   └── Checking account balance is "<0"                 41.2% (20.7% to 64.4%) 58.8% (35.6% to 79.3%)         17       1.7%                        2
+        └── Savings balance is "100-500", "500-1000", or "<100"  37.8% (31.2% to 44.7%) 62.2% (55.3% to 68.8%)        196      19.6%                        1
+```
 
 <table>
   <tr>
@@ -76,11 +158,90 @@ duration, and savings balance.
   </tr>
 </table>
 
-### Diabetes (regression)
+### 4.2 Diabetes (regression)
 
 Predicting one-year disease progression with a Bayesian-bootstrap 95%
 confidence interval at each leaf - surfaces age, BMI, and HDL
 cholesterol.
+
+```python
+import pandas
+import sklearn.datasets
+
+import sigma
+
+diabetes_bunch = sklearn.datasets.load_diabetes(as_frame=True, scaled=False)
+diabetes_frame = diabetes_bunch.frame
+diabetes_data = diabetes_frame[[
+    "age", "sex", "bmi", "bp",
+    "s1", "s2", "s3", "s4", "s5", "s6",
+]].astype({
+    "age": "float64",
+    "sex": "float64",
+    "bmi": "float64",
+    "bp": "float64",
+    "s1": "float64",
+    "s2": "float64",
+    "s3": "float64",
+    "s4": "float64",
+    "s5": "float64",
+    "s6": "float64",
+})
+X = diabetes_data.rename(columns={
+    "age": "Age",
+    "sex": "Sex",
+    "bmi": "BMI",
+    "bp": "Blood pressure",
+    "s1": "Total cholesterol",
+    "s2": "LDL cholesterol",
+    "s3": "HDL cholesterol",
+    "s4": "Total-to-HDL ratio",
+    "s5": "Triglycerides (log)",
+    "s6": "Blood sugar",
+})
+y = diabetes_frame["target"].astype("float64").rename("Disease progression")
+
+tree = sigma.RegressionTree(
+    test_type="monte_carlo",
+    resamples=5000,
+    random_state=0,
+    min_splits=20,
+    min_buckets=7,
+    alpha=0.05,
+    reverse_order=True,
+    response_sample_size=200,
+)
+tree.fit(X, y)
+print(tree.to_text(precision=1))
+tree.to_image("png", "diabetes.png", orientation="left-to-right", precision=1)
+tree.to_image("png", "diabetes_response.png", kind="response")
+```
+
+```
+                                           Disease progression mean Obs. count Obs. share Split p-value Leaf index
+                                           ------------------------ ---------- ---------- ------------- ----------
+All records                                  152.1 (145.1 to 159.3)        442     100.0%         0.02%
+├── Age <= 49                                136.7 (127.1 to 147.0)        214      48.4%         0.02%
+│   ├── BMI <= 27.0                          108.7 (100.0 to 118.2)        143      32.4%         0.02%
+│   │   ├── HDL cholesterol > 43.5             95.0 (86.7 to 104.5)        109      24.7%         2.92%
+│   │   │   ├── Age > 24                       89.8 (80.9 to 100.3)         92      20.8%                       11
+│   │   │   └── Age <= 24                    123.3 (104.0 to 144.2)         17       3.8%                        7
+│   │   └── HDL cholesterol <= 43.5          152.5 (134.3 to 171.3)         34       7.7%         0.68%
+│   │       ├── Total cholesterol <= 181     119.4 (100.5 to 139.1)         17       3.8%                        9
+│   │       └── Total cholesterol > 181      185.7 (163.9 to 209.0)         17       3.8%                        4
+│   └── BMI > 27.0                           193.1 (176.0 to 210.0)         71      16.1%         1.30%
+│       ├── Blood sugar <= 103               179.6 (162.2 to 197.7)         60      13.6%                        5
+│       └── Blood sugar > 103                267.1 (249.9 to 283.8)         11       2.5%                        1
+└── Age > 49                                 166.6 (156.9 to 176.6)        228      51.6%         0.02%
+    ├── BMI <= 26.9                          130.2 (119.4 to 141.4)        124      28.1%         0.02%
+    │   ├── Triglycerides (log) <= 4.7        104.9 (95.5 to 115.4)         80      18.1%                       10
+    │   └── Triglycerides (log) > 4.7        176.2 (157.9 to 194.1)         44      10.0%                        6
+    └── BMI > 26.9                           210.0 (196.1 to 223.3)        104      23.5%         0.02%
+        ├── Blood pressure <= 111.8          193.1 (178.3 to 207.8)         78      17.6%         1.64%
+        │   ├── Triglycerides (log) <= 4.4    122.6 (98.5 to 144.7)         10       2.3%                        8
+        │   └── Triglycerides (log) > 4.4    203.4 (188.4 to 218.9)         68      15.4%                        3
+        └── Blood pressure > 111.8           260.8 (240.9 to 277.6)         26       5.9%                        2
+```
 
 <table>
   <tr>
@@ -89,11 +250,84 @@ cholesterol.
   </tr>
 </table>
 
-### GBSG-2 breast cancer (survival)
+### 4.3 GBSG-2 breast cancer (survival)
 
-Predicting recurrence-free days with a Brookmeyer-Crowley 95%
+Predicting recurrence-free years with a Brookmeyer-Crowley 95%
 confidence interval at each leaf - splits on positive lymph nodes,
 hormone therapy, and progesterone receptor level.
+
+```python
+import urllib.request
+
+import pandas
+import scipy.io.arff
+
+import sigma
+
+urllib.request.urlretrieve(
+    "https://raw.githubusercontent.com/sebp/scikit-survival"
+    "/master/sksurv/datasets/data/GBSG2.arff",
+    "GBSG2.arff",
+)
+arff_data, _ = scipy.io.arff.loadarff("GBSG2.arff")
+breast_cancer_dataframe = pandas.DataFrame(arff_data)
+for column in breast_cancer_dataframe.select_dtypes([object]).columns:
+    breast_cancer_dataframe[column] = breast_cancer_dataframe[column].str.decode("utf-8")
+X = pandas.DataFrame({
+    "Hormone therapy": breast_cancer_dataframe["horTh"].map(
+        {"no": False, "yes": True}
+    ).astype(bool),
+    "Age": breast_cancer_dataframe["age"].astype("float64"),
+    "Menopausal status": pandas.Categorical(
+        breast_cancer_dataframe["menostat"], categories=["Pre", "Post"]
+    ).rename_categories({"Pre": "pre", "Post": "post"}),
+    "Tumor size": breast_cancer_dataframe["tsize"].astype("float64"),
+    "Tumor grade": pandas.Categorical(
+        breast_cancer_dataframe["tgrade"], categories=["I", "II", "III"]
+    ),
+    "Positive lymph nodes": breast_cancer_dataframe["pnodes"].astype("float64"),
+    "Progesterone receptor level": breast_cancer_dataframe["progrec"].astype("float64"),
+    "Estrogen receptor level": breast_cancer_dataframe["estrec"].astype("float64"),
+})
+y = pandas.DataFrame({
+    "recurrence-free years": (
+        breast_cancer_dataframe["time"].astype("float64") / 365.25
+    ),
+    "event": breast_cancer_dataframe["cens"].astype("float64"),
+})
+
+tree = sigma.SurvivalTree(
+    test_type="monte_carlo",
+    resamples=5000,
+    random_state=0,
+    min_splits=20,
+    min_buckets=7,
+    alpha=0.05,
+    metrics=("median", ("survival", 5.0, "years")),
+)
+tree.fit(X, y)
+print(tree.to_text(precision=1))
+tree.to_image("png", "breast_cancer.png", precision=1)
+tree.to_image("png", "breast_cancer_response.png", kind="response")
+```
+
+```
+                                              Median Recurrence-free years    Survival at 5 years Obs. count Obs. share Split p-value Leaf index
+                                              ---------------------------- ---------------------- ---------- ---------- ------------- ----------
+All records                                               4.9 (4.2 to 5.5) 49.2% (44.6% to 53.6%)        686     100.0%         0.02%
+├── Tumor size <= 19                              unknown (5.4 to unknown) 65.6% (55.4% to 73.9%)        135      19.7%         0.04%
+│   ├── Positive lymph nodes <= 2                 unknown (unknown bounds) 80.7% (68.2% to 88.7%)         77      11.2%                        7
+│   └── Positive lymph nodes > 2                          4.7 (2.6 to 5.5) 44.7% (29.2% to 59.1%)         58       8.5%         3.52%
+│       ├── Age > 41                                  5.4 (3.5 to unknown) 54.6% (36.2% to 69.8%)         49       7.1%                        5
+│       └── Age <= 41                                     1.3 (0.7 to 3.2)          0% (0% to 0%)          9       1.3%                        1
+└── Tumor size > 19                                       4.3 (3.7 to 5.0) 44.9% (39.7% to 49.9%)        551      80.3%         0.02%
+    ├── Positive lymph nodes <= 4                     5.7 (4.8 to unknown) 54.7% (47.7% to 61.0%)        332      48.4%         1.10%
+    │   ├── Hormone therapy is true               unknown (5.6 to unknown) 67.7% (56.3% to 76.7%)        114      16.6%                        6
+    │   └── Hormone therapy is false                  4.8 (3.9 to unknown) 47.1% (38.3% to 55.4%)        218      31.8%                        4
+    └── Positive lymph nodes > 4                          2.4 (2.0 to 3.1) 29.9% (22.6% to 37.5%)        219      31.9%         0.10%
+        ├── Progesterone receptor level > 24              4.1 (2.7 to 5.5) 43.8% (31.4% to 55.4%)        107      15.6%                        3
+        └── Progesterone receptor level <= 24             1.7 (1.4 to 2.2) 17.3% (10.0% to 26.3%)        112      16.3%                        2
+```
 
 <table>
   <tr>
@@ -102,79 +336,18 @@ hormone therapy, and progesterone receptor level.
   </tr>
 </table>
 
-### Titanic (classification)
+### 4.4 Titanic (classification)
 
 Predicting survival probability with a Jeffreys 95% confidence
 interval at each leaf - surfaces passenger class, sex, and age.
 
-<table>
-  <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_titanic.png"><img src="https://arschitectura.com/medias/sigma_titanic.png" alt="Tree fitted on the Titanic dataset"></a></td>
-    <td><a href="https://arschitectura.com/medias/sigma_titanic_response.png"><img src="https://arschitectura.com/medias/sigma_titanic_response.png" alt="Response plot for the Titanic dataset"></a></td>
-  </tr>
-</table>
-
-### Insurance (regression)
-
-Predicting medical insurance charges with a Bayesian-bootstrap 95%
-confidence interval at each leaf - surfaces age, smoking status, and
-number of children.
-
-<table>
-  <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_insurance.png"><img src="https://arschitectura.com/medias/sigma_insurance.png" alt="Tree fitted on the Insurance dataset"></a></td>
-    <td><a href="https://arschitectura.com/medias/sigma_insurance_response.png"><img src="https://arschitectura.com/medias/sigma_insurance_response.png" alt="Response plot for the Insurance dataset"></a></td>
-  </tr>
-</table>
-
-### IBM Telco Customer Churn (survival)
-
-Predicting time to churn with a Brookmeyer-Crowley 95% confidence
-interval at each leaf - homes in on contract type, internet service,
-and online security.
-
-<table>
-  <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_telco_churn.png"><img src="https://arschitectura.com/medias/sigma_telco_churn.png" alt="Tree fitted on the IBM Telco Customer Churn dataset"></a></td>
-    <td><a href="https://arschitectura.com/medias/sigma_telco_churn_response.png"><img src="https://arschitectura.com/medias/sigma_telco_churn_response.png" alt="Response plot for the IBM Telco Customer Churn dataset"></a></td>
-  </tr>
-</table>
-
-## Usage
-
-### Regression
-
-Fit a regression tree on the **Auto MPG** dataset (mixed numerical and
-categorical features):
-
-```python
-import sklearn.datasets
-from sigma import RegressionTree
-
-bunch = sklearn.datasets.fetch_openml("autoMpg", version=1, as_frame=True)
-data = bunch.frame.rename(columns={"class": "mpg", "model": "model_year"}).dropna()
-data["cylinders"] = data["cylinders"].astype(int)
-data["model_year"] = data["model_year"].astype(int)
-X = data.drop(columns=["mpg"])
-y = data["mpg"]
-
-tree = RegressionTree(alpha=0.05, categorical_features=["origin"])
-tree.fit(X, y)
-predictions = tree.predict(X)
-```
-
-### Classification
-
-Fit a classification tree on the **Titanic** dataset, reproducing the
-tree shown in the Sample Trees section above:
-
 ```python
 import pandas
-from sigma import ClassificationTree
 
-url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
-titanic = pandas.read_csv(
-    url,
+import sigma
+
+titanic_dataframe = pandas.read_csv(
+    "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv",
     usecols=["Pclass", "Sex", "Age", "Embarked", "Survived"],
     dtype={
         "Pclass": "int64",
@@ -186,56 +359,341 @@ titanic = pandas.read_csv(
 ).dropna()
 X = pandas.DataFrame({
     "Passenger class": pandas.Categorical(
-        titanic["Pclass"].map({1: "1st", 2: "2nd", 3: "3rd"}),
+        titanic_dataframe["Pclass"].map({1: "1st", 2: "2nd", 3: "3rd"}),
         categories=["1st", "2nd", "3rd"],
     ),
-    "Sex": pandas.Categorical(titanic["Sex"], categories=["female", "male"]),
-    "Age": titanic["Age"].astype("float64"),
+    "Sex": pandas.Categorical(
+        titanic_dataframe["Sex"], categories=["female", "male"]
+    ),
+    "Age": titanic_dataframe["Age"].astype("float64"),
     "Port of embarkation": pandas.Categorical(
-        titanic["Embarked"].map({"C": "Cherbourg", "Q": "Queenstown", "S": "Southampton"}),
+        titanic_dataframe["Embarked"].map(
+            {"C": "Cherbourg", "Q": "Queenstown", "S": "Southampton"}
+        ),
         categories=["Cherbourg", "Queenstown", "Southampton"],
     ),
 })
 y = pandas.Series(
     pandas.Categorical(
-        titanic["Survived"].map({0: "died", 1: "survived"}),
+        titanic_dataframe["Survived"].map({0: "died", 1: "survived"}),
         categories=["died", "survived"],
     ),
     name="Survived",
 )
 
-tree = ClassificationTree(
+tree = sigma.ClassificationTree(
     test_type="monte_carlo",
     resamples=5000,
     random_state=0,
+    min_splits=20,
+    min_buckets=7,
+    alpha=0.05,
+    ci_method="jeffreys",
 )
 tree.fit(X, y)
-predictions = tree.predict(X)
-probabilities = tree.predict_proba(X)
+print(tree.to_text(precision=1))
+tree.to_image("png", "titanic.png", precision=1)
+tree.to_image("png", "titanic_response.png", kind="response")
 ```
 
-### Survival
+```
+                                                 Died proba.        Survived proba. Obs. count Obs. share Split p-value Leaf index
+                                      ---------------------- ---------------------- ---------- ---------- ------------- ----------
+All records                           59.6% (55.9% to 63.1%) 40.4% (36.9% to 44.1%)        712     100.0%         0.02%
+├── Passenger class is "1st" or "2nd" 43.1% (38.1% to 48.3%) 56.9% (51.7% to 61.9%)        357      50.1%         0.02%
+│   ├── Sex is "female"                 5.7% (2.9% to 10.2%) 94.3% (89.8% to 97.1%)        157      22.1%                        6
+│   └── Sex is "male"                 72.5% (66.0% to 78.3%) 27.5% (21.7% to 34.0%)        200      28.1%         0.08%
+│       ├── Passenger class is "1st"  60.4% (50.7% to 69.5%) 39.6% (30.5% to 49.3%)        101      14.2%         1.02%
+│       │   ├── Age <= 53.0           53.2% (42.2% to 63.9%) 46.8% (36.1% to 57.8%)         79      11.1%                        5
+│       │   └── Age > 53.0            86.4% (67.9% to 96.0%)  13.6% (4.0% to 32.1%)         22       3.1%                        2
+│       └── Passenger class is "2nd"  84.8% (76.8% to 90.9%)  15.2% (9.1% to 23.2%)         99      13.9%         0.62%
+│           ├── Age <= 12.0                 0% (0% to 23.8%)   100% (76.2% to 100%)          9       1.3%                        7
+│           └── Age > 12.0            93.3% (86.8% to 97.2%)   6.7% (2.8% to 13.2%)         90      12.6%                        1
+└── Passenger class is "3rd"          76.1% (71.4% to 80.3%) 23.9% (19.7% to 28.6%)        355      49.9%         0.02%
+    ├── Sex is "female"               53.9% (44.3% to 63.4%) 46.1% (36.6% to 55.7%)        102      14.3%                        4
+    └── Sex is "male"                 85.0% (80.2% to 89.0%) 15.0% (11.0% to 19.8%)        253      35.5%                        3
+```
 
-Fit a survival tree on the **GBSG-2** breast cancer dataset (requires
-`pip install lifelines`). The response `y` is a `(n, 2)` array of
-`(time, event)` rows; alternative encodings are documented on
-`SurvivalTree.fit`.
+<table>
+  <tr>
+    <td><a href="https://arschitectura.com/medias/sigma_titanic.png"><img src="https://arschitectura.com/medias/sigma_titanic.png" alt="Tree fitted on the Titanic dataset"></a></td>
+    <td><a href="https://arschitectura.com/medias/sigma_titanic_response.png"><img src="https://arschitectura.com/medias/sigma_titanic_response.png" alt="Response plot for the Titanic dataset"></a></td>
+  </tr>
+</table>
+
+### 4.5 Insurance (regression)
+
+Predicting medical insurance charges with a Bayesian-bootstrap 95%
+confidence interval at each leaf - surfaces age, smoking status, and
+number of children.
 
 ```python
-import numpy
-from lifelines.datasets import load_gbsg2
-from sigma import SurvivalTree
+import pandas
 
-frame = load_gbsg2()
-X = frame[["age", "tsize", "pnodes", "progrec", "estrec"]]
-y = numpy.column_stack([frame["time"], frame["cens"]])
+import sigma
 
-tree = SurvivalTree(alpha=0.05)
+insurance_dataframe = pandas.read_csv(
+    "https://raw.githubusercontent.com/stedy"
+    "/Machine-Learning-with-R-datasets/master/insurance.csv",
+    usecols=["age", "sex", "bmi", "children", "smoker", "region", "charges"],
+    dtype={
+        "age": "int64",
+        "sex": "object",
+        "bmi": "float64",
+        "children": "int64",
+        "smoker": "object",
+        "region": "object",
+        "charges": "float64",
+    },
+).dropna()
+X = pandas.DataFrame({
+    "Age": insurance_dataframe["age"],
+    "Sex": pandas.Categorical(
+        insurance_dataframe["sex"], categories=["female", "male"]
+    ),
+    "BMI": insurance_dataframe["bmi"],
+    "Number of children": insurance_dataframe["children"],
+    "Smoking status": insurance_dataframe["smoker"].map(
+        {"no": False, "yes": True}
+    ).astype(bool),
+    "Region": pandas.Categorical(
+        insurance_dataframe["region"],
+        categories=["northeast", "northwest", "southeast", "southwest"],
+    ),
+})
+y = insurance_dataframe["charges"].rename("Charges")
+
+tree = sigma.RegressionTree(
+    test_type="monte_carlo",
+    resamples=5000,
+    random_state=0,
+    min_splits=20,
+    min_buckets=7,
+    max_depth=4,
+    alpha=0.05,
+    reverse_order=True,
+    response_sample_size=200,
+)
 tree.fit(X, y)
-median_predictions = tree.predict(X)
+print(tree.to_text(precision=0))
+tree.to_image("png", "insurance.png", orientation="left-to-right", precision=0)
+tree.to_image("png", "insurance_response.png", kind="response")
 ```
 
-### Fitting with sample weights
+```
+                                                  Charges mean Obs. count Obs. share Split p-value Leaf index
+                                        ---------------------- ---------- ---------- ------------- ----------
+All records                             13270 (12648 to 13915)       1338     100.0%         0.02%
+├── Age <= 41                            10198 (9375 to 11055)        728      54.4%         0.02%
+│   ├── Age <= 26                         8839 (7676 to 10119)        334      25.0%         0.02%
+│   │   ├── Age <= 21                      8139 (6636 to 9767)        194      14.5%         0.02%
+│   │   │   ├── Number of children <= 1    7399 (5919 to 9112)        165      12.3%                       16
+│   │   │   └── Number of children > 1   12348 (8443 to 16981)         29       2.2%                        9
+│   │   └── Age > 21                      9811 (7902 to 11964)        140      10.5%         0.02%
+│   │       ├── Number of children <= 1   8278 (6284 to 10612)        102       7.6%                       15
+│   │       └── Number of children > 1  13924 (10009 to 18443)         38       2.8%                        8
+│   └── Age > 26                        11350 (10308 to 12507)        394      29.4%         0.02%
+│       ├── Age <= 32                    10645 (8972 to 12551)        163      12.2%         0.02%
+│       │   ├── Number of children <= 0   9999 (7271 to 13360)         53       4.0%                       13
+│       │   └── Number of children > 0   10957 (9032 to 13278)        110       8.2%                       12
+│       └── Age > 32                    11848 (10467 to 13339)        231      17.3%         0.02%
+│           ├── Number of children <= 1  11838 (9952 to 13984)        127       9.5%                       11
+│           └── Number of children > 1  11861 (10041 to 14084)        104       7.8%                       10
+└── Age > 41                            16937 (16041 to 17919)        610      45.6%         0.02%
+    ├── Age <= 51                       15364 (14041 to 16835)        283      21.2%         0.02%
+    │   ├── Age > 46                    15283 (13650 to 17177)        144      10.8%         0.02%
+    │   │   ├── Number of children <= 1 14077 (12256 to 16321)         93       7.0%                        7
+    │   │   └── Number of children > 1  17484 (14627 to 20927)         51       3.8%                        5
+    │   └── Age <= 46                   15447 (13448 to 17727)        139      10.4%         0.02%
+    │       ├── Smoking status is false    8945 (8314 to 9831)        103       7.7%                       14
+    │       └── Smoking status is true  34049 (30476 to 37705)         36       2.7%                        1
+    └── Age > 51                        18298 (17100 to 19622)        327      24.4%         0.02%
+        ├── Age <= 58                   16430 (15051 to 18071)        188      14.1%         0.02%
+        │   ├── Number of children <= 1 15197 (13740 to 17019)        130       9.7%                        6
+        │   └── Number of children > 1  19192 (16317 to 22650)         58       4.3%                        4
+        └── Age > 58                    20825 (18948 to 22986)        139      10.4%         0.02%
+            ├── Age <= 62               20481 (18215 to 23129)         94       7.0%                        3
+            └── Age > 62                21543 (18378 to 25409)         45       3.4%                        2
+```
+
+<table>
+  <tr>
+    <td><a href="https://arschitectura.com/medias/sigma_insurance.png"><img src="https://arschitectura.com/medias/sigma_insurance.png" alt="Tree fitted on the Insurance dataset"></a></td>
+    <td><a href="https://arschitectura.com/medias/sigma_insurance_response.png"><img src="https://arschitectura.com/medias/sigma_insurance_response.png" alt="Response plot for the Insurance dataset"></a></td>
+  </tr>
+</table>
+
+### 4.6 IBM Telco Customer Churn (survival)
+
+Predicting time to churn with a Brookmeyer-Crowley 95% confidence
+interval at each leaf - homes in on contract type, internet service,
+and online security.
+
+```python
+import pandas
+
+import sigma
+
+telco_dataframe = pandas.read_csv(
+    "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d"
+    "/master/data/Telco-Customer-Churn.csv",
+    usecols=[
+        "Contract",
+        "InternetService",
+        "OnlineSecurity",
+        "TechSupport",
+        "PaymentMethod",
+        "MonthlyCharges",
+        "Partner",
+        "Dependents",
+        "tenure",
+        "Churn",
+    ],
+    dtype={
+        "Contract": "object",
+        "InternetService": "object",
+        "OnlineSecurity": "object",
+        "TechSupport": "object",
+        "PaymentMethod": "object",
+        "MonthlyCharges": "float64",
+        "Partner": "object",
+        "Dependents": "object",
+        "tenure": "int64",
+        "Churn": "object",
+    },
+)
+telco_dataframe = telco_dataframe[telco_dataframe["tenure"] > 0].copy()
+X = pandas.DataFrame({
+    "Contract type": pandas.Categorical(
+        telco_dataframe["Contract"],
+        categories=["Month-to-month", "One year", "Two year"],
+    ).rename_categories({
+        "Month-to-month": "month-to-month",
+        "One year": "1 year",
+        "Two year": "2 years",
+    }),
+    "Internet service": pandas.Categorical(
+        telco_dataframe["InternetService"],
+        categories=["DSL", "Fiber optic", "No"],
+    ).rename_categories({
+        "DSL": "DSL", "Fiber optic": "fiber", "No": "no internet",
+    }),
+    "Online security": pandas.Categorical(
+        telco_dataframe["OnlineSecurity"],
+        categories=["No", "Yes", "No internet service"],
+    ).rename_categories({
+        "No": "no", "Yes": "yes", "No internet service": "no internet",
+    }),
+    "Tech support": pandas.Categorical(
+        telco_dataframe["TechSupport"],
+        categories=["No", "Yes", "No internet service"],
+    ).rename_categories({
+        "No": "no", "Yes": "yes", "No internet service": "no internet",
+    }),
+    "Payment method": pandas.Categorical(
+        telco_dataframe["PaymentMethod"],
+        categories=[
+            "Bank transfer (automatic)",
+            "Credit card (automatic)",
+            "Electronic check",
+            "Mailed check",
+        ],
+    ).rename_categories({
+        "Bank transfer (automatic)": "bank transfer",
+        "Credit card (automatic)": "credit card",
+        "Electronic check": "electronic check",
+        "Mailed check": "mailed check",
+    }),
+    "Monthly charges": telco_dataframe["MonthlyCharges"],
+    "Has a partner": telco_dataframe["Partner"].map(
+        {"No": False, "Yes": True}
+    ).astype(bool),
+    "Has dependents": telco_dataframe["Dependents"].map(
+        {"No": False, "Yes": True}
+    ).astype(bool),
+})
+y = pandas.DataFrame({
+    "Tenure (months)": telco_dataframe["tenure"].astype("float64"),
+    "event": telco_dataframe["Churn"].map({"No": 0.0, "Yes": 1.0}),
+})
+
+tree = sigma.SurvivalTree(
+    test_type="monte_carlo",
+    resamples=5000,
+    random_state=0,
+    min_splits=20,
+    min_buckets=7,
+    max_depth=4,
+    alpha=0.05,
+    metrics=("median", ("survival", 12.0, "months")),
+)
+tree.fit(X, y)
+print(tree.to_text(precision=0))
+tree.to_image("png", "telco_churn.png", orientation="left-to-right", precision=0)
+tree.to_image("png", "telco_churn_response.png", kind="response")
+```
+
+```
+                                                                                          Median Tenure (months) Survival at 12 months Obs. count Obs. share Split p-value Leaf index
+                                                                                        ------------------------ --------------------- ---------- ---------- ------------- ----------
+All records                                                                             unknown (unknown bounds)      84% (83% to 85%)       7032     100.0%         0.02%
+├── Contract type is "1 year" or "2 years"                                              unknown (unknown bounds)    100% (99% to 100%)       3157      44.9%         0.02%
+│   ├── Contract type is "2 years"                                                      unknown (unknown bounds)   100% (100% to 100%)       1685      24.0%         0.02%
+│   │   ├── Internet service is "no internet"                                           unknown (unknown bounds)   100% (100% to 100%)        633       9.0%         0.02%
+│   │   │   ├── Payment method is "mailed check"                                        unknown (unknown bounds)   100% (100% to 100%)        247       3.5%                       14
+│   │   │   └── Payment method is "bank transfer", "credit card", or "electronic check" unknown (unknown bounds)   100% (100% to 100%)        386       5.5%                       13
+│   │   └── Internet service is "DSL" or "fiber"                                        unknown (unknown bounds)   100% (100% to 100%)       1052      15.0%         0.02%
+│   │       ├── Online security is "yes"                                                unknown (unknown bounds)   100% (100% to 100%)        743      10.6%                       12
+│   │       └── Online security is "no"                                                 unknown (unknown bounds)   100% (100% to 100%)        309       4.4%                       11
+│   └── Contract type is "1 year"                                                        unknown (72 to unknown)      99% (98% to 99%)       1472      20.9%         0.16%
+│       ├── Online security is "yes" or "no internet"                                    unknown (72 to unknown)     99% (99% to 100%)        915      13.0%                       10
+│       └── Online security is "no"                                                      unknown (70 to unknown)      99% (97% to 99%)        557       7.9%         2.68%
+│           ├── Payment method is "bank transfer" or "credit card"                      unknown (unknown bounds)     99% (97% to 100%)        305       4.3%                        9
+│           └── Payment method is "electronic check" or "mailed check"                             68 (65 to 72)      98% (95% to 99%)        252       3.6%                        5
+└── Contract type is "month-to-month"                                                              35 (32 to 38)      70% (69% to 72%)       3875      55.1%         0.02%
+    ├── Internet service is "DSL" or "no internet"                                                 54 (44 to 59)      74% (72% to 76%)       1747      24.8%         0.02%
+    │   ├── Online security is "yes" or "no internet"                                         61 (61 to unknown)      82% (79% to 84%)        890      12.7%         0.22%
+    │   │   ├── Has a partner is true                                                    unknown (61 to unknown)      90% (85% to 93%)        281       4.0%                        8
+    │   │   └── Has a partner is false                                                   unknown (40 to unknown)      77% (73% to 81%)        609       8.7%                        6
+    │   └── Online security is "no"                                                                42 (31 to 53)      67% (63% to 70%)        857      12.2%         0.02%
+    │       ├── Tech support is "yes"                                                    unknown (55 to unknown)      79% (72% to 84%)        216       3.1%                        7
+    │       └── Tech support is "no"                                                               35 (21 to 43)      62% (58% to 66%)        641       9.1%                        2
+    └── Internet service is "fiber"                                                                30 (27 to 32)      68% (66% to 70%)       2128      30.3%         0.02%
+        ├── Online security is "yes"                                                               55 (48 to 71)      86% (82% to 90%)        354       5.0%                        4
+        └── Online security is "no"                                                                25 (23 to 28)      64% (62% to 67%)       1774      25.2%         0.02%
+            ├── Tech support is "yes"                                                              44 (38 to 56)      83% (77% to 87%)        250       3.6%                        3
+            └── Tech support is "no"                                                               22 (19 to 25)      61% (59% to 64%)       1524      21.7%                        1
+```
+
+<table>
+  <tr>
+    <td><a href="https://arschitectura.com/medias/sigma_telco_churn.png"><img src="https://arschitectura.com/medias/sigma_telco_churn.png" alt="Tree fitted on the IBM Telco Customer Churn dataset"></a></td>
+    <td><a href="https://arschitectura.com/medias/sigma_telco_churn_response.png"><img src="https://arschitectura.com/medias/sigma_telco_churn_response.png" alt="Response plot for the IBM Telco Customer Churn dataset"></a></td>
+  </tr>
+</table>
+
+## 5 Advanced usage
+
+### 5.1 Controlling tree depth and node size
+
+`alpha` is the principal knob: it sets the significance threshold for
+every split test, so lowering it produces a terser, more statistically
+conservative tree, and raising it produces a richer, more exploratory
+one. `min_splits`, `min_buckets`, and `max_depth` are secondary safety
+bounds, shared between `RegressionTree` and `ClassificationTree`.
+
+```python
+tree = ClassificationTree(
+    correlation="rank",     # "normal" (Pearson-like) or "rank" (Spearman-like)
+    alpha=0.05,             # significance level for the stopping rule
+    min_splits=20,          # minimum samples to attempt a split
+    min_buckets=7,          # minimum samples in each child node
+    max_depth=4,            # maximum tree depth (None = unlimited)
+    test_stat="quadratic",  # "maximum" or "quadratic"
+)
+```
+
+### 5.2 Fitting with sample weights
 
 Sample weights let you model **variable exposures** - per-row
 time-at-risk, insurance policy-years, or frequency weights for
@@ -256,26 +714,7 @@ tree.fit(X, claim_amount, sample_weight=exposure_years)
 predictions = tree.predict(X)
 ```
 
-### Controlling tree depth and node size
-
-`alpha` is the principal knob: it sets the significance threshold for
-every split test, so lowering it produces a terser, more statistically
-conservative tree, and raising it produces a richer, more exploratory
-one. `min_splits`, `min_buckets`, and `max_depth` are secondary safety
-bounds, shared between `RegressionTree` and `ClassificationTree`.
-
-```python
-tree = ClassificationTree(
-    correlation="rank",     # "normal" (Pearson-like) or "rank" (Spearman-like)
-    alpha=0.05,             # significance level for the stopping rule
-    min_splits=20,          # minimum samples to attempt a split
-    min_buckets=7,          # minimum samples in each child node
-    max_depth=4,            # maximum tree depth (None = unlimited)
-    test_stat="quadratic",  # "maximum" or "quadratic"
-)
-```
-
-### Visualizing the tree
+### 5.3 Visualizing the tree
 
 Install the optional visualization extra and the Graphviz system
 binary (`brew install graphviz` on macOS):
@@ -294,7 +733,7 @@ PNG and PDF additionally require `cairosvg`; SVG needs only the
 Graphviz binary. See `to_image` and `export_graphviz` for the full set
 of display options.
 
-### Exporting the tree as a SQL CASE expression
+### 5.4 Exporting the tree as a SQL CASE expression
 
 `to_sql` (and the module-level `sigma.export_sql`) emits a single SQL
 `CASE` expression that reproduces `tree.predict` row-by-row in any
@@ -351,7 +790,7 @@ probability the expression should emit. Unseen categories and `NULL`
 inputs yield `NULL`; wrap in `COALESCE(..., default)` to substitute a
 fallback value.
 
-## Parameters
+## 6 Parameters
 
 The table below is a quick reference; each parameter has a dedicated
 subsection further down with defaults, alternatives, and guidance on
@@ -375,7 +814,7 @@ when to choose each option.
 | `decorator`                       | Per-node decoration callable rendered by `to_text` / `to_image`              |
 | `random_state`                    | RNG seed for permutation resampling, bootstrap CI methods, and plot jitter   |
 
-### `correlation`
+### 6.1 `correlation`
 
 **Default**: `"rank"`.
 
@@ -390,7 +829,7 @@ Score function for the test statistic.
   Spearman-like nonparametric test. Robust to outliers and heavy tails.
   The safe choice for arbitrary real-world data.
 
-### `test_stat`
+### 6.2 `test_stat`
 
 **Default**: `"quadratic"`.
 
@@ -405,7 +844,7 @@ How the multivariate score is aggregated into a scalar test statistic.
   on the direction of association, or when the response is multivariate
   (multi-class classification with many classes).
 
-### `test_type`
+### 6.3 `test_type`
 
 **Default**: `"sidak"`.
 
@@ -426,7 +865,7 @@ stopping rule fires.
   under independence or positive dependence of test statistics. The
   recommended default.
 
-### `alpha`
+### 6.4 `alpha`
 
 **Default**: `0.05`.
 
@@ -442,7 +881,7 @@ accuracy (closer to a full-fledged machine learning model), loosen
 `alpha` to between `0.10` and `0.25`. Tune in concert with
 `max_depth`, `min_splits`, and `min_buckets`.
 
-### `min_splits`
+### 6.5 `min_splits`
 
 **Default**: `20`.
 
@@ -451,7 +890,7 @@ sum falls below this become leaves regardless of p-values. Increase to
 enforce statistical reliability of node-level estimates on smaller
 subsets, decrease to allow finer partitioning.
 
-### `min_buckets`
+### 6.6 `min_buckets`
 
 **Default**: `7`.
 
@@ -459,14 +898,14 @@ Minimum sum of weights in each child node. Splits that would produce a
 child smaller than this are rejected. Together with `min_splits`,
 controls the smallest leaf permitted; raise both for noisier data.
 
-### `max_depth`
+### 6.7 `max_depth`
 
 **Default**: `None` (no limit).
 
 Maximum tree depth. Set to a small integer for shallow, easily interpreted
 trees. Leave `None` to let the p-value stopping rule fully control depth.
 
-### `categorical_features`
+### 6.8 `categorical_features`
 
 **Default**: `None` (all numeric).
 
@@ -478,7 +917,7 @@ categorical feature, Sigma uses exhaustive split enumeration for
 $K \le 10$ and an ordered-merge heuristic for $K > 10$ (see the
 Algorithm section).
 
-### `ci_method` (`RegressionTree` only)
+### 6.9 `ci_method` (`RegressionTree` only)
 
 **Default**: `"bayesian_bootstrap"`.
 
@@ -543,12 +982,13 @@ sample size at the leaf.
   `"normal"` for small effective sample sizes. Choose when
   $n_{\text{eff}}$ is borderline and small-sample coverage matters.
 
-### `ci_method` (`ClassificationTree` only)
+### 6.10 `ci_method` (`ClassificationTree` only)
 
 **Default**: `"jeffreys"`.
 
 Method for the per-class confidence intervals on leaf class
-proportions.
+proportions. In the descriptions below, $n$ denotes the leaf sample
+size and $z$ a standard normal quantile.
 
 - `"agresti_coull"` is the adjusted Wald interval: Wald applied
   after adding $z^2/2$ pseudo-successes and $z^2/2$ pseudo-failures.
@@ -580,7 +1020,7 @@ proportions.
   total weight $w_{\text{total}}$ is small and plain Wilson
   under-covers.
 
-### `ci_coverage`
+### 6.11 `ci_coverage`
 
 **Default**: `0.95`.
 
@@ -591,7 +1031,7 @@ conservative), `0.99` (more conservative). For survival trees, also
 controls the confidence band drawn behind each Kaplan-Meier curve in
 the response plot.
 
-### `transmuter`
+### 6.12 `transmuter`
 
 **Default**: `None`.
 
@@ -606,7 +1046,7 @@ is rejected and the node becomes a leaf. Use cases: survival outcomes
 (Kaplan-Meier-style transformation), rate normalization (impressions
 to click-through rate), de-noising heavy-tailed responses.
 
-### `resamples`
+### 6.13 `resamples`
 
 **Default**: `None`.
 
@@ -615,7 +1055,7 @@ must be a positive integer when monte_carlo is selected; ignored
 otherwise. Typical choices: `1000` for day-to-day production, `10000`
 for paper-grade reproducible adjusted p-values.
 
-### `decorator`
+### 6.14 `decorator`
 
 **Default**: `None`.
 
@@ -627,7 +1067,7 @@ object is stored on the node as `node.decoration` and rendered by
 classification accuracy), business labels (segment names), diagnostic
 statistics.
 
-### `random_state`
+### 6.15 `random_state`
 
 **Default**: `None`.
 
@@ -641,7 +1081,7 @@ for reproducibility; `None` uses an unpredictable seed. Controls:
   (`RegressionTree` only; combined with the leaf index so each leaf
   receives a distinct pattern).
 
-## Algorithm
+## 7 Algorithm
 
 The algorithm builds a decision tree using statistical hypothesis
 testing for unbiased variable selection. Unlike CART, which selects
@@ -657,7 +1097,7 @@ For classification with $J$ classes, $h(Y_i) = e_J(Y_i)$ (one-hot
 encoding of the class label). All test statistics, p-value
 computations, and splitting criteria use the same formulas.
 
-### Step 1: Variable selection and stopping
+### 7.1 Step 1: Variable selection and stopping
 
 Given $n$ observations with response values $Y_i$, covariate values
 $X_{ji}$ (the value of the $j$-th covariate $X_j$ for observation $i$),
@@ -698,7 +1138,7 @@ $O(B \cdot m)$ additional statistic evaluations. Set `resamples` (e.g.,
 1000 or 10000) and optionally `random_state` for reproducibility. All
 three methods are available via the `test_type` parameter.
 
-### Step 2: Binary splitting
+### 7.2 Step 2: Binary splitting
 
 For the selected covariate, the algorithm searches for the binary
 partition $A^*$ that maximizes the two-sample test statistic. Numeric
@@ -709,7 +1149,7 @@ by weighted mean of the first influence function column and only $K - 1$
 contiguous splits are evaluated (provably optimal for regression,
 heuristic for classification).
 
-### Step 3: Recursion and prediction
+### 7.3 Step 3: Recursion and prediction
 
 Case weights are updated to reflect node membership and steps 1-2 are
 repeated recursively on each child node. Terminal nodes predict:
@@ -718,7 +1158,7 @@ repeated recursively on each child node. Terminal nodes predict:
 - **Classification**: the majority class, with class probabilities
   given by the normalized weighted class counts.
 
-## Partykit compatibility
+## 8 Partykit compatibility
 
 Sigma is a pure-Python reimplementation of R's `partykit::ctree` with
 various improvements. Tree shape, split variables, split thresholds,
@@ -760,7 +1200,7 @@ Three deliberate deviations from partykit are worth knowing about:
    `leaves_` and the visual left-vs-right placement of children in
    exported renderings differ.
 
-## References
+## 9 References
 
 - Hothorn, T., & Zeileis, A. (2015). *partykit: A Modular Toolkit for
   Recursive Partytioning in R.* *Journal of Machine Learning
