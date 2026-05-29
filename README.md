@@ -165,18 +165,50 @@ predictions = tree.predict(X)
 
 ### Classification
 
-Fit a classification tree on the **Titanic** dataset:
+Fit a classification tree on the **Titanic** dataset, reproducing the
+tree shown in the Sample Trees section above:
 
 ```python
-import sklearn.datasets
+import pandas
 from sigma import ClassificationTree
 
-bunch = sklearn.datasets.fetch_openml("titanic", version=1, as_frame=True)
-data = bunch.data[["pclass", "sex", "age", "sibsp", "parch", "fare"]].dropna()
-X = data
-y = bunch.target.loc[data.index]
+url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
+titanic = pandas.read_csv(
+    url,
+    usecols=["Pclass", "Sex", "Age", "Embarked", "Survived"],
+    dtype={
+        "Pclass": "int64",
+        "Sex": "object",
+        "Age": "float64",
+        "Embarked": "object",
+        "Survived": "int64",
+    },
+).dropna()
+X = pandas.DataFrame({
+    "Passenger class": pandas.Categorical(
+        titanic["Pclass"].map({1: "1st", 2: "2nd", 3: "3rd"}),
+        categories=["1st", "2nd", "3rd"],
+    ),
+    "Sex": pandas.Categorical(titanic["Sex"], categories=["female", "male"]),
+    "Age": titanic["Age"].astype("float64"),
+    "Port of embarkation": pandas.Categorical(
+        titanic["Embarked"].map({"C": "Cherbourg", "Q": "Queenstown", "S": "Southampton"}),
+        categories=["Cherbourg", "Queenstown", "Southampton"],
+    ),
+})
+y = pandas.Series(
+    pandas.Categorical(
+        titanic["Survived"].map({0: "died", 1: "survived"}),
+        categories=["died", "survived"],
+    ),
+    name="Survived",
+)
 
-tree = ClassificationTree(alpha=0.05, categorical_features=["sex"])
+tree = ClassificationTree(
+    test_type="monte_carlo",
+    resamples=5000,
+    random_state=0,
+)
 tree.fit(X, y)
 predictions = tree.predict(X)
 probabilities = tree.predict_proba(X)
@@ -269,8 +301,31 @@ of display options.
 SQL-92/SQL-99 engine, with no extra dependencies:
 
 ```python
-sql_expression = tree.to_sql(feature_names=["spread", "flag"])
+sql_expression = tree.to_sql()
+print(sql_expression)
 # SELECT id, (<sql_expression>) AS prediction FROM points;
+```
+
+```sql
+CASE
+    WHEN "Passenger class" IN ('1st', '2nd') THEN
+        CASE
+            WHEN "Sex" IN ('female') THEN
+                0.9426751592356688 -- Leaf 6
+            WHEN "Sex" IN ('male') THEN
+                -- ... (deeper splits on "Passenger class" and "Age" omitted)
+            ELSE NULL
+        END
+    WHEN "Passenger class" IN ('3rd') THEN
+        CASE
+            WHEN "Sex" IN ('female') THEN
+                0.46078431372549017 -- Leaf 4
+            WHEN "Sex" IN ('male') THEN
+                0.15019762845849802 -- Leaf 3
+            ELSE NULL
+        END
+    ELSE NULL
+END
 ```
 
 For `ClassificationTree`, pass `target_class=` to pick which class
@@ -530,7 +585,7 @@ to click-through rate), de-noising heavy-tailed responses.
 
 Number of permutations $B$ for `test_type="monte_carlo"`. Required and
 must be a positive integer when monte_carlo is selected; ignored
-otherwise. Typical choices: `999` for day-to-day production, `9999`
+otherwise. Typical choices: `1000` for day-to-day production, `10000`
 for paper-grade reproducible adjusted p-values.
 
 ### `decorator`
@@ -612,7 +667,7 @@ p-value for covariate $j$ is the proportion of permutations where this
 minimum did not exceed the observed $P_j$. This method is more powerful
 than Sidak when covariates are correlated, at the cost of
 $O(B \cdot m)$ additional statistic evaluations. Set `resamples` (e.g.,
-999 or 9999) and optionally `random_state` for reproducibility. All
+1000 or 10000) and optionally `random_state` for reproducibility. All
 three methods are available via the `test_type` parameter.
 
 ### Step 2: Binary splitting
