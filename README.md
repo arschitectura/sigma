@@ -14,7 +14,7 @@ scikit-learn.
 
 Every statistical method in Sigma comes from a [peer-reviewed paper](#references).
 
-## 1 License
+## 1. License
 
 Governed by the [**Sigma License**](./LICENSE.txt). This is a
 source-available license, not OSI-approved open source. Commercial use
@@ -39,7 +39,7 @@ A paid, non-revocable commercial license is available on request;
 contact details are published in `pyproject.toml` and on ArsChitectura
 SAS's [corporate website](https://arschitectura.com/contact/).
 
-## 2 Support
+## 2. Support
 
 Read the [documentation](https://arschitectura.com/products/sigma/).
 
@@ -51,19 +51,19 @@ Have questions, feedback, or need help getting started? We'd love to hear from y
   </a>
 </div>
 
-## 3 Installation
+## 3. Installation
 
 ```bash
 pip install ars-sigma
 ```
 
-## 4 Sample Trees
+## 4. Sample Trees
 
 Six trees fitted on classic datasets. Each subsection shows the fit
 code, the `to_text` rendering, and the rendered tree and response
 images. Click an image to view it at full size.
 
-### 4.1 German Credit (classification)
+### 4.1. German Credit (classification)
 
 Predicting missed-payment probability with a Jeffreys 95% confidence
 interval at each leaf - surfaces checking-account balance, loan
@@ -158,7 +158,7 @@ All records                                                      70.0% (67.1% to
   </tr>
 </table>
 
-### 4.2 Diabetes (regression)
+### 4.2. Diabetes (regression)
 
 Predicting one-year disease progression with a Bayesian-bootstrap 95%
 confidence interval at each leaf - surfaces age, BMI, and HDL
@@ -250,7 +250,7 @@ All records                                  152.1 (145.1 to 159.3)        442  
   </tr>
 </table>
 
-### 4.3 GBSG-2 breast cancer (survival)
+### 4.3. GBSG-2 breast cancer (survival)
 
 Predicting recurrence-free years with a Brookmeyer-Crowley 95%
 confidence interval at each leaf - splits on positive lymph nodes,
@@ -336,7 +336,7 @@ All records                                               4.9 (4.2 to 5.5) 49.2%
   </tr>
 </table>
 
-### 4.4 Titanic (classification)
+### 4.4. Titanic (classification)
 
 Predicting survival probability with a Jeffreys 95% confidence
 interval at each leaf - surfaces passenger class, sex, and age.
@@ -421,7 +421,7 @@ All records                           59.6% (55.9% to 63.1%) 40.4% (36.9% to 44.
   </tr>
 </table>
 
-### 4.5 Insurance (regression)
+### 4.5. Insurance (regression)
 
 Predicting medical insurance charges with a Bayesian-bootstrap 95%
 confidence interval at each leaf - surfaces age, smoking status, and
@@ -523,7 +523,7 @@ All records                             13270 (12648 to 13915)       1338     10
   </tr>
 </table>
 
-### 4.6 IBM Telco Customer Churn (survival)
+### 4.6. IBM Telco Customer Churn (survival)
 
 Predicting time to churn with a Brookmeyer-Crowley 95% confidence
 interval at each leaf - homes in on contract type, internet service,
@@ -672,9 +672,9 @@ All records                                                                     
   </tr>
 </table>
 
-## 5 Advanced usage
+## 5. Advanced usage
 
-### 5.1 Controlling tree depth and node size
+### 5.1. Controlling tree depth and node size
 
 `alpha` is the principal knob: it sets the significance threshold for
 every split test, so lowering it produces a terser, more statistically
@@ -693,7 +693,7 @@ tree = ClassificationTree(
 )
 ```
 
-### 5.2 Fitting with sample weights
+### 5.2. Fitting with sample weights
 
 Sample weights let you model **variable exposures** - per-row
 time-at-risk, insurance policy-years, or frequency weights for
@@ -714,7 +714,7 @@ tree.fit(X, claim_amount, sample_weight=exposure_years)
 predictions = tree.predict(X)
 ```
 
-### 5.3 Visualizing the tree
+### 5.3. Visualizing the tree
 
 Install the optional visualization extra and the Graphviz system
 binary (`brew install graphviz` on macOS):
@@ -733,7 +733,7 @@ PNG and PDF additionally require `cairosvg`; SVG needs only the
 Graphviz binary. See `to_image` and `export_graphviz` for the full set
 of display options.
 
-### 5.4 Exporting the tree as a SQL CASE expression
+### 5.4. Exporting the tree as a SQL CASE expression
 
 `to_sql` (and the module-level `sigma.export_sql`) emits a single SQL
 `CASE` expression that reproduces `tree.predict` row-by-row in any
@@ -790,7 +790,7 @@ probability the expression should emit. Unseen categories and `NULL`
 inputs yield `NULL`; wrap in `COALESCE(..., default)` to substitute a
 fallback value.
 
-## 6 Parameters
+## 6. Parameters
 
 The table below is a quick reference; each parameter has a dedicated
 subsection further down with defaults, alternatives, and guidance on
@@ -814,7 +814,7 @@ when to choose each option.
 | `decorator`                       | Per-node decoration callable rendered by `to_text` / `to_image`              |
 | `random_state`                    | RNG seed for permutation resampling, bootstrap CI methods, and plot jitter   |
 
-### 6.1 `correlation`
+### 6.1. `correlation`
 
 **Default**: `"rank"`.
 
@@ -829,7 +829,7 @@ Score function for the test statistic.
   Spearman-like nonparametric test. Robust to outliers and heavy tails.
   The safe choice for arbitrary real-world data.
 
-### 6.2 `test_stat`
+### 6.2. `test_stat`
 
 **Default**: `"quadratic"`.
 
@@ -844,7 +844,7 @@ How the multivariate score is aggregated into a scalar test statistic.
   on the direction of association, or when the response is multivariate
   (multi-class classification with many classes).
 
-### 6.3 `test_type`
+### 6.3. `test_type`
 
 **Default**: `"sidak"`.
 
@@ -865,7 +865,7 @@ stopping rule fires.
   under independence or positive dependence of test statistics. The
   recommended default.
 
-### 6.4 `alpha`
+### 6.4. `alpha`
 
 **Default**: `0.05`.
 
@@ -881,7 +881,7 @@ accuracy (closer to a full-fledged machine learning model), loosen
 `alpha` to between `0.10` and `0.25`. Tune in concert with
 `max_depth`, `min_splits`, and `min_buckets`.
 
-### 6.5 `min_splits`
+### 6.5. `min_splits`
 
 **Default**: `20`.
 
@@ -890,7 +890,7 @@ sum falls below this become leaves regardless of p-values. Increase to
 enforce statistical reliability of node-level estimates on smaller
 subsets, decrease to allow finer partitioning.
 
-### 6.6 `min_buckets`
+### 6.6. `min_buckets`
 
 **Default**: `7`.
 
@@ -898,14 +898,14 @@ Minimum sum of weights in each child node. Splits that would produce a
 child smaller than this are rejected. Together with `min_splits`,
 controls the smallest leaf permitted; raise both for noisier data.
 
-### 6.7 `max_depth`
+### 6.7. `max_depth`
 
 **Default**: `None` (no limit).
 
 Maximum tree depth. Set to a small integer for shallow, easily interpreted
 trees. Leave `None` to let the p-value stopping rule fully control depth.
 
-### 6.8 `categorical_features`
+### 6.8. `categorical_features`
 
 **Default**: `None` (all numeric).
 
@@ -917,7 +917,7 @@ categorical feature, Sigma uses exhaustive split enumeration for
 $K \le 10$ and an ordered-merge heuristic for $K > 10$ (see the
 Algorithm section).
 
-### 6.9 `ci_method` (`RegressionTree` only)
+### 6.9. `ci_method` (`RegressionTree` only)
 
 **Default**: `"bayesian_bootstrap"`.
 
@@ -982,7 +982,7 @@ sample size at the leaf.
   `"normal"` for small effective sample sizes. Choose when
   $n_{\text{eff}}$ is borderline and small-sample coverage matters.
 
-### 6.10 `ci_method` (`ClassificationTree` only)
+### 6.10. `ci_method` (`ClassificationTree` only)
 
 **Default**: `"jeffreys"`.
 
@@ -1020,7 +1020,7 @@ size and $z$ a standard normal quantile.
   total weight $w_{\text{total}}$ is small and plain Wilson
   under-covers.
 
-### 6.11 `ci_coverage`
+### 6.11. `ci_coverage`
 
 **Default**: `0.95`.
 
@@ -1031,7 +1031,7 @@ conservative), `0.99` (more conservative). For survival trees, also
 controls the confidence band drawn behind each Kaplan-Meier curve in
 the response plot.
 
-### 6.12 `transmuter`
+### 6.12. `transmuter`
 
 **Default**: `None`.
 
@@ -1046,7 +1046,7 @@ is rejected and the node becomes a leaf. Use cases: survival outcomes
 (Kaplan-Meier-style transformation), rate normalization (impressions
 to click-through rate), de-noising heavy-tailed responses.
 
-### 6.13 `resamples`
+### 6.13. `resamples`
 
 **Default**: `None`.
 
@@ -1055,7 +1055,7 @@ must be a positive integer when monte_carlo is selected; ignored
 otherwise. Typical choices: `1000` for day-to-day production, `10000`
 for paper-grade reproducible adjusted p-values.
 
-### 6.14 `decorator`
+### 6.14. `decorator`
 
 **Default**: `None`.
 
@@ -1067,7 +1067,7 @@ object is stored on the node as `node.decoration` and rendered by
 classification accuracy), business labels (segment names), diagnostic
 statistics.
 
-### 6.15 `random_state`
+### 6.15. `random_state`
 
 **Default**: `None`.
 
@@ -1081,7 +1081,7 @@ for reproducibility; `None` uses an unpredictable seed. Controls:
   (`RegressionTree` only; combined with the leaf index so each leaf
   receives a distinct pattern).
 
-## 7 Algorithm
+## 7. Algorithm
 
 The algorithm builds a decision tree using statistical hypothesis
 testing for unbiased variable selection. Unlike CART, which selects
@@ -1097,7 +1097,7 @@ For classification with $J$ classes, $h(Y_i) = e_J(Y_i)$ (one-hot
 encoding of the class label). All test statistics, p-value
 computations, and splitting criteria use the same formulas.
 
-### 7.1 Step 1: Variable selection and stopping
+### 7.1. Step 1: Variable selection and stopping
 
 Given $n$ observations with response values $Y_i$, covariate values
 $X_{ji}$ (the value of the $j$-th covariate $X_j$ for observation $i$),
@@ -1138,7 +1138,7 @@ $O(B \cdot m)$ additional statistic evaluations. Set `resamples` (e.g.,
 1000 or 10000) and optionally `random_state` for reproducibility. All
 three methods are available via the `test_type` parameter.
 
-### 7.2 Step 2: Binary splitting
+### 7.2. Step 2: Binary splitting
 
 For the selected covariate, the algorithm searches for the binary
 partition $A^*$ that maximizes the two-sample test statistic. Numeric
@@ -1149,7 +1149,7 @@ by weighted mean of the first influence function column and only $K - 1$
 contiguous splits are evaluated (provably optimal for regression,
 heuristic for classification).
 
-### 7.3 Step 3: Recursion and prediction
+### 7.3. Step 3: Recursion and prediction
 
 Case weights are updated to reflect node membership and steps 1-2 are
 repeated recursively on each child node. Terminal nodes predict:
@@ -1158,7 +1158,7 @@ repeated recursively on each child node. Terminal nodes predict:
 - **Classification**: the majority class, with class probabilities
   given by the normalized weighted class counts.
 
-## 8 Partykit compatibility
+## 8. Partykit compatibility
 
 Sigma is a pure-Python reimplementation of R's `partykit::ctree` with
 various improvements. Tree shape, split variables, split thresholds,
@@ -1200,7 +1200,7 @@ Three deliberate deviations from partykit are worth knowing about:
    `leaves_` and the visual left-vs-right placement of children in
    exported renderings differ.
 
-## 9 References
+## 9. References
 
 - Hothorn, T., & Zeileis, A. (2015). *partykit: A Modular Toolkit for
   Recursive Partytioning in R.* *Journal of Machine Learning
