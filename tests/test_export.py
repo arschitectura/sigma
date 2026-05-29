@@ -212,7 +212,9 @@ class TestExportText(unittest.TestCase):
         self.assertLess(share_index, p_value_index)
         self.assertLess(p_value_index, leaf_index_index)
 
-    def test_export_text_leaf_index_cell_matches_chart_one_based_value(self):
+    def test_export_text_leaf_index_cell_matches_chart_one_based_value(
+        self,
+    ) -> None:
         """Each leaf row shows leaf_id + 1 in the Leaf index column."""
         regression_tree = _fit_three_step_regression_tree()
         result = sigma.export_text(regression_tree)
