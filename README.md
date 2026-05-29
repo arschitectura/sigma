@@ -244,11 +244,11 @@ All records                                  152.1 (145.1 to 159.3)        442  
   </tr>
 </table>
 
-### 4.3. German Credit (classification)
+### 4.3. GBSG-2 breast cancer (survival)
 
-Predicting missed-payment probability with a Jeffreys 95% confidence
-interval at each leaf - surfaces checking-account balance, loan
-duration, and savings balance.
+Predicting recurrence-free years with a Brookmeyer-Crowley 95%
+confidence interval at each leaf - splits on positive lymph nodes,
+hormone therapy, and progesterone receptor level.
 
 ```python
 import urllib.request
@@ -259,85 +259,76 @@ import scipy.io.arff
 import sigma
 
 urllib.request.urlretrieve(
-    "https://www.openml.org/data/v1/download/31/credit-g.arff",
-    "credit-g.arff",
+    "https://raw.githubusercontent.com/sebp/scikit-survival"
+    "/master/sksurv/datasets/data/GBSG2.arff",
+    "GBSG2.arff",
 )
-arff_data, _ = scipy.io.arff.loadarff("credit-g.arff")
-credit_frame = pandas.DataFrame(arff_data)
-for column in credit_frame.select_dtypes([object]).columns:
-    credit_frame[column] = credit_frame[column].str.decode("utf-8")
-credit_dataframe = credit_frame[[
-    "checking_status", "duration", "credit_amount",
-    "savings_status", "age", "housing", "class",
-]].astype({
-    "checking_status": "category",
-    "duration": "int64",
-    "credit_amount": "int64",
-    "savings_status": "category",
-    "age": "int64",
-    "housing": "category",
-    "class": "category",
-}).dropna()
+arff_data, _ = scipy.io.arff.loadarff("GBSG2.arff")
+breast_cancer_dataframe = pandas.DataFrame(arff_data)
+for column in breast_cancer_dataframe.select_dtypes([object]).columns:
+    breast_cancer_dataframe[column] = breast_cancer_dataframe[column].str.decode("utf-8")
 X = pandas.DataFrame({
-    "Checking account balance": credit_dataframe["checking_status"].cat.rename_categories(
-        {"0<=X<200": "0-200", "no checking": "no account"}
+    "Hormone therapy": breast_cancer_dataframe["horTh"].map(
+        {"no": False, "yes": True}
+    ).astype(bool),
+    "Age": breast_cancer_dataframe["age"].astype("float64"),
+    "Menopausal status": pandas.Categorical(
+        breast_cancer_dataframe["menostat"], categories=["Pre", "Post"]
+    ).rename_categories({"Pre": "pre", "Post": "post"}),
+    "Tumor size": breast_cancer_dataframe["tsize"].astype("float64"),
+    "Tumor grade": pandas.Categorical(
+        breast_cancer_dataframe["tgrade"], categories=["I", "II", "III"]
     ),
-    "Loan duration": credit_dataframe["duration"],
-    "Loan amount": credit_dataframe["credit_amount"],
-    "Savings balance": credit_dataframe["savings_status"].cat.rename_categories({
-        "100<=X<500": "100-500",
-        "500<=X<1000": "500-1000",
-        "no known savings": "no account",
-    }),
-    "Age": credit_dataframe["age"],
-    "Housing": credit_dataframe["housing"],
+    "Positive lymph nodes": breast_cancer_dataframe["pnodes"].astype("float64"),
+    "Progesterone receptor level": breast_cancer_dataframe["progrec"].astype("float64"),
+    "Estrogen receptor level": breast_cancer_dataframe["estrec"].astype("float64"),
 })
-y = pandas.Series(
-    pandas.Categorical(
-        credit_dataframe["class"].map(
-            {"good": "Met all payments", "bad": "Missed payments"}
-        ),
-        categories=["Met all payments", "Missed payments"],
+y = pandas.DataFrame({
+    "recurrence-free years": (
+        breast_cancer_dataframe["time"].astype("float64") / 365.25
     ),
-    name="Payments",
-)
+    "event": breast_cancer_dataframe["cens"].astype("float64"),
+})
 
-tree = sigma.ClassificationTree(
+tree = sigma.SurvivalTree(
     test_type="monte_carlo",
     resamples=5000,
     random_state=0,
     min_splits=20,
     min_buckets=7,
     alpha=0.05,
-    ci_method="jeffreys",
-    reverse_order=True,
+    metrics=("median", ("survival", 5.0, "years")),
 )
 tree.fit(X, y)
 print(tree.to_text(precision=1))
-tree.to_image("png", "german_credit.png", precision=1)
-tree.to_image("png", "german_credit_response.png", kind="response")
+tree.to_image("png", "breast_cancer.png", precision=1)
+tree.to_image("png", "breast_cancer_response.png", kind="response")
 ```
 
 ```
-                                                                Met all payments proba. Missed payments proba. Obs. count Obs. share Split p-value Leaf index
-                                                                ----------------------- ---------------------- ---------- ---------- ------------- ----------
-All records                                                      70.0% (67.1% to 72.8%) 30.0% (27.2% to 32.9%)       1000     100.0%         0.02%
-├── Checking account balance is ">=200" or "no account"          86.9% (83.5% to 89.7%) 13.1% (10.3% to 16.5%)        457      45.7%                        4
-└── Checking account balance is "0-200" or "<0"                  55.8% (51.6% to 59.9%) 44.2% (40.1% to 48.4%)        543      54.3%         0.02%
-    ├── Loan duration <= 21                                      65.4% (59.9% to 70.5%) 34.6% (29.5% to 40.1%)        306      30.6%                        3
-    └── Loan duration > 21                                       43.5% (37.3% to 49.8%) 56.5% (50.2% to 62.7%)        237      23.7%         0.54%
-        ├── Savings balance is ">=1000" or "no account"          70.7% (55.8% to 82.9%) 29.3% (17.1% to 44.2%)         41       4.1%         0.32%
-        │   ├── Checking account balance is "0-200"              91.7% (75.9% to 98.2%)   8.3% (1.8% to 24.1%)         24       2.4%                        5
-        │   └── Checking account balance is "<0"                 41.2% (20.7% to 64.4%) 58.8% (35.6% to 79.3%)         17       1.7%                        2
-        └── Savings balance is "100-500", "500-1000", or "<100"  37.8% (31.2% to 44.7%) 62.2% (55.3% to 68.8%)        196      19.6%                        1
+                                              Median Recurrence-free years    Survival at 5 years Obs. count Obs. share Split p-value Leaf index
+                                              ---------------------------- ---------------------- ---------- ---------- ------------- ----------
+All records                                               4.9 (4.2 to 5.5) 49.2% (44.6% to 53.6%)        686     100.0%         0.02%
+├── Tumor size <= 19                              unknown (5.4 to unknown) 65.6% (55.4% to 73.9%)        135      19.7%         0.04%
+│   ├── Positive lymph nodes <= 2                 unknown (unknown bounds) 80.7% (68.2% to 88.7%)         77      11.2%                        7
+│   └── Positive lymph nodes > 2                          4.7 (2.6 to 5.5) 44.7% (29.2% to 59.1%)         58       8.5%         3.52%
+│       ├── Age > 41                                  5.4 (3.5 to unknown) 54.6% (36.2% to 69.8%)         49       7.1%                        5
+│       └── Age <= 41                                     1.3 (0.7 to 3.2)          0% (0% to 0%)          9       1.3%                        1
+└── Tumor size > 19                                       4.3 (3.7 to 5.0) 44.9% (39.7% to 49.9%)        551      80.3%         0.02%
+    ├── Positive lymph nodes <= 4                     5.7 (4.8 to unknown) 54.7% (47.7% to 61.0%)        332      48.4%         1.10%
+    │   ├── Hormone therapy is true               unknown (5.6 to unknown) 67.7% (56.3% to 76.7%)        114      16.6%                        6
+    │   └── Hormone therapy is false                  4.8 (3.9 to unknown) 47.1% (38.3% to 55.4%)        218      31.8%                        4
+    └── Positive lymph nodes > 4                          2.4 (2.0 to 3.1) 29.9% (22.6% to 37.5%)        219      31.9%         0.10%
+        ├── Progesterone receptor level > 24              4.1 (2.7 to 5.5) 43.8% (31.4% to 55.4%)        107      15.6%                        3
+        └── Progesterone receptor level <= 24             1.7 (1.4 to 2.2) 17.3% (10.0% to 26.3%)        112      16.3%                        2
 ```
 
 <table>
   <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_german_credit.png"><img src="https://arschitectura.com/medias/sigma_german_credit.png" alt="Tree fitted on the German Credit dataset"></a></td>
+    <td><a href="https://arschitectura.com/medias/sigma_breast_cancer.png"><img src="https://arschitectura.com/medias/sigma_breast_cancer.png" alt="Tree fitted on the GBSG-2 breast cancer dataset"></a></td>
   </tr>
   <tr>
-    <td><a href="https://arschitectura.com/medias/sigma_german_credit_response.png"><img src="https://arschitectura.com/medias/sigma_german_credit_response.png" alt="Response plot for the German Credit dataset"></a></td>
+    <td><a href="https://arschitectura.com/medias/sigma_breast_cancer_response.png"><img src="https://arschitectura.com/medias/sigma_breast_cancer_response.png" alt="Response plot for the GBSG-2 breast cancer dataset"></a></td>
   </tr>
 </table>
 
