@@ -5,6 +5,8 @@ Recursive Partitioning: A Conditional Inference Framework," *Journal of
 Computational and Graphical Statistics*, 15(3), 651-674.
 """
 
+# TODO verify the pickling
+
 from ._export import export_graphviz, export_image, export_sql, export_text
 from ._extension import Extension, Leaf
 from ._node import (
