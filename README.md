@@ -409,11 +409,11 @@ print(sql_expression)
 CASE
     WHEN "Passenger class" IN ('1st', '2nd') THEN
         CASE
-            WHEN "Sex" IN ('female') THEN
+            WHEN "Sex" = 'female' THEN
                 0.9426751592356688 -- Leaf 6
-            WHEN "Sex" IN ('male') THEN
+            WHEN "Sex" = 'male' THEN
                 CASE
-                    WHEN "Passenger class" IN ('1st') THEN
+                    WHEN "Passenger class" = '1st' THEN
                         CASE
                             WHEN "Age" <= 53.0 THEN
                                 0.46835443037974683 -- Leaf 5
@@ -421,7 +421,7 @@ CASE
                                 0.13636363636363635 -- Leaf 2
                             ELSE NULL
                         END
-                    WHEN "Passenger class" IN ('2nd') THEN
+                    WHEN "Passenger class" = '2nd' THEN
                         CASE
                             WHEN "Age" <= 12.0 THEN
                                 1.0 -- Leaf 7
@@ -429,26 +429,28 @@ CASE
                                 0.06666666666666667 -- Leaf 1
                             ELSE NULL
                         END
-                    ELSE NULL
+                    ELSE 0.275
                 END
-            ELSE NULL
+            ELSE 0.5686274509803921
         END
-    WHEN "Passenger class" IN ('3rd') THEN
+    WHEN "Passenger class" = '3rd' THEN
         CASE
-            WHEN "Sex" IN ('female') THEN
+            WHEN "Sex" = 'female' THEN
                 0.46078431372549017 -- Leaf 4
-            WHEN "Sex" IN ('male') THEN
+            WHEN "Sex" = 'male' THEN
                 0.15019762845849802 -- Leaf 3
-            ELSE NULL
+            ELSE 0.23943661971830985
         END
-    ELSE NULL
+    ELSE 0.4044943820224719
 END
 ```
 
 For `ClassificationTree`, pass `target_class=` to pick which class
-probability the expression should emit. Unseen categories and `NULL`
-inputs yield `NULL`; wrap in `COALESCE(..., default)` to substitute a
-fallback value.
+probability the expression should emit. Categorical values not seen at
+fit time evaluate to the holding node's prediction, mirroring
+`tree.predict`. `NULL` numerical or boolean inputs fall through to
+`ELSE NULL`; wrap in `COALESCE(..., default)` to substitute a fallback
+value.
 
 ## 6. Parameters
 

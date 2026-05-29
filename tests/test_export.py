@@ -67,6 +67,44 @@ def _fit_categorical_regression_tree():
     return regression_tree
 
 
+def _fit_multi_value_categorical_regression_tree():
+    """Fit a regression tree with a 4-level numeric categorical signal."""
+    rng = numpy.random.default_rng(42)
+    n_per = 30
+    cat = numpy.tile([0.0, 1.0, 2.0, 3.0], n_per)
+    noise = rng.standard_normal(n_per * 4)
+    y = numpy.where(cat < 2.0, 0.0, 10.0) + 0.01 * noise
+    X = numpy.column_stack([cat, noise])
+    regression_tree = sigma._tree_regression.RegressionTree(
+        correlation="normal",
+        categorical_features=[0],
+        min_splits=4,
+        min_buckets=2,
+        alpha=0.05,
+    )
+    regression_tree.fit(X, y)
+    return regression_tree
+
+
+def _fit_mixed_cardinality_categorical_regression_tree():
+    """Fit a regression tree with a 4-level categorical signal split 1-vs-3."""
+    rng = numpy.random.default_rng(42)
+    n_per = 30
+    cat = numpy.tile([0.0, 1.0, 2.0, 3.0], n_per)
+    noise = rng.standard_normal(n_per * 4)
+    y = numpy.where(cat == 0.0, 0.0, 10.0) + 0.01 * noise
+    X = numpy.column_stack([cat, noise])
+    regression_tree = sigma._tree_regression.RegressionTree(
+        correlation="normal",
+        categorical_features=[0],
+        min_splits=4,
+        min_buckets=2,
+        alpha=0.05,
+    )
+    regression_tree.fit(X, y)
+    return regression_tree
+
+
 def _fit_boolean_regression_tree():
     """Fit a regression tree with a bool-dtype DataFrame column."""
     import pandas
@@ -1818,14 +1856,25 @@ class TestExportSql(unittest.TestCase):
         self.assertNotRegex(result, r"\bIF\s*\(")
         self.assertNotRegex(result, r"\bIIF\s*\(")
 
-    def test_export_sql_every_level_has_else_null(self):
-        """Each internal CASE block carries an explicit ELSE NULL clause."""
+    def test_export_sql_numerical_tree_every_level_has_else_null(self):
+        """A numerical-only tree carries ELSE NULL on every internal CASE."""
         regression_tree = _fit_three_step_regression_tree()
         result = sigma.export_sql(regression_tree)
         case_count = result.count("CASE")
         else_null_count = result.count("ELSE NULL")
         self.assertGreater(case_count, 0)
         self.assertEqual(else_null_count, case_count)
+
+    def test_export_sql_categorical_split_else_carries_internal_node_prediction(
+        self,
+    ):
+        """A categorical split's ELSE emits the internal node's prediction."""
+        regression_tree = _fit_categorical_regression_tree()
+        result = sigma.export_sql(regression_tree)
+        root_prediction = regression_tree.content_.prediction
+        expected_literal = repr(float(root_prediction))
+        self.assertIn(f"ELSE {expected_literal}", result)
+        self.assertNotIn("ELSE NULL", result)
 
     def test_export_sql_numerical_split_emits_both_branches(self):
         """A numerical split renders both <= and > as explicit WHEN clauses."""
@@ -1852,14 +1901,27 @@ class TestExportSql(unittest.TestCase):
         self.assertNotIn("= TRUE", result)
         self.assertNotIn("= FALSE", result)
 
-    def test_export_sql_categorical_split_emits_in_clauses(self):
-        """Categorical splits emit both IN (...) clauses with sorted items."""
+    def test_export_sql_single_value_categorical_split_emits_equality(self):
+        """A categorical split routing one value per side emits = v, not IN (v)."""
         regression_tree = _fit_categorical_regression_tree()
         result = sigma.export_sql(regression_tree)
-        in_count = result.count(" IN (")
-        self.assertEqual(in_count, 2)
-        self.assertRegex(result, r'WHEN "X\[0\]" IN \(0\.0\) THEN')
-        self.assertRegex(result, r'WHEN "X\[0\]" IN \(1\.0\) THEN')
+        self.assertNotIn(" IN (", result)
+        self.assertRegex(result, r'WHEN "X\[0\]" = 0\.0 THEN')
+        self.assertRegex(result, r'WHEN "X\[0\]" = 1\.0 THEN')
+
+    def test_export_sql_multi_value_categorical_split_keeps_in_clause(self):
+        """A categorical split routing multiple values to a side keeps IN (...)."""
+        regression_tree = _fit_multi_value_categorical_regression_tree()
+        result = sigma.export_sql(regression_tree)
+        self.assertIn(" IN (", result)
+        self.assertRegex(result, r'WHEN "X\[0\]" IN \([^)]+,[^)]+\) THEN')
+
+    def test_export_sql_mixed_cardinality_split_uses_equality_and_in(self):
+        """A 1-vs-N categorical split uses = on the singleton and IN on the N side."""
+        regression_tree = _fit_mixed_cardinality_categorical_regression_tree()
+        result = sigma.export_sql(regression_tree)
+        self.assertRegex(result, r'WHEN "X\[0\]" = [0-9.]+ THEN')
+        self.assertRegex(result, r'WHEN "X\[0\]" IN \([^,)]+,[^)]+\) THEN')
 
     def test_export_sql_feature_names_double_quoted(self):
         """User-supplied feature_names are emitted as double-quoted identifiers."""
@@ -1898,17 +1960,16 @@ class TestExportSql(unittest.TestCase):
         self.assertIn("'O''Brien'", result)
         self.assertIn("'Smith'", result)
 
-    def test_export_sql_category_labels_string_in_clauses(self):
-        """When category_labels are provided, IN lists hold label strings."""
+    def test_export_sql_category_labels_render_as_equality(self):
+        """When category_labels are provided, singleton sides render = 'label'."""
         regression_tree = _fit_categorical_regression_tree()
         category_labels = {0: {0.0: "low", 1.0: "high"}}
         result = sigma.export_sql(
             regression_tree, category_labels=category_labels
         )
-        self.assertIn("'low'", result)
-        self.assertIn("'high'", result)
-        self.assertNotIn(" IN (0.0)", result)
-        self.assertNotIn(" IN (1.0)", result)
+        self.assertIn("= 'low'", result)
+        self.assertIn("= 'high'", result)
+        self.assertNotIn(" IN (", result)
 
     def test_export_sql_leaf_comments_numbered_one_indexed(self):
         """Each leaf carries a 1-indexed -- Leaf N comment."""
@@ -2124,6 +2185,29 @@ class TestExportSql(unittest.TestCase):
         self.assertEqual(sql_predictions.shape, expected_predictions.shape)
         match_count = int(numpy.sum(sql_predictions == expected_predictions))
         self.assertEqual(match_count, sample_count)
+
+    def test_export_sql_predict_equivalence_with_unobserved_category_via_sqlite(
+        self,
+    ):
+        """An unobserved categorical code yields the internal node's prediction in SQL."""
+        import sqlite3
+
+        regression_tree = _fit_multi_value_categorical_regression_tree()
+        unobserved_X = numpy.array([[99.0, 0.0]])
+        python_prediction = regression_tree.predict(unobserved_X)[0]
+        sql_expression = regression_tree.to_sql(feature_names=["cat", "noise"])
+        connection = sqlite3.connect(":memory:")
+        try:
+            cursor = connection.cursor()
+            cursor.execute('CREATE TABLE points ("cat" REAL, "noise" REAL)')
+            cursor.execute("INSERT INTO points VALUES (?, ?)", (99.0, 0.0))
+            connection.commit()
+            cursor.execute(f"SELECT {sql_expression} FROM points")
+            sql_prediction = cursor.fetchone()[0]
+        finally:
+            connection.close()
+        self.assertIsNotNone(sql_prediction)
+        self.assertEqual(sql_prediction, python_prediction)
 
 
 def _format_sql_numeric(value: float) -> str:

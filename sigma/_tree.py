@@ -1478,10 +1478,11 @@ class Tree(
         The emitted expression routes each input row to its leaf and
         returns the leaf's numeric prediction (regression mean, or
         target_class probability for classification, or the first
-        survival metric value). NULL inputs and unknown categorical
-        values fall through to ELSE NULL, so the result is NULL rather
-        than a silent misprediction. Branch ordering follows
-        tree.reverse_order exactly like to_text and to_image.
+        survival metric value). Categorical values not seen during
+        training evaluate to the holding node's prediction, mirroring
+        predict. Other unmatched inputs (e.g. NULL at a numerical or
+        boolean split) fall through to ELSE NULL. Branch ordering
+        follows tree.reverse_order exactly like to_text and to_image.
 
         Args:
             out_file: Where to write the SQL. When None (the default), the
@@ -1503,9 +1504,9 @@ class Tree(
             category_labels: Optional mapping from a categorical feature
                 (column-name string or integer index) to a dict of
                 {code: label}. When provided (or available via
-                category_labels_in_), the IN (...) lists hold label
-                strings; otherwise they hold the numeric codes stored at
-                fit time.
+                category_labels_in_), categorical comparisons emit
+                label strings; otherwise they emit the numeric codes
+                stored at fit time.
             max_depth: Maximum depth to render, with the root counted as
                 depth 0. When None (the default), the full tree is
                 rendered. When a non-negative integer, subtrees rooted

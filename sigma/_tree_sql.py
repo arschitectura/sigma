@@ -82,13 +82,19 @@ def _build_sql_case(
     )
     indent = "    " * indent_level
     when_indent = "    " * (indent_level + 1)
+    if isinstance(partition, _partition.CategoricalPartition):
+        fallback_value = _leaf_numeric_value(node, target_class_index)
+        fallback_literal = _format_sql_numeric_literal(fallback_value)
+        else_clause = f"{when_indent}ELSE {fallback_literal}"
+    else:
+        else_clause = f"{when_indent}ELSE NULL"
     lines = [
         f"{indent}CASE",
         f"{when_indent}WHEN {left_condition} THEN",
         left_subexpression,
         f"{when_indent}WHEN {right_condition} THEN",
         right_subexpression,
-        f"{when_indent}ELSE NULL",
+        else_clause,
         f"{indent}END",
     ]
     result = "\n".join(lines)
@@ -178,10 +184,16 @@ def _format_sql_split_conditions(
         right_items = [
             _format_sql_category_literal(category) for category in sorted_right
         ]
-    left_listing = ", ".join(left_items)
-    right_listing = ", ".join(right_items)
-    left_condition = f"{feature} IN ({left_listing})"
-    right_condition = f"{feature} IN ({right_listing})"
+    if len(left_items) == 1:
+        left_condition = f"{feature} = {left_items[0]}"
+    else:
+        left_listing = ", ".join(left_items)
+        left_condition = f"{feature} IN ({left_listing})"
+    if len(right_items) == 1:
+        right_condition = f"{feature} = {right_items[0]}"
+    else:
+        right_listing = ", ".join(right_items)
+        right_condition = f"{feature} IN ({right_listing})"
     return (left_condition, right_condition)
 
 

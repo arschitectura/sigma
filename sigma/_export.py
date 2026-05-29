@@ -238,11 +238,12 @@ def export_sql(
     - SurvivalTree: each leaf returns its first metric value (typically
       the median survival).
 
-    A NULL input feature (or a categorical value not observed during
-    training) matches no WHEN clause and falls through to ELSE NULL, so
-    the prediction is NULL rather than a silent misprediction. Branch
-    ordering follows the tree's reverse_order attribute exactly like
-    to_text and to_image.
+    Categorical values not seen during training evaluate to the holding
+    node's prediction, mirroring tree.predict. Other unmatched inputs
+    (e.g. NULL at a numerical or boolean split) fall through to ELSE
+    NULL, so the result is NULL rather than a silent misprediction.
+    Branch ordering follows the tree's reverse_order attribute exactly
+    like to_text and to_image.
 
     Args:
         tree: A fitted Tree estimator (RegressionTree, ClassificationTree,
@@ -269,9 +270,9 @@ def export_sql(
             {code: label}. String keys are resolved against feature_names
             (or feature_names_in_). Merged over category_labels_in_ (set
             at fit time when X has pandas categorical / object columns),
-            with caller-provided keys winning. When labels are known, the
-            IN (...) lists hold label strings; otherwise they hold the
-            numeric codes Sigma stored at fit time.
+            with caller-provided keys winning. When labels are known,
+            categorical comparisons emit label strings; otherwise they
+            emit the numeric codes Sigma stored at fit time.
         max_depth: Maximum depth to render, with the root counted as depth
             0. When None (the default), the full tree is rendered. When a
             non-negative integer, subtrees rooted below this depth are
