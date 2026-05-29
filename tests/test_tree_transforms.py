@@ -288,7 +288,7 @@ class TestTransmuterInternalNodes(unittest.TestCase):
         )
         root_dist = classification_tree.content_.class_distribution
         if root_dist is None:
-            raise AssertionError("Expected non-None class_distribution")
+            raise AssertionError("expected non-None class_distribution")
         numpy.testing.assert_allclose(root_dist[0], 0.5)
         numpy.testing.assert_allclose(root_dist[1], 0.5)
 
