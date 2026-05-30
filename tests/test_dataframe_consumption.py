@@ -46,13 +46,13 @@ class TestResponseNameExtraction(unittest.TestCase):
         """A named classification Series sets ``response_name_in_``."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = pandas.Series(
-            numpy.where(X.ravel() <= 20, 0.0, 1.0), name="Survived"
+            numpy.where(X.ravel() <= 20, 0.0, 1.0), name="Survival"
         )
         classification_tree = sigma._tree_classification.ClassificationTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
-        self.assertEqual(classification_tree.response_name_in_, "Survived")
+        self.assertEqual(classification_tree.response_name_in_, "Survival")
 
     def test_response_name_none_for_numpy_y(self):
         """``response_name_in_`` is ``None`` when ``y`` is a numpy array."""

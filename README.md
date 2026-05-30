@@ -99,7 +99,7 @@ y = pandas.Series(
         titanic_dataframe["Survived"].map({0: "died", 1: "survived"}),
         categories=["died", "survived"],
     ),
-    name="Survived",
+    name="Survival",
 )
 
 tree = sigma.ClassificationTree(

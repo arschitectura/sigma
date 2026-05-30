@@ -228,7 +228,7 @@ def _build_titanic_tree(output_path: str, dpi: int) -> None:
             titanic_dataframe["Survived"].map({0: "died", 1: "survived"}),
             categories=["died", "survived"],
         ),
-        name="Survived",
+        name="Survival",
     )
     classification_tree = sigma.ClassificationTree(
         test_type="monte_carlo",
