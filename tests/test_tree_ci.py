@@ -459,13 +459,13 @@ class TestRegressionTreeBayesianBootstrapCi(unittest.TestCase):
         y = 2.0 * X[:, 0] + rng.standard_normal(n) * 0.5
         tree1 = sigma._tree_regression.RegressionTree(
             correlation="normal",
-            random_state=7,
+            random_state=123,
             min_splits=10,
             min_buckets=5,
         )
         tree2 = sigma._tree_regression.RegressionTree(
             correlation="normal",
-            random_state=7,
+            random_state=123,
             min_splits=10,
             min_buckets=5,
         )
@@ -538,14 +538,14 @@ class TestRegressionTreeBcaCi(unittest.TestCase):
         tree1 = sigma._tree_regression.RegressionTree(
             correlation="normal",
             ci_method="bca",
-            random_state=7,
+            random_state=123,
             min_splits=10,
             min_buckets=5,
         )
         tree2 = sigma._tree_regression.RegressionTree(
             correlation="normal",
             ci_method="bca",
-            random_state=7,
+            random_state=123,
             min_splits=10,
             min_buckets=5,
         )
@@ -725,14 +725,14 @@ class TestRegressionTreeLogNormalGciCi(unittest.TestCase):
         tree1 = sigma._tree_regression.RegressionTree(
             correlation="normal",
             ci_method="log_normal_gci",
-            random_state=7,
+            random_state=123,
             min_splits=10,
             min_buckets=5,
         )
         tree2 = sigma._tree_regression.RegressionTree(
             correlation="normal",
             ci_method="log_normal_gci",
-            random_state=7,
+            random_state=123,
             min_splits=10,
             min_buckets=5,
         )

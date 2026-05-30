@@ -164,7 +164,7 @@ def _build_diabetes_tree(output_path: str, dpi: int) -> None:
     regression_tree = sigma.RegressionTree(
         test_type="monte_carlo",
         resamples=5000,
-        random_state=0,
+        random_state=123,
         reverse_order=True,
     )
     regression_tree.fit(X_diabetes, y_diabetes)
@@ -233,7 +233,7 @@ def _build_titanic_tree(output_path: str, dpi: int) -> None:
     classification_tree = sigma.ClassificationTree(
         test_type="monte_carlo",
         resamples=5000,
-        random_state=0,
+        random_state=123,
     )
     classification_tree.fit(X_titanic, y_titanic)
     text = classification_tree.to_text(precision=1)
@@ -311,7 +311,7 @@ def _build_german_credit_tree(output_path: str, dpi: int) -> None:
     classification_tree = sigma.ClassificationTree(
         test_type="monte_carlo",
         resamples=5000,
-        random_state=0,
+        random_state=123,
         reverse_order=True,
     )
     classification_tree.fit(X_german_credit, y_german_credit)
@@ -374,7 +374,7 @@ def _build_insurance_tree(output_path: str, dpi: int) -> None:
     regression_tree = sigma.RegressionTree(
         test_type="monte_carlo",
         resamples=5000,
-        random_state=0,
+        random_state=123,
         max_depth=4,
         reverse_order=True,
     )
@@ -457,7 +457,7 @@ def _build_breast_cancer_tree(output_path: str, dpi: int) -> None:
     survival_tree = sigma.SurvivalTree(
         test_type="monte_carlo",
         resamples=5000,
-        random_state=0,
+        random_state=123,
         metrics=("median", ("survival", 5.0, "years")),
     )
     survival_tree.fit(X_breast_cancer, y_breast_cancer)
@@ -572,7 +572,7 @@ def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
     survival_tree = sigma.SurvivalTree(
         test_type="monte_carlo",
         resamples=5000,
-        random_state=0,
+        random_state=123,
         max_depth=4,
         metrics=("median", ("survival", 12.0, "months")),
     )

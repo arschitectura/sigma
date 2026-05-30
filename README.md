@@ -63,50 +63,7 @@ Predicting survival probability with a Jeffreys 95% confidence
 interval at each leaf - surfaces passenger class, sex, and age.
 
 ```python
-import pandas
-
-import sigma
-
-titanic_dataframe = pandas.read_csv(
-    "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv",
-    usecols=["Pclass", "Sex", "Age", "Embarked", "Survived"],
-    dtype={
-        "Pclass": "int64",
-        "Sex": "object",
-        "Age": "float64",
-        "Embarked": "object",
-        "Survived": "int64",
-    },
-).dropna()
-X = pandas.DataFrame({
-    "Passenger class": pandas.Categorical(
-        titanic_dataframe["Pclass"].map({1: "1st", 2: "2nd", 3: "3rd"}),
-        categories=["1st", "2nd", "3rd"],
-    ),
-    "Sex": pandas.Categorical(
-        titanic_dataframe["Sex"], categories=["female", "male"]
-    ),
-    "Age": titanic_dataframe["Age"].astype("float64"),
-    "Port of embarkation": pandas.Categorical(
-        titanic_dataframe["Embarked"].map(
-            {"C": "Cherbourg", "Q": "Queenstown", "S": "Southampton"}
-        ),
-        categories=["Cherbourg", "Queenstown", "Southampton"],
-    ),
-})
-y = pandas.Series(
-    pandas.Categorical(
-        titanic_dataframe["Survived"].map({0: "died", 1: "survived"}),
-        categories=["died", "survived"],
-    ),
-    name="Survival",
-)
-
-tree = sigma.ClassificationTree(
-    test_type="monte_carlo",
-    resamples=5000,
-    random_state=0,
-)
+tree = sigma.ClassificationTree(random_state=123)
 tree.fit(X, y)
 print(tree.to_text(precision=1))
 tree.to_image("png", "titanic.png", precision=1)
@@ -147,48 +104,7 @@ confidence interval at each leaf - surfaces age, BMI, and HDL
 cholesterol.
 
 ```python
-import pandas
-import sklearn.datasets
-
-import sigma
-
-diabetes_bunch = sklearn.datasets.load_diabetes(as_frame=True, scaled=False)
-diabetes_frame = diabetes_bunch.frame
-diabetes_data = diabetes_frame[[
-    "age", "sex", "bmi", "bp",
-    "s1", "s2", "s3", "s4", "s5", "s6",
-]].astype({
-    "age": "float64",
-    "sex": "float64",
-    "bmi": "float64",
-    "bp": "float64",
-    "s1": "float64",
-    "s2": "float64",
-    "s3": "float64",
-    "s4": "float64",
-    "s5": "float64",
-    "s6": "float64",
-})
-X = diabetes_data.rename(columns={
-    "age": "Age",
-    "sex": "Sex",
-    "bmi": "BMI",
-    "bp": "Blood pressure",
-    "s1": "Total cholesterol",
-    "s2": "LDL cholesterol",
-    "s3": "HDL cholesterol",
-    "s4": "Total-to-HDL ratio",
-    "s5": "Triglycerides (log)",
-    "s6": "Blood sugar",
-})
-y = diabetes_frame["target"].astype("float64").rename("Disease progression")
-
-tree = sigma.RegressionTree(
-    test_type="monte_carlo",
-    resamples=5000,
-    random_state=0,
-    reverse_order=True,
-)
+tree = sigma.RegressionTree(random_state=123, reverse_order=True)
 tree.fit(X, y)
 print(tree.to_text(precision=1))
 tree.to_image("png", "diabetes.png", orientation="left-to-right", precision=1)
@@ -237,49 +153,8 @@ confidence interval at each leaf - splits on positive lymph nodes,
 hormone therapy, and progesterone receptor level.
 
 ```python
-import urllib.request
-
-import pandas
-import scipy.io.arff
-
-import sigma
-
-urllib.request.urlretrieve(
-    "https://raw.githubusercontent.com/sebp/scikit-survival"
-    "/master/sksurv/datasets/data/GBSG2.arff",
-    "GBSG2.arff",
-)
-arff_data, _ = scipy.io.arff.loadarff("GBSG2.arff")
-breast_cancer_dataframe = pandas.DataFrame(arff_data)
-for column in breast_cancer_dataframe.select_dtypes([object]).columns:
-    breast_cancer_dataframe[column] = breast_cancer_dataframe[column].str.decode("utf-8")
-X = pandas.DataFrame({
-    "Hormone therapy": breast_cancer_dataframe["horTh"].map(
-        {"no": False, "yes": True}
-    ).astype(bool),
-    "Age": breast_cancer_dataframe["age"].astype("float64"),
-    "Menopausal status": pandas.Categorical(
-        breast_cancer_dataframe["menostat"], categories=["Pre", "Post"]
-    ).rename_categories({"Pre": "pre", "Post": "post"}),
-    "Tumor size": breast_cancer_dataframe["tsize"].astype("float64"),
-    "Tumor grade": pandas.Categorical(
-        breast_cancer_dataframe["tgrade"], categories=["I", "II", "III"]
-    ),
-    "Positive lymph nodes": breast_cancer_dataframe["pnodes"].astype("float64"),
-    "Progesterone receptor level": breast_cancer_dataframe["progrec"].astype("float64"),
-    "Estrogen receptor level": breast_cancer_dataframe["estrec"].astype("float64"),
-})
-y = pandas.DataFrame({
-    "recurrence-free years": (
-        breast_cancer_dataframe["time"].astype("float64") / 365.25
-    ),
-    "event": breast_cancer_dataframe["cens"].astype("float64"),
-})
-
 tree = sigma.SurvivalTree(
-    test_type="monte_carlo",
-    resamples=5000,
-    random_state=0,
+    random_state=123,
     metrics=("median", ("survival", 5.0, "years")),
 )
 tree.fit(X, y)

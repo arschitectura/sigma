@@ -352,7 +352,7 @@ class TestTreeMonteCarlo(unittest.TestCase):
             correlation="normal",
             test_type="monte_carlo",
             resamples=99,
-            random_state=0,
+            random_state=123,
             min_splits=2,
             min_buckets=1,
         )
@@ -370,7 +370,7 @@ class TestTreeMonteCarlo(unittest.TestCase):
             correlation="normal",
             test_type="monte_carlo",
             resamples=99,
-            random_state=0,
+            random_state=123,
             min_splits=2,
             min_buckets=1,
         )
@@ -390,7 +390,7 @@ class TestTreeMonteCarlo(unittest.TestCase):
             correlation="normal",
             test_type="monte_carlo",
             resamples=99,
-            random_state=7,
+            random_state=123,
             min_splits=10,
             min_buckets=5,
         )
@@ -398,7 +398,7 @@ class TestTreeMonteCarlo(unittest.TestCase):
             correlation="normal",
             test_type="monte_carlo",
             resamples=99,
-            random_state=7,
+            random_state=123,
             min_splits=10,
             min_buckets=5,
         )
@@ -443,7 +443,7 @@ class TestTreeMonteCarlo(unittest.TestCase):
             correlation="normal",
             test_type="monte_carlo",
             resamples=99,
-            random_state=0,
+            random_state=123,
             min_splits=2,
             min_buckets=1,
             transmuter=identity,
@@ -469,7 +469,7 @@ class TestTreeMonteCarlo(unittest.TestCase):
             correlation="normal",
             test_type="monte_carlo",
             resamples=99,
-            random_state=0,
+            random_state=123,
             min_splits=2,
             min_buckets=1,
             transmuter=constant_y,
@@ -1051,7 +1051,7 @@ class TestPartitionExposesVariableSelectionTriple(unittest.TestCase):
         y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
         tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
-            random_state=0,
+            random_state=123,
         )
         tree.fit(X, y)
         internal_nodes = [
@@ -1094,7 +1094,7 @@ class TestPartitionExposesVariableSelectionTriple(unittest.TestCase):
         tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
             categorical_features=[0],
-            random_state=0,
+            random_state=123,
         )
         tree.fit(X, y)
         internal_nodes = [

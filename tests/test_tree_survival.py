@@ -639,7 +639,7 @@ class TestSurvivalTreeScore(unittest.TestCase):
         """Caps concordance computation at 10,000 rows with a deterministic seed."""
         X, y = self._build_dataset(n=10_500, seed=1)
         estimator = sigma._tree_survival.SurvivalTree(
-            min_buckets=10, max_depth=3, random_state=42
+            min_buckets=10, max_depth=3, random_state=123
         )
         estimator.fit(X, y)
         first = estimator.score(X, y)
