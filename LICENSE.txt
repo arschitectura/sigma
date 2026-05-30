@@ -31,6 +31,11 @@ Key points, in plain language:
   - You MUST preserve attribution (copyright notice, license file, short-form
     Notice to Recipients) on every copy and every Derivative Work, and
     surface the license to every downstream recipient.
+  - Modification of the Software is permitted only as preparation for a
+    Contribution to be merged into the Canonical Repository, on the terms
+    of Section 2(b). A working copy modified for any other purpose is an
+    unauthorized Derivative Work (Section 7.9). See CONTRIBUTING.md for
+    the lifecycle.
   - French law governs. Paris courts have exclusive jurisdiction.
   - NO WARRANTY. Licensor's liability is excluded in full, including
     against class, mass, and collective actions (Section 12). No support,
@@ -65,8 +70,7 @@ examples distributed with the Software; (e) any non-literal structure; and
 (f) any adaptation, translation (including cross-language port),
 transformation, or re-expression of any of the foregoing, in whole or in
 substantial part. Unprotectable ideas, algorithms, procedures, processes,
-systems, and methods of operation are not Protected Expression; see the
-residual-risk disclosure in license-plan.md.
+systems, and methods of operation are not Protected Expression.
 
 "Derivative Work" means any work falling within articles L113-2
 (definitions of oeuvre composite, oeuvre de collaboration, oeuvre
@@ -94,6 +98,35 @@ only by clear and convincing evidence, see Section 9.1); and
 (g) combinations and aggregations containing the Software, regardless of
 whether the parties would otherwise characterize the relationship as
 "aggregation" rather than "derivation".
+
+"Contribution" means any patch, modification, addition, deletion, or
+other proposed change to the Software that Licensee submits to Licensor
+in the form of a Pull Request opened against the Canonical Repository,
+conforming to the procedural requirements set forth in CONTRIBUTING.md.
+A patch submitted to Licensor through any other disclosed Licensor-
+facing channel, including without limitation a patch attached to an
+issue or comment on the Canonical Repository or a CLA-signed diff sent
+through any contact channel disclosed by Licensor from time to time, is
+deemed a Contribution from the moment of its submission; advancement to
+a Pull Request opened against the Canonical Repository is a
+precondition to that Contribution's becoming a Merged Contribution but
+not to its qualifying as a Pending Contribution.
+
+"Pending Contribution" means a Contribution that (i) has been submitted
+to Licensor as set forth in the definition of Contribution, (ii) has
+not yet become a Merged Contribution or a Rejected Contribution, and
+(iii) remains under review or otherwise under active consideration by
+Licensor under the timelines and criteria set forth in CONTRIBUTING.md.
+
+"Merged Contribution" means a Contribution whose substantive content
+has been merged into the active development branch of the Canonical
+Repository through the Pull Request process required by CONTRIBUTING.md.
+
+"Rejected Contribution" means a Contribution that has been (i) closed
+without merge, (ii) withdrawn by the contributor, (iii) declined by
+Licensor, (iv) abandoned by the contributor under the inactivity
+criteria set forth in CONTRIBUTING.md, or (v) otherwise terminated
+without becoming a Merged Contribution.
 
 "AI System" means any artificial intelligence system, machine learning
 model, large language model, neural network, foundation model,
@@ -151,9 +184,18 @@ non-sublicensable license to:
 
 (a) install, run, and use the Software for any lawful purpose, including
     commercial, operational, and production purposes;
-(b) modify the Software and create Derivative Works; and
-(c) Distribute and provide Access Grants of the Software and Derivative
-    Works,
+(b) modify a working copy of the Software (the "Working Copy") solely
+    for the purpose of preparing a Contribution and submitting it
+    through the procedure in CONTRIBUTING.md, on the terms set forth in
+    the Permitted-Contribution Lifecycle below. Any modification of the
+    Software, in any form, that is not tied to a Pending Contribution
+    or a Merged Contribution under this Section 2(b) is an unauthorized
+    Derivative Work and is prohibited under Section 7.9; and
+(c) Distribute and provide Access Grants of the Software. Distribution
+    of a Derivative Work, and the provision of an Access Grant whose
+    subject is a Derivative Work (including without limitation any
+    Pending Contribution or any Working Copy under (b) above), is not
+    authorized,
 
 provided at all times that (i) Attribution Notices are preserved verbatim on
 every copy, Derivative Work, and user-facing surface; (ii) the License is
@@ -166,6 +208,59 @@ modification, Distribution, or Access Grant. No runtime registration,
 click-through, or phone-home is required; the License text is binding
 without registration, and is reproduced in full in the LICENSE.txt file at
 the root of every Distribution.
+
+Permitted-Contribution Lifecycle. The right granted under Section 2(b)
+is conditioned on, and co-terminous with, the lifecycle of the
+underlying Contribution, as follows:
+
+(i) Pending Contribution. While a Contribution remains a Pending
+    Contribution, Licensee may execute and modify the Working Copy
+    that embodies the Contribution for the purpose of testing,
+    debugging, and iterating on the Contribution itself. Licensee may
+    additionally run that Working Copy in a private staging
+    environment to validate the Contribution against realistic data,
+    provided that the environment is accessible exclusively to
+    Licensee's own personnel and contractors who are bound to
+    confidentiality and to the terms of this License. No calendar
+    limit is imposed by this License on the duration of subsection (i)
+    usage other than the active-review window of the underlying
+    Pending Contribution itself. The Working Copy is not Software for
+    any other purpose: it may not be used in production, used to
+    produce work product for any third party, Distributed, or made the
+    subject of an Access Grant. The rights under this subsection (i)
+    endure only while the Contribution remains Pending; they terminate
+    immediately upon the Contribution becoming a Merged Contribution
+    or a Rejected Contribution.
+
+(ii) Merged Contribution. Upon a Contribution becoming a Merged
+     Contribution, the merged code becomes part of the Software in
+     the next release of the Canonical Repository and is from that
+     moment governed by this License like any other part of the
+     Software. Licensee may use the merged code as Software, without
+     any residual obligation specific to its contribution origin.
+
+(iii) Rejected Contribution. Upon a Contribution becoming a Rejected
+      Contribution, Licensee shall, within thirty (30) days from the
+      date of Rejection (subject to Section 13 notice scaling for
+      established Licensees): (1) cease all use of the Working Copy
+      and of any modification, port, paraphrase, or other work derived
+      from it; (2) destroy every copy of the Working Copy and of every
+      Derivative Work derived from the Working Copy in Licensee's
+      possession or control, subject to the non-waivable backup
+      carve-out of Section 11; and (3) not derive any further work
+      from the Working Copy. From the effective date of Rejection, the
+      Working Copy is treated for all purposes of this License as an
+      unauthorized Derivative Work and falls fully within the
+      prohibition of Section 7.9 and the Derivative-Work prohibition
+      of Section 7.2.
+
+(iv) Subsequent Reversal of a Merger. If a Merged Contribution is
+     later reverted upstream by Licensor, the right granted under
+     subsection (ii) with respect to the reverted code terminates
+     prospectively from the date of the revert, and the cease-use,
+     destruction, and prohibition obligations under subsection (iii)
+     apply mutatis mutandis to the reverted code, subject to the same
+     thirty (30)-day window and the same Section 13 notice scaling.
 
 Co-Terminous Clause. Every right granted in this Section 2 with respect to
 a Derivative Work is expressly conditioned upon, and co-terminous with, the
@@ -533,8 +628,8 @@ method, or constructor; any private symbol (whether or not its name
 begins with an underscore); any test code; the contents of any module
 not listed as a public entry point; any algorithm description, design
 note, mathematical derivation, complexity discussion, or rationale prose
-contained in docstrings or documentation; any portion of license-plan.md
-or analogous design documents; or any file taken in bulk (for example, by
+contained in docstrings or documentation; any portion of any analogous
+design document; or any file taken in bulk (for example, by
 attaching, uploading, or auto-context-including the entirety of an
 installed copy of the Software).
 
@@ -683,6 +778,20 @@ stipulation under French law (renversement contractuel de la charge
 de la preuve), enforceable in B2B contexts; in B2C contexts (if any),
 it applies only to the extent permitted by mandatory consumer-
 protection law.
+
+7.9 Modifications outside the Permitted-Contribution lifecycle.
+
+Any modification of the Software, in any form, that is not tied to a
+Pending Contribution or a Merged Contribution under Section 2(b), or
+that having been tied to a Pending Contribution has fallen through to
+Rejected Contribution status under Section 2(b)(iii), is an
+unauthorized Derivative Work for all purposes of this License and falls
+within the prohibition of Section 7.2 above. The Permitted-Contribution
+clause of Section 2(b) is a narrow authorization to modify a Working
+Copy of the Software for the sole purpose of preparing and submitting a
+Contribution; it does not authorize, and shall not be construed to
+authorize, any activity prohibited by Section 7.1, 7.3, 7.4, or 7.5,
+nor any activity prohibited by Sections 6 or 7(a) through 7(e).
 
 8. Machine-Readable Metadata and Opt-Out Signals
 
@@ -856,6 +965,12 @@ eighty (180) days. These periods are stipulated to satisfy article
 L442-1, II Code de commerce (rupture brutale des relations commerciales
 etablies), without converting Section 4 Revocation into a for-cause right.
 
+The notice-scaled transition periods set forth in this Section 13 apply
+equally to the cease-use trigger under Section 2(b)(iii) (Rejected
+Contribution) and Section 2(b)(iv) (reverted Merger), substituting the
+effective date of Rejection or revert for the effective date of
+Revocation as the start of the period.
+
 14. Statutory Termination (Sanctions, Export, Regulatory)
 
 This License terminates automatically, without notice and without
@@ -1003,6 +1118,13 @@ warranty character of this option. The availability of the negotiated
 paid alternative is relied upon to rebut any characterization of this
 License as an unreviewable contrat d'adhesion under article 1171 Code
 civil.
+
+The Permitted-Contribution clause of Section 2(b) is a property of this
+source-available License only. A paid non-revocable commercial license
+under this Section 22 may, at Licensor's discretion, grant a broader
+modification right - including without limitation the right to maintain
+a private fork for vendored-version stability - on terms set forth in
+the commercial license.
 
 23. Governing Law and Jurisdiction
 
@@ -1242,16 +1364,22 @@ are within the definition.
 SCHEDULE 2 - Short-Form Notice to Recipients
 
     NOTICE - SIGMA LIBRARY
+
     This distribution includes Sigma, (c) ArsChitectura SAS. Governed by
     the Sigma License (see LICENSE.txt in this distribution). Includes
     an at-will revocation right running directly from ArsChitectura SAS
     to you, exercisable by notice delivered per Section 4 of the
-    License (email, postal, courier, huissier, any direct or indirect
-    channel, or public announcement on Licensor's organization website
-    or on the Software's project homepage). Licensee shall consult
-    Licensor's organization website and the Software's project homepage
-    at least once every ninety (90) days. Your rights may be terminated
-    at any time by such notice. SPDX: LicenseRef-ArsChitectura-Sigma.
+    License (any means reasonably calculated to apprise you, including
+    email, postal mail, courier, huissier or process-server service,
+    any direct or indirect channel, or public announcement on Licensor's
+    organization website or on the Software's project homepage).
+    Licensee shall consult Licensor's organization website and the
+    Software's project homepage at least once every ninety (90) days.
+    Modification of the Software is permitted only as preparation for a
+    Contribution to the Canonical Repository (see CONTRIBUTING.md); any
+    other modification is an unauthorized Derivative Work. Your rights
+    may be terminated at any time by such notice. SPDX:
+    LicenseRef-ArsChitectura-Sigma.
 
 Required surfaces (non-exhaustive): source-file header of every
 reproduced file; binary manifest or SBOM entry; installer EULA screen

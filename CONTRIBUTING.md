@@ -87,3 +87,85 @@ that You have read and agreed to the CLA in full.
 For trivial fixes (typos, formatting, few-line bugfixes), the CLA still
 applies, but the `Signed-off-by` line in the commit message is considered
 sufficient evidence of agreement.
+
+## Permitted-Contribution Lifecycle
+
+Section 2(b) of `LICENSE.txt` grants You a narrow right to modify a
+working copy of the Software solely as preparation for a Contribution.
+This section documents the lifecycle that Section 2(b) refers to.
+
+### What counts as a Contribution
+
+A Contribution is either:
+
+1. a Pull Request opened against the Canonical Repository
+   (https://github.com/arschitectura/sigma), conforming to this document;
+   or
+2. a patch You submit to ArsChitectura SAS through any other disclosed
+   Licensor-facing channel (an issue comment with a patch, a CLA-signed
+   email diff, or any other disclosed channel). Such a patch is treated
+   as a Contribution from the moment of submission; to become a **Merged
+   Contribution** it must be advanced to a Pull Request opened against
+   the Canonical Repository.
+
+### Status definitions
+
+- **Pending Contribution.** A Contribution that has been submitted and
+  is awaiting review, under active review, or under iteration. While
+  Pending, You may run the modified working copy locally for testing,
+  debugging, and iteration on the Contribution itself, and in a private
+  staging environment for validation against realistic data, subject to
+  the conditions in `LICENSE.txt` Section 2(b)(i). The Pending status
+  endures only while the Contribution remains under active review; see
+  *Abandonment* below.
+- **Merged Contribution.** A Pull Request that has been merged into the
+  active development branch of the Canonical Repository. The merged
+  code becomes part of the Software in the next release and is from
+  then on governed by the Sigma License like any other part of the
+  Software.
+- **Rejected Contribution.** A Contribution that has been (i) closed
+  without merge, (ii) withdrawn by You, (iii) declined by
+  ArsChitectura SAS, (iv) abandoned under the criteria in *Abandonment*
+  below, or (v) otherwise terminated without becoming a Merged
+  Contribution.
+
+### Abandonment
+
+A Pending Contribution becomes Abandoned (and thereby Rejected) on the
+earlier of:
+
+- thirty (30) days of contributor inactivity following a reviewer
+  request for changes, unless ArsChitectura SAS specifies a longer
+  period in the review; or
+- ninety (90) days of contributor inactivity following the most recent
+  visible activity from You on the Pull Request.
+
+A patch submitted through a channel other than a Pull Request (issue
+patch, emailed diff) is Abandoned if it is not advanced to a Pull
+Request within thirty (30) days of its submission, unless
+ArsChitectura SAS specifies a longer period.
+
+### Obligations upon Rejection
+
+Upon a Contribution becoming Rejected (by close, withdrawal, decline,
+or Abandonment), You shall, within thirty (30) days from the date of
+Rejection (or such longer period as Section 13 of `LICENSE.txt` allows
+for established Licensees):
+
+1. cease all use of the modified working copy and of any work derived
+   from it;
+2. destroy every copy of the modified working copy and every Derivative
+   Work derived from it in Your possession or control, subject to the
+   non-waivable backup carve-out of Section 11 of `LICENSE.txt`; and
+3. not derive any further work from the modified working copy.
+
+From the effective date of Rejection, the modified working copy is
+treated as an unauthorized Derivative Work under `LICENSE.txt`
+Section 7.2 and Section 7.9.
+
+### Merged-then-reverted
+
+If a Merged Contribution is later reverted upstream by ArsChitectura
+SAS, the obligations of *Obligations upon Rejection* apply mutatis
+mutandis to the reverted code, with the date of the revert substituted
+for the date of Rejection.

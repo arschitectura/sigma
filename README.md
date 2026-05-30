@@ -28,10 +28,14 @@ least once every ninety (90) days.
 documentation, or any derivative work is prohibited**, excepted to
 generate your own client code that calls Sigma's public API.
 
+Modification of Sigma is permitted only as preparation for a Contribution
+to the Canonical Repository; see [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+for the lifecycle.
+
 External contributors must sign the CLA in [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 before a pull request can be accepted.
 
-If your needs exceeds this, a paid, non-revocable commercial license is available on [request](https://arschitectura.com/contact/).
+If your needs exceed this, a paid, non-revocable commercial license is available on [request](https://arschitectura.com/contact/).
 
 ## 2. Support
 

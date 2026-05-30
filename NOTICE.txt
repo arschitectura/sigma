@@ -9,5 +9,8 @@ courier, huissier or process-server service, any direct or indirect
 channel, or public announcement on Licensor's organization website or
 on the Software's project homepage). Licensee shall consult Licensor's
 organization website and the Software's project homepage at least once
-every ninety (90) days. Your rights may be terminated at any time by
-such notice. SPDX: LicenseRef-ArsChitectura-Sigma.
+every ninety (90) days. Modification of the Software is permitted only
+as preparation for a Contribution to the Canonical Repository (see
+CONTRIBUTING.md); any other modification is an unauthorized Derivative
+Work. Your rights may be terminated at any time by such notice. SPDX:
+LicenseRef-ArsChitectura-Sigma.
