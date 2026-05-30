@@ -22,7 +22,6 @@ def _make_regression_tree(reverse_order: bool = False):
         correlation="normal",
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
         reverse_order=reverse_order,
     )
     regression_tree.fit(X, y)
@@ -37,7 +36,6 @@ def _make_three_step_regression_tree():
         correlation="normal",
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
     )
     regression_tree.fit(X, y)
     return regression_tree
@@ -52,7 +50,6 @@ def _make_classification_tree():
         correlation="normal",
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
     )
     classification_tree.fit(X, y)
     return classification_tree, X, y
@@ -71,7 +68,6 @@ def _make_categorical_regression_tree():
         categorical_features=[0],
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
     )
     regression_tree.fit(X, y)
     return regression_tree, X, y
@@ -566,7 +562,7 @@ class TestLeafBadges(unittest.TestCase):
         X = numpy.ones((10, 1))
         y = numpy.ones(10)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         extension = regression_tree.content_.extension
@@ -613,7 +609,6 @@ class TestLeafBadges(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             reverse_order=True,
         )
         reversed_tree.fit(X, y)
@@ -654,7 +649,6 @@ class TestPlotTreeDecoration(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=decorator,
         )
         regression_tree.fit(X, y)
@@ -666,7 +660,7 @@ class TestPlotTreeDecoration(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         result = regression_tree.to_image("svg")
@@ -775,7 +769,7 @@ class TestBuildDigraphPrecision(unittest.TestCase):
         X = (numpy.arange(1, 41, dtype=float) + 0.25).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20.5, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         digraph = self._graphviz._build_digraph(
@@ -895,7 +889,6 @@ class TestUniformNodeWidths(unittest.TestCase):
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
             self._graphviz._DEFAULT_LEAF_COLORS,
-            uniform_width=None,
         )
         plain_natural = natural_dot.pipe(format="plain").decode("utf-8")
         natural_widths = _content_node_widths(plain_natural)
@@ -922,7 +915,7 @@ class TestUniformNodeWidths(unittest.TestCase):
         X = numpy.ones((10, 1))
         y = numpy.ones(10)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         dot = self._build(regression_tree.content_)

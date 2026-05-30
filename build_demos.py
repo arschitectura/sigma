@@ -165,11 +165,7 @@ def _build_diabetes_tree(output_path: str, dpi: int) -> None:
         test_type="monte_carlo",
         resamples=5000,
         random_state=0,
-        min_splits=20,
-        min_buckets=7,
-        alpha=0.05,
         reverse_order=True,
-        response_sample_size=200,
     )
     regression_tree.fit(X_diabetes, y_diabetes)
     text = regression_tree.to_text(precision=1)
@@ -238,10 +234,6 @@ def _build_titanic_tree(output_path: str, dpi: int) -> None:
         test_type="monte_carlo",
         resamples=5000,
         random_state=0,
-        min_splits=20,
-        min_buckets=7,
-        alpha=0.05,
-        ci_method="jeffreys",
     )
     classification_tree.fit(X_titanic, y_titanic)
     text = classification_tree.to_text(precision=1)
@@ -320,10 +312,6 @@ def _build_german_credit_tree(output_path: str, dpi: int) -> None:
         test_type="monte_carlo",
         resamples=5000,
         random_state=0,
-        min_splits=20,
-        min_buckets=7,
-        alpha=0.05,
-        ci_method="jeffreys",
         reverse_order=True,
     )
     classification_tree.fit(X_german_credit, y_german_credit)
@@ -387,12 +375,8 @@ def _build_insurance_tree(output_path: str, dpi: int) -> None:
         test_type="monte_carlo",
         resamples=5000,
         random_state=0,
-        min_splits=20,
-        min_buckets=7,
         max_depth=4,
-        alpha=0.05,
         reverse_order=True,
-        response_sample_size=200,
     )
     regression_tree.fit(X_insurance, y_insurance)
     text = regression_tree.to_text(precision=0)
@@ -474,9 +458,6 @@ def _build_breast_cancer_tree(output_path: str, dpi: int) -> None:
         test_type="monte_carlo",
         resamples=5000,
         random_state=0,
-        min_splits=20,
-        min_buckets=7,
-        alpha=0.05,
         metrics=("median", ("survival", 5.0, "years")),
     )
     survival_tree.fit(X_breast_cancer, y_breast_cancer)
@@ -592,10 +573,7 @@ def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
         test_type="monte_carlo",
         resamples=5000,
         random_state=0,
-        min_splits=20,
-        min_buckets=7,
         max_depth=4,
-        alpha=0.05,
         metrics=("median", ("survival", 12.0, "months")),
     )
     survival_tree.fit(X_telco, y_telco)

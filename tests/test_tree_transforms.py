@@ -38,7 +38,6 @@ class TestTransmuterRegressionTree(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=shift_y,
             ci_coverage=None,
         )
@@ -63,7 +62,6 @@ class TestTransmuterRegressionTree(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         reg_plain.fit(X, y)
@@ -71,7 +69,6 @@ class TestTransmuterRegressionTree(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=identity,
             ci_coverage=None,
         )
@@ -99,7 +96,6 @@ class TestTransmuterRegressionTree(unittest.TestCase):
             min_splits=4,
             min_buckets=2,
             max_depth=1,
-            alpha=0.05,
             transmuter=keep_alternating,
             ci_coverage=None,
         )
@@ -120,7 +116,6 @@ class TestTransmuterRegressionTree(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=capture,
             ci_coverage=None,
         )
@@ -142,7 +137,6 @@ class TestTransmuterRegressionTree(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=capture,
             ci_coverage=None,
         )
@@ -173,7 +167,6 @@ class TestTransmuterClassificationTree(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=flip_labels,
         )
         classification_tree.fit(X, y)
@@ -197,14 +190,12 @@ class TestTransmuterClassificationTree(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         clf_plain.fit(X, y)
         clf_id = sigma._tree_classification.ClassificationTree(
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=identity,
         )
         clf_id.fit(X, y)
@@ -232,7 +223,6 @@ class TestTransmuterInternalNodes(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=shift_y,
             ci_coverage=None,
         )
@@ -253,7 +243,6 @@ class TestTransmuterInternalNodes(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         regression_tree.fit(X, y)
@@ -279,7 +268,6 @@ class TestTransmuterInternalNodes(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=flip_labels,
         )
         classification_tree.fit(X, y)
@@ -312,7 +300,6 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=constant_y,
             ci_coverage=None,
         )
@@ -334,7 +321,6 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         reg_plain.fit(X, y)
@@ -342,7 +328,6 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=identity,
             ci_coverage=None,
         )
@@ -369,7 +354,6 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=shift_y,
             ci_coverage=None,
         )
@@ -397,7 +381,6 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=constant_class,
         )
         classification_tree.fit(X, y)
@@ -419,7 +402,6 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=double_y,
             ci_coverage=None,
         )
@@ -440,7 +422,6 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         reg_plain.fit(X, y)
@@ -457,7 +438,6 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=add_noise,
             ci_coverage=None,
         )
@@ -479,11 +459,11 @@ class TestRegressionTreeOffset(unittest.TestCase):
         """fit(X, y, offset=None) reproduces the no-offset tree exactly."""
         X, y = _helpers._step_X_y_regression()
         plain = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         plain.fit(X, y)
         with_none = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         with_none.fit(X, y, offset=None)
         numpy.testing.assert_array_equal(plain.predict(X), with_none.predict(X))
@@ -492,11 +472,11 @@ class TestRegressionTreeOffset(unittest.TestCase):
         """offset=0 produces the same tree topology and predictions."""
         X, y = _helpers._step_X_y_regression()
         plain = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         plain.fit(X, y)
         zero_offset = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         zero_offset.fit(X, y, offset=numpy.zeros(len(y)))
         numpy.testing.assert_array_equal(
@@ -508,11 +488,11 @@ class TestRegressionTreeOffset(unittest.TestCase):
         X, y = _helpers._step_X_y_regression()
         baseline = numpy.full(len(y), 7.0)
         on_residual = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         on_residual.fit(X, y - baseline)
         with_offset = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         with_offset.fit(X, y, offset=baseline)
         numpy.testing.assert_array_equal(
@@ -524,7 +504,7 @@ class TestRegressionTreeOffset(unittest.TestCase):
         X, y = _helpers._step_X_y_regression()
         baseline = numpy.full(len(y), 7.0)
         tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         tree.fit(X, y, offset=baseline)
         offset_new = numpy.full(3, 100.0)
@@ -539,7 +519,7 @@ class TestRegressionTreeOffset(unittest.TestCase):
         X, y = _helpers._step_X_y_regression()
         baseline = numpy.full(len(y), 7.0)
         tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         tree.fit(X, y, offset=baseline)
         node_values = numpy.array(
@@ -551,7 +531,7 @@ class TestRegressionTreeOffset(unittest.TestCase):
         """Passing offset with wrong shape raises ValueError."""
         X, y = _helpers._step_X_y_regression()
         tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         with self.assertRaises(ValueError):
             tree.fit(X, y, offset=numpy.zeros(len(y) + 1))
@@ -562,7 +542,7 @@ class TestRegressionTreeOffset(unittest.TestCase):
         bad_offset = numpy.zeros(len(y))
         bad_offset[0] = numpy.nan
         tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         with self.assertRaises(ValueError):
             tree.fit(X, y, offset=bad_offset)
@@ -571,7 +551,7 @@ class TestRegressionTreeOffset(unittest.TestCase):
         """offset = y produces a residual identically zero, hence a leaf."""
         X, y = _helpers._step_X_y_regression()
         tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         tree.fit(X, y, offset=y.copy())
         assert isinstance(tree.content_.extension, sigma._extension.Leaf)
@@ -591,7 +571,6 @@ class TestRegressionTreeOffset(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=transmuter,
             ci_coverage=None,
         )
@@ -610,11 +589,11 @@ class TestClassificationTreeOffset(unittest.TestCase):
         """fit with offset=None reproduces the no-offset tree exactly."""
         X, y = _helpers._step_X_y_classification()
         plain = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         plain.fit(X, y)
         with_none = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         with_none.fit(X, y, offset=None)
         numpy.testing.assert_array_equal(
@@ -628,7 +607,7 @@ class TestClassificationTreeOffset(unittest.TestCase):
         X, y = _helpers._step_X_y_classification()
         uniform = numpy.full((len(y), 2), 0.5)
         tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         tree.fit(X, y, offset=uniform)
         uniform_new = numpy.full((len(y), 2), 0.5)
@@ -644,7 +623,7 @@ class TestClassificationTreeOffset(unittest.TestCase):
         offset = numpy.full((len(y), 2), 0.3)
         offset[:, 1] = 0.7
         tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         tree.fit(X, y, offset=offset)
         proba = tree.predict_proba(X[:5], offset=offset[:5])
@@ -655,7 +634,7 @@ class TestClassificationTreeOffset(unittest.TestCase):
         """Wrong-shape offset at fit raises ValueError."""
         X, y = _helpers._step_X_y_classification()
         tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         with self.assertRaises(ValueError):
             tree.fit(X, y, offset=numpy.full((len(y), 3), 0.33))
@@ -667,7 +646,7 @@ class TestClassificationTreeOffset(unittest.TestCase):
         bad_offset[0, 0] = 0.1
         bad_offset[0, 1] = 0.2
         tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         with self.assertRaises(ValueError):
             tree.fit(X, y, offset=bad_offset)
@@ -679,7 +658,7 @@ class TestClassificationTreeOffset(unittest.TestCase):
         bad_offset[0, 0] = -0.1
         bad_offset[0, 1] = 1.1
         tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         with self.assertRaises(ValueError):
             tree.fit(X, y, offset=bad_offset)
@@ -691,7 +670,7 @@ class TestClassificationTreeOffset(unittest.TestCase):
         offset[:20, 0] = 0.2
         offset[:20, 1] = 0.8
         tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         tree.fit(X, y, offset=offset)
         for leaf in tree.leaves_:
@@ -706,7 +685,7 @@ class TestClassificationTreeOffset(unittest.TestCase):
         offset[:20, 0] = 0.7
         offset[:20, 1] = 0.3
         tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         tree.fit(X, y, offset=offset)
         for leaf in tree.leaves_:
@@ -728,7 +707,6 @@ class TestClassificationTreeOffset(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=transmuter,
         )
         tree.fit(X, y, offset=offset)
@@ -756,12 +734,10 @@ class TestSurvivalTreeOffset(unittest.TestCase):
     def test_offset_none_matches_legacy_fit(self):
         """fit with offset=None reproduces the no-offset tree exactly."""
         X, y = self._make_data()
-        plain = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
-        )
+        plain = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         plain.fit(X, y)
         with_none = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
+            min_splits=10, min_buckets=5
         )
         with_none.fit(X, y, offset=None)
         times_q = numpy.array([0.5, 1.0, 2.0])
@@ -775,9 +751,7 @@ class TestSurvivalTreeOffset(unittest.TestCase):
         X, y = self._make_data()
         n = len(y)
         S_off_fit = numpy.full(n, 0.9)
-        tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
-        )
+        tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         tree.fit(X, y, offset=S_off_fit)
         times_q = numpy.array([0.5, 1.0, 2.0])
         bare = tree.predict_survival_function(X[:3], times_q)
@@ -791,9 +765,7 @@ class TestSurvivalTreeOffset(unittest.TestCase):
         """predict_survival_function without offset returns the bare leaf curve."""
         X, y = self._make_data()
         S_off = numpy.full(len(y), 0.9)
-        tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
-        )
+        tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         tree.fit(X, y, offset=S_off)
         times_q = numpy.array([0.5, 1.0, 2.0])
         bare = tree.predict_survival_function(X[:3], times_q)
@@ -805,9 +777,7 @@ class TestSurvivalTreeOffset(unittest.TestCase):
         """Passing 2D offset at fit raises (must be 1D length n_samples)."""
         X, y = self._make_data()
         n = len(y)
-        tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
-        )
+        tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         with self.assertRaises(ValueError):
             tree.fit(X, y, offset=numpy.full((n, 5), 0.9))
 
@@ -816,9 +786,7 @@ class TestSurvivalTreeOffset(unittest.TestCase):
         X, y = self._make_data()
         bad = numpy.full(len(y), 0.9)
         bad[0] = 1.5
-        tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
-        )
+        tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         with self.assertRaises(ValueError):
             tree.fit(X, y, offset=bad)
 
@@ -827,9 +795,7 @@ class TestSurvivalTreeOffset(unittest.TestCase):
         X, y = self._make_data()
         n = len(y)
         S_off = numpy.full(n, 0.9)
-        tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
-        )
+        tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         tree.fit(X, y, offset=S_off)
         times_q = numpy.array([0.5, 1.0, 2.0])
         with self.assertRaises(ValueError):
@@ -841,9 +807,7 @@ class TestSurvivalTreeOffset(unittest.TestCase):
         """Offset must be non-increasing along the time axis."""
         X, y = self._make_data()
         S_off = numpy.full(len(y), 0.9)
-        tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
-        )
+        tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         tree.fit(X, y, offset=S_off)
         times_q = numpy.array([0.5, 1.0, 2.0])
         bad = numpy.array(
@@ -868,7 +832,6 @@ class TestSurvivalTreeOffset(unittest.TestCase):
         X, y = self._make_data()
         S_off = numpy.full(len(y), 0.9)
         tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal",
             min_splits=10,
             min_buckets=5,
             transmuter=transmuter,
@@ -883,9 +846,7 @@ class TestSurvivalTreeOffset(unittest.TestCase):
     def test_event_grid_attribute_public(self):
         """SurvivalTree exposes event_grid_ as a public attribute."""
         X, y = self._make_data()
-        tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
-        )
+        tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         tree.fit(X, y)
         self.assertTrue(hasattr(tree, "event_grid_"))
         self.assertGreater(len(tree.event_grid_), 0)
@@ -911,7 +872,6 @@ class TestOffsetDecoratorPropagation(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=decorator,
         )
         tree.fit(X, y, offset=baseline)
@@ -935,7 +895,6 @@ class TestOffsetDecoratorPropagation(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=decorator,
         )
         tree.fit(X, y)
@@ -986,9 +945,7 @@ class TestPerfectOffsetReturnsLeaf(unittest.TestCase):
         event = (rng.random(n) < 0.7).astype(float)
         y = numpy.column_stack([time, event])
         offset = numpy.exp(-event)
-        tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
-        )
+        tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         tree.fit(X, y, offset=offset)
         assert isinstance(tree.content_.extension, sigma._extension.Leaf)
 
@@ -1009,7 +966,7 @@ class TestBiasedSubspaceOffset(unittest.TestCase):
         biased = _helpers._biased_quadrant_mask(X)
         offset = numpy.where(biased, 5.0, 0.0)
         tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=10, min_buckets=5, alpha=0.05
+            correlation="normal", min_splits=10, min_buckets=5
         )
         tree.fit(X, y, offset=offset)
         assert isinstance(tree.content_.extension, sigma._partition.Partition)
@@ -1036,7 +993,7 @@ class TestBiasedSubspaceOffset(unittest.TestCase):
         offset[~biased] = numpy.eye(2)[y[~biased]]
         offset[biased] = 0.5
         tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=10, min_buckets=5, alpha=0.05
+            correlation="normal", min_splits=10, min_buckets=5
         )
         tree.fit(X, y, offset=offset)
         assert isinstance(tree.content_.extension, sigma._partition.Partition)
@@ -1062,9 +1019,7 @@ class TestBiasedSubspaceOffset(unittest.TestCase):
         y = numpy.column_stack([time, event])
         biased = _helpers._biased_quadrant_mask(X)
         offset = numpy.where(biased, 1.0, float(numpy.exp(-1.0)))
-        tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5, alpha=0.05
-        )
+        tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         tree.fit(X, y, offset=offset)
         assert isinstance(tree.content_.extension, sigma._partition.Partition)
         split_features = _helpers._collect_split_features(tree.content_)

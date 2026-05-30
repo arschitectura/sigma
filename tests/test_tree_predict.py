@@ -34,7 +34,7 @@ class TestRegressionTreePredict(unittest.TestCase):
         X_train = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y_train = numpy.where(X_train.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X_train, y_train)
         X_test = numpy.arange(1, 11, dtype=float).reshape(-1, 1)
@@ -46,7 +46,7 @@ class TestRegressionTreePredict(unittest.TestCase):
         X_train = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y_train = numpy.where(X_train.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X_train, y_train)
         X_left = numpy.array([[5.0], [10.0]])
@@ -106,7 +106,7 @@ class TestRegressionTreeDiabetes(unittest.TestCase):
         """Achieves R² > 0.30 on diabetes via 5-fold cross-validation."""
         X, y = sklearn.datasets.load_diabetes(return_X_y=True)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=20, min_buckets=7, alpha=0.05
+            correlation="normal"
         )
         # CV fold subsets of the diabetes dataset have >50% unique
         # integer targets, triggering a spurious sklearn warning.
@@ -130,7 +130,7 @@ class TestRegressionTreeDiabetes(unittest.TestCase):
         """Predictions correlate with the target (Pearson r > 0.55)."""
         X, y = sklearn.datasets.load_diabetes(return_X_y=True)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=20, min_buckets=7, alpha=0.05
+            correlation="normal"
         )
         regression_tree.fit(X, y)
         preds = regression_tree.predict(X)
@@ -145,7 +145,7 @@ class TestRegressionTreeDiabetes(unittest.TestCase):
         """Produces a non-trivial tree (not a single leaf)."""
         X, y = sklearn.datasets.load_diabetes(return_X_y=True)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=20, min_buckets=7, alpha=0.05
+            correlation="normal"
         )
         regression_tree.fit(X, y)
         self.assertIsInstance(
@@ -165,7 +165,7 @@ class TestClassificationTreePredict(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         preds = classification_tree.predict(X)
@@ -176,7 +176,7 @@ class TestClassificationTreePredict(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         preds = classification_tree.predict(X)
@@ -189,7 +189,7 @@ class TestClassificationTreePredict(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         proba = classification_tree.predict_proba(X)
@@ -200,7 +200,7 @@ class TestClassificationTreePredict(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         proba = classification_tree.predict_proba(X)
@@ -240,9 +240,6 @@ class TestClassificationTreeIris(unittest.TestCase):
         X, y = sklearn.datasets.load_iris(return_X_y=True)
         classification_tree = sigma._tree_classification.ClassificationTree(
             correlation="normal",
-            min_splits=20,
-            min_buckets=7,
-            alpha=0.05,
         )
         scores = sklearn.model_selection.cross_val_score(
             classification_tree,
@@ -263,9 +260,6 @@ class TestClassificationTreeIris(unittest.TestCase):
         X, y = sklearn.datasets.load_iris(return_X_y=True)
         classification_tree = sigma._tree_classification.ClassificationTree(
             correlation="normal",
-            min_splits=20,
-            min_buckets=7,
-            alpha=0.05,
         )
         scores = sklearn.model_selection.cross_val_score(
             classification_tree,
@@ -286,9 +280,6 @@ class TestClassificationTreeIris(unittest.TestCase):
         X, y = sklearn.datasets.load_iris(return_X_y=True)
         classification_tree = sigma._tree_classification.ClassificationTree(
             correlation="normal",
-            min_splits=20,
-            min_buckets=7,
-            alpha=0.05,
         )
         classification_tree.fit(X, y)
         self.assertIsInstance(
@@ -380,7 +371,6 @@ class TestClassificationTreePredictionOrder(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         classification_tree.fit(X, y)
         import re
@@ -403,7 +393,7 @@ class TestDisplayChildOrder(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         import re
@@ -435,7 +425,6 @@ class TestDisplayChildOrder(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         classification_tree.fit(X, y)
         import re
@@ -475,7 +464,7 @@ class TestRegressionTreePredictIndex(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         indices = regression_tree.predict_index(X)
@@ -487,7 +476,7 @@ class TestRegressionTreePredictIndex(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         indices = regression_tree.predict_index(X)
@@ -500,7 +489,7 @@ class TestRegressionTreePredictIndex(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         indices = regression_tree.predict_index(X)
@@ -541,7 +530,7 @@ class TestClassificationTreePredictIndex(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         indices = classification_tree.predict_index(X)
@@ -553,7 +542,7 @@ class TestClassificationTreePredictIndex(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         indices = classification_tree.predict_index(X)
@@ -569,7 +558,7 @@ class TestClassificationTreePredictIndex(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         indices = classification_tree.predict_index(X)
@@ -607,7 +596,7 @@ class TestLeafId(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         internal_nodes = self._walk_internal_nodes(regression_tree.content_)
@@ -621,7 +610,7 @@ class TestLeafId(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         observed = []
@@ -637,7 +626,7 @@ class TestLeafId(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         indices = regression_tree.predict_index(X)
@@ -662,14 +651,13 @@ class TestLeafId(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         natural_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         natural_tree.fit(X, y)
         reversed_tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             reverse_order=True,
         )
         reversed_tree.fit(X, y)
@@ -694,7 +682,7 @@ class TestNodeId(unittest.TestCase):
             X.ravel() < 20, 0.0, numpy.where(X.ravel() < 60, 5.0, 10.0)
         )
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         return regression_tree
@@ -751,7 +739,6 @@ class TestNodeId(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             reverse_order=True,
         )
         reversed_tree.fit(X, y)
@@ -779,7 +766,7 @@ class TestApply(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         return regression_tree
@@ -843,7 +830,7 @@ class TestDecisionPath(unittest.TestCase):
             X.ravel() < 20, 0.0, numpy.where(X.ravel() < 60, 5.0, 10.0)
         )
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         return regression_tree
@@ -905,7 +892,7 @@ class TestRegressionTreeLeaves(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         tree_leaves = [
@@ -920,7 +907,7 @@ class TestRegressionTreeLeaves(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         total_share = sum(leaf.share for leaf in regression_tree.leaves_)
@@ -931,7 +918,7 @@ class TestRegressionTreeLeaves(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         predictions = [leaf.prediction for leaf in regression_tree.leaves_]
@@ -942,7 +929,7 @@ class TestRegressionTreeLeaves(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         total = sum(leaf.n_samples for leaf in regression_tree.leaves_)
@@ -953,7 +940,7 @@ class TestRegressionTreeLeaves(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         for leaf in regression_tree.leaves_:
@@ -968,7 +955,6 @@ class TestRegressionTreeLeaves(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         regression_tree.fit(X, y)
@@ -981,7 +967,7 @@ class TestRegressionTreeLeaves(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         for leaf in regression_tree.leaves_:
@@ -999,7 +985,7 @@ class TestClassificationTreeLeaves(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         tree_leaves = [
@@ -1014,7 +1000,7 @@ class TestClassificationTreeLeaves(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         total_share = sum(leaf.share for leaf in classification_tree.leaves_)
@@ -1025,7 +1011,7 @@ class TestClassificationTreeLeaves(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         for leaf in classification_tree.leaves_:
@@ -1044,7 +1030,6 @@ class TestClassificationTreeLeaves(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         classification_tree.fit(X, y)
@@ -1072,7 +1057,6 @@ class TestPredictFallbackOnUnknownCategorical(unittest.TestCase):
             categorical_features=[0],
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         tree.fit(X, y)
         return tree
@@ -1089,7 +1073,6 @@ class TestPredictFallbackOnUnknownCategorical(unittest.TestCase):
             categorical_features=[0],
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         tree.fit(X, y)
         return tree
@@ -1105,7 +1088,6 @@ class TestPredictFallbackOnUnknownCategorical(unittest.TestCase):
         X = category.reshape(-1, 1)
         y = numpy.column_stack([time, event])
         tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal",
             categorical_features=[0],
             min_splits=10,
             min_buckets=5,

@@ -106,10 +106,6 @@ tree = sigma.ClassificationTree(
     test_type="monte_carlo",
     resamples=5000,
     random_state=0,
-    min_splits=20,
-    min_buckets=7,
-    alpha=0.05,
-    ci_method="jeffreys",
 )
 tree.fit(X, y)
 print(tree.to_text(precision=1))
@@ -191,11 +187,7 @@ tree = sigma.RegressionTree(
     test_type="monte_carlo",
     resamples=5000,
     random_state=0,
-    min_splits=20,
-    min_buckets=7,
-    alpha=0.05,
     reverse_order=True,
-    response_sample_size=200,
 )
 tree.fit(X, y)
 print(tree.to_text(precision=1))
@@ -288,9 +280,6 @@ tree = sigma.SurvivalTree(
     test_type="monte_carlo",
     resamples=5000,
     random_state=0,
-    min_splits=20,
-    min_buckets=7,
-    alpha=0.05,
     metrics=("median", ("survival", 5.0, "years")),
 )
 tree.fit(X, y)
@@ -338,12 +327,7 @@ bounds, shared between `RegressionTree` and `ClassificationTree`.
 
 ```python
 tree = ClassificationTree(
-    correlation="rank",     # "normal" (Pearson-like) or "rank" (Spearman-like)
-    alpha=0.05,             # significance level for the stopping rule
-    min_splits=20,          # minimum samples to attempt a split
-    min_buckets=7,          # minimum samples in each child node
     max_depth=4,            # maximum tree depth (None = unlimited)
-    test_stat="quadratic",  # "maximum" or "quadratic"
 )
 ```
 
@@ -363,7 +347,7 @@ X = numpy.random.randn(n, 2)
 claim_amount = numpy.where(X[:, 0] > 0, 1500.0, 300.0) + 100 * numpy.random.randn(n)
 exposure_years = numpy.random.uniform(0.1, 2.0, size=n)
 
-tree = RegressionTree(alpha=0.05)
+tree = RegressionTree()
 tree.fit(X, claim_amount, sample_weight=exposure_years)
 predictions = tree.predict(X)
 ```

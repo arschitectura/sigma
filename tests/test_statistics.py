@@ -562,7 +562,6 @@ class TestSelectVariable(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
@@ -590,7 +589,6 @@ class TestSelectVariable(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is None
@@ -616,7 +614,6 @@ class TestSelectVariable(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
@@ -639,7 +636,6 @@ class TestSelectVariable(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.MAXIMUM,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
@@ -667,7 +663,6 @@ class TestSelectVariable(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.MAXIMUM,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
@@ -692,7 +687,6 @@ class TestSelectVariable(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         # With only 3 samples, insufficient evidence
@@ -802,7 +796,6 @@ class TestSelectVariableSidak(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
@@ -830,7 +823,6 @@ class TestSelectVariableSidak(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is None
@@ -860,7 +852,6 @@ class TestSelectVariableBonferroni(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.BONFERRONI,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
@@ -888,7 +879,6 @@ class TestSelectVariableBonferroni(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.BONFERRONI,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is None
@@ -959,8 +949,6 @@ class TestSelectVariableRank(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
-            correlation=sigma._types.Correlation.RANK,
         )
         assert result is not None
         assert result.feature_index == 1
@@ -987,8 +975,6 @@ class TestSelectVariableRank(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
-            correlation=sigma._types.Correlation.RANK,
         )
         assert result_rank is not None
         assert result_rank[0] == 1
@@ -1014,8 +1000,6 @@ class TestSelectVariableRank(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
-            correlation=sigma._types.Correlation.RANK,
         )
         assert result is not None
         assert result[0] == 0
@@ -1154,7 +1138,6 @@ class TestSelectVariableMonteCarlo(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.MONTE_CARLO,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
             resamples=499,
             rng=numpy.random.default_rng(0),
@@ -1184,7 +1167,6 @@ class TestSelectVariableMonteCarlo(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.MONTE_CARLO,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
             resamples=499,
             rng=numpy.random.default_rng(0),
@@ -1241,7 +1223,6 @@ class TestSelectVariableMonteCarlo(unittest.TestCase):
                 feature_types,
                 sigma._types.TestStat.QUADRATIC,
                 sigma._types.TestType.MONTE_CARLO,
-                alpha=0.05,
                 resamples=99,
                 rng=None,
             )
@@ -1260,7 +1241,6 @@ class TestSelectVariableMonteCarlo(unittest.TestCase):
                 feature_types,
                 sigma._types.TestStat.QUADRATIC,
                 sigma._types.TestType.MONTE_CARLO,
-                alpha=0.05,
                 resamples=None,
                 rng=numpy.random.default_rng(0),
             )
@@ -1312,7 +1292,6 @@ class TestSelectVariableReturnsTestInputs(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
@@ -1352,7 +1331,6 @@ class TestSelectVariableReturnsTestInputs(unittest.TestCase):
             feature_types,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
-            alpha=0.05,
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None

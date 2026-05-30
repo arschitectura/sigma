@@ -87,7 +87,6 @@ def _fit_step_regression_tree(**kwargs):
         correlation="normal",
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
         **kwargs,
     )
     regression_tree.fit(X, y)
@@ -102,7 +101,6 @@ def _fit_three_step_regression_tree(**kwargs):
         correlation="normal",
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
         **kwargs,
     )
     regression_tree.fit(X, y)
@@ -125,7 +123,6 @@ def _fit_categorical_regression_tree(X_is_dataframe=False, **kwargs):
         categorical_features=[0] if not X_is_dataframe else ["category"],
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
         **kwargs,
     )
     regression_tree.fit(X, y)

@@ -185,7 +185,7 @@ def select_variable(
     feature_types: numpy.typing.NDArray,
     test_stat: _types.TestStat,
     test_type: _types.TestType,
-    alpha: float,
+    alpha: float = 0.05,
     correlation: _types.Correlation = _types.Correlation.RANK,
     resamples: None | int = None,
     rng: None | numpy.random.Generator = None,

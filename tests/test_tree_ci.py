@@ -31,7 +31,7 @@ class TestRegressionTreeCI(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         nodes = _helpers._collect_nodes(regression_tree.content_)
@@ -44,7 +44,7 @@ class TestRegressionTreeCI(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         nodes = _helpers._collect_nodes(regression_tree.content_)
@@ -64,7 +64,6 @@ class TestRegressionTreeCI(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         regression_tree.fit(X, y)
@@ -78,16 +77,10 @@ class TestRegressionTreeCI(unittest.TestCase):
         X, y = sklearn.datasets.load_diabetes(return_X_y=True)
         reg_90 = sigma._tree_regression.RegressionTree(
             correlation="normal",
-            min_splits=20,
-            min_buckets=7,
-            alpha=0.05,
             ci_coverage=0.90,
         )
         reg_99 = sigma._tree_regression.RegressionTree(
             correlation="normal",
-            min_splits=20,
-            min_buckets=7,
-            alpha=0.05,
             ci_coverage=0.99,
         )
         reg_90.fit(X, y)
@@ -109,7 +102,7 @@ class TestRegressionTreeCI(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         import re
@@ -126,7 +119,7 @@ class TestRegressionTreeCI(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
 
@@ -141,7 +134,6 @@ class TestRegressionTreeCI(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         regression_tree.fit(X, y)
         output = regression_tree.to_text(response_name="Price")
@@ -156,7 +148,6 @@ class TestRegressionTreeCI(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         regression_tree.fit(X, y)
         output = regression_tree.to_text(response_name="price")
@@ -174,7 +165,7 @@ class TestClassificationTreeCI(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         nodes = _helpers._collect_nodes(classification_tree.content_)
@@ -191,7 +182,7 @@ class TestClassificationTreeCI(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         nodes = _helpers._collect_nodes(classification_tree.content_)
@@ -210,7 +201,7 @@ class TestClassificationTreeCI(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         nodes = _helpers._collect_nodes(classification_tree.content_)
@@ -233,7 +224,6 @@ class TestClassificationTreeCI(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         classification_tree.fit(X, y)
@@ -250,14 +240,12 @@ class TestClassificationTreeCI(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=0.90,
         )
         clf_99 = sigma._tree_classification.ClassificationTree(
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=0.99,
         )
         clf_90.fit(X, y)
@@ -281,7 +269,6 @@ class TestClassificationTreeCI(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         classification_tree.fit(X, y)
         import re
@@ -447,7 +434,6 @@ class TestRegressionTreeCiMethod(unittest.TestCase):
                 correlation="normal",
                 min_splits=2,
                 min_buckets=1,
-                alpha=0.05,
                 ci_method=method,
             )
             regression_tree.fit(X, y)
@@ -473,14 +459,12 @@ class TestRegressionTreeBayesianBootstrapCi(unittest.TestCase):
         y = 2.0 * X[:, 0] + rng.standard_normal(n) * 0.5
         tree1 = sigma._tree_regression.RegressionTree(
             correlation="normal",
-            ci_method="bayesian_bootstrap",
             random_state=7,
             min_splits=10,
             min_buckets=5,
         )
         tree2 = sigma._tree_regression.RegressionTree(
             correlation="normal",
-            ci_method="bayesian_bootstrap",
             random_state=7,
             min_splits=10,
             min_buckets=5,
@@ -1202,7 +1186,6 @@ class TestClassificationTreeCiMethod(unittest.TestCase):
                 correlation="normal",
                 min_splits=2,
                 min_buckets=1,
-                alpha=0.05,
                 ci_method=method,
             )
             classification_tree.fit(X, y)

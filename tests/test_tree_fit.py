@@ -31,7 +31,7 @@ class TestRegressionTreeFit(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         partition = regression_tree.content_.extension
@@ -52,7 +52,6 @@ class TestRegressionTreeFit(unittest.TestCase):
             max_depth=1,
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         regression_tree.fit(X, y)
         extension = regression_tree.content_.extension
@@ -99,7 +98,7 @@ class TestRegressionTreeFit(unittest.TestCase):
         X = numpy.arange(1, 11, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 5, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=20, min_buckets=1
+            correlation="normal", min_buckets=1
         )
         regression_tree.fit(X, y)
         assert isinstance(
@@ -119,7 +118,6 @@ class TestRegressionTreeFit(unittest.TestCase):
             categorical_features=[0],
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         regression_tree.fit(X, y)
         partition = regression_tree.content_.extension
@@ -142,7 +140,6 @@ class TestRegressionTreeFit(unittest.TestCase):
             categorical_features=[0],
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         regression_tree.fit(X, y)
         partition = regression_tree.content_.extension
@@ -162,7 +159,6 @@ class TestRegressionTreeFit(unittest.TestCase):
             categorical_features=["category"],
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         regression_tree.fit(X, y)
         numpy.testing.assert_array_equal(
@@ -437,7 +433,7 @@ class TestToTextPrecision(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         return classification_tree
@@ -450,7 +446,7 @@ class TestToTextPrecision(unittest.TestCase):
         flip = rng.random(80) < 0.2
         y = numpy.where(flip, 1.0 - base, base)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         return classification_tree
@@ -466,7 +462,7 @@ class TestToTextPrecision(unittest.TestCase):
         X = (numpy.arange(1, 41, dtype=float) + 0.25).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20.5, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         output = self._capture(regression_tree, precision=5)
@@ -477,7 +473,7 @@ class TestToTextPrecision(unittest.TestCase):
         X = (numpy.arange(1, 41, dtype=float) * 1e7 + 0.5).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20.5 * 1e7, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         import re
@@ -541,7 +537,7 @@ class TestClassificationTreeFit(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         partition = classification_tree.content_.extension
@@ -555,7 +551,7 @@ class TestClassificationTreeFit(unittest.TestCase):
         X = numpy.arange(n, dtype=float).reshape(-1, 1)
         y = numpy.repeat([0.0, 1.0, 2.0], n // 3)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         assert isinstance(
@@ -619,7 +615,6 @@ class TestTreeCategoricalFormat(unittest.TestCase):
             categorical_features=[0],
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         regression_tree.fit(X, y)
         output = regression_tree.to_text()

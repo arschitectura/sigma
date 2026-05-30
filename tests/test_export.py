@@ -30,7 +30,6 @@ def _fit_step_regression_tree(reverse_order: bool = False):
         correlation="normal",
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
         reverse_order=reverse_order,
     )
     regression_tree.fit(X, y)
@@ -42,7 +41,7 @@ def _fit_three_step_regression_tree():
     X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
     y = numpy.where(X.ravel() < 20, 0.0, numpy.where(X.ravel() < 60, 5.0, 10.0))
     regression_tree = sigma._tree_regression.RegressionTree(
-        correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+        correlation="normal", min_splits=2, min_buckets=1
     )
     regression_tree.fit(X, y)
     return regression_tree
@@ -61,7 +60,6 @@ def _fit_categorical_regression_tree():
         categorical_features=[0],
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
     )
     regression_tree.fit(X, y)
     return regression_tree
@@ -80,7 +78,6 @@ def _fit_multi_value_categorical_regression_tree():
         categorical_features=[0],
         min_splits=4,
         min_buckets=2,
-        alpha=0.05,
     )
     regression_tree.fit(X, y)
     return regression_tree
@@ -99,7 +96,6 @@ def _fit_mixed_cardinality_categorical_regression_tree():
         categorical_features=[0],
         min_splits=4,
         min_buckets=2,
-        alpha=0.05,
     )
     regression_tree.fit(X, y)
     return regression_tree
@@ -119,7 +115,6 @@ def _fit_boolean_regression_tree():
         correlation="normal",
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
     )
     regression_tree.fit(X, y)
     return regression_tree
@@ -351,7 +346,6 @@ class TestExportText(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=lambda *args: "stratum=A",
         )
         decorated_tree.fit(X, y)
@@ -585,7 +579,6 @@ def _fit_step_classification_tree(reverse_order: bool = False):
         correlation="normal",
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
         reverse_order=reverse_order,
     )
     classification_tree.fit(X, y)
@@ -599,12 +592,9 @@ def _fit_step_survival_tree(reverse_order: bool = False):
     y = numpy.column_stack([times, events])
     X = numpy.column_stack([numpy.repeat([0.0, 1.0], 30)])
     survival_tree = sigma._tree_survival.SurvivalTree(
-        correlation="normal",
         categorical_features=[0],
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
-        metrics=("median",),
         reverse_order=reverse_order,
     )
     survival_tree.fit(X, y)
@@ -619,7 +609,6 @@ def _fit_regression_tree_no_ci():
         correlation="normal",
         min_splits=2,
         min_buckets=1,
-        alpha=0.05,
         ci_coverage=None,
     )
     regression_tree.fit(X, y)
@@ -1166,13 +1155,10 @@ class TestExportImageResponse(unittest.TestCase):
         y = numpy.column_stack([times, events])
         X = numpy.column_stack([numpy.repeat([0.0, 1.0], 30)])
         survival_tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal",
             categorical_features=[0],
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
-            metrics=("median",),
         )
         survival_tree.fit(X, y)
         figure = matplotlib.figure.Figure()
@@ -1504,7 +1490,6 @@ class TestExportImageResponse(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         no_ci_tree.fit(X, y)
@@ -1657,12 +1642,8 @@ class TestExportImageResponse(unittest.TestCase):
         if not _HAS_GRAPHVIZ:
             self.skipTest("graphviz not installed")
         regression_tree = _fit_step_regression_tree()
-        tree_low = sigma.export_image(
-            regression_tree, "svg", kind="tree", dpi=72
-        )
-        tree_high = sigma.export_image(
-            regression_tree, "svg", kind="tree", dpi=600
-        )
+        tree_low = sigma.export_image(regression_tree, "svg", dpi=72)
+        tree_high = sigma.export_image(regression_tree, "svg", dpi=600)
         response_low = sigma.export_image(
             regression_tree, "svg", kind="response", dpi=72
         )
@@ -1878,7 +1859,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_numerical_split_emits_both_branches(self):
         """A numerical split renders both <= and > as explicit WHEN clauses."""
-        regression_tree = _fit_step_regression_tree(reverse_order=False)
+        regression_tree = _fit_step_regression_tree()
         result = sigma.export_sql(regression_tree, feature_names=["spread"])
         self.assertIn('WHEN "spread" <= 20 THEN', result)
         self.assertIn('WHEN "spread" > 20 THEN', result)
@@ -2073,7 +2054,7 @@ class TestExportSql(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, "low", "high")
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         low_index = list(classification_tree.classes_).index("low")
@@ -2105,7 +2086,7 @@ class TestExportSql(unittest.TestCase):
         constant_x = numpy.zeros((10, 1), dtype=float)
         constant_y = numpy.ones(10, dtype=float)
         single_leaf_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         single_leaf_tree.fit(constant_x, constant_y)
         result = single_leaf_tree.to_sql()
@@ -2157,7 +2138,6 @@ class TestExportSql(unittest.TestCase):
             categorical_features=["region"],
             min_splits=10,
             min_buckets=5,
-            alpha=0.05,
         )
         regression_tree.fit(X, y)
         expected_predictions = regression_tree.predict(X)

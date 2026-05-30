@@ -66,7 +66,6 @@ class TestSampleWeight(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         regression_tree.fit(X, y, sample_weight=weights)
@@ -81,14 +80,12 @@ class TestSampleWeight(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         reg_weighted = sigma._tree_regression.RegressionTree(
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         reg_default.fit(X, y)
@@ -110,14 +107,12 @@ class TestSampleWeight(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         reg_weighted = sigma._tree_regression.RegressionTree(
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         reg_expanded.fit(X_expanded, y_expanded)
@@ -178,9 +173,7 @@ class TestSampleWeight(unittest.TestCase):
         weights = numpy.full(10, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
-            min_splits=20,
             min_buckets=1,
-            alpha=0.05,
             ci_coverage=None,
         )
         regression_tree.fit(X, y, sample_weight=weights)
@@ -194,7 +187,7 @@ class TestSampleWeight(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = rng.standard_normal(40)
         reg_uniform = sigma._tree_regression.RegressionTree(
-            correlation="normal", alpha=0.0, ci_coverage=0.95
+            correlation="normal", alpha=0.0
         )
         reg_uniform.fit(X, y)
         assert reg_uniform.content_.ci_high is not None
@@ -205,7 +198,7 @@ class TestSampleWeight(unittest.TestCase):
         weights = numpy.ones(40)
         weights[0] = 1000.0
         reg_heavy = sigma._tree_regression.RegressionTree(
-            correlation="normal", alpha=0.0, ci_coverage=0.95
+            correlation="normal", alpha=0.0
         )
         reg_heavy.fit(X, y, sample_weight=weights)
         assert reg_heavy.content_.ci_high is not None
@@ -233,7 +226,6 @@ class TestSideData(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=identity,
             ci_coverage=None,
         )
@@ -254,7 +246,6 @@ class TestSideData(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=capture,
             ci_coverage=None,
         )
@@ -281,7 +272,6 @@ class TestSideData(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=capture,
             ci_coverage=None,
         )
@@ -306,7 +296,6 @@ class TestSideData(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=capture_all,
             ci_coverage=None,
         )
@@ -342,7 +331,6 @@ class TestSideData(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=decorator,
         )
         regression_tree.fit(X, y, side_data=side_data)
@@ -367,7 +355,6 @@ class TestTreeMonteCarlo(unittest.TestCase):
             random_state=0,
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         regression_tree.fit(X, y)
         assert isinstance(
@@ -386,7 +373,6 @@ class TestTreeMonteCarlo(unittest.TestCase):
             random_state=0,
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         classification_tree.fit(X, y)
         assert isinstance(
@@ -460,7 +446,6 @@ class TestTreeMonteCarlo(unittest.TestCase):
             random_state=0,
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=identity,
             ci_coverage=None,
         )
@@ -487,7 +472,6 @@ class TestTreeMonteCarlo(unittest.TestCase):
             random_state=0,
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=constant_y,
             ci_coverage=None,
         )
@@ -507,7 +491,7 @@ class TestTreeDecorator(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         nodes = _helpers._collect_nodes(regression_tree.content_)
@@ -529,7 +513,6 @@ class TestTreeDecorator(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=decorator,
         )
         regression_tree.fit(X, y)
@@ -568,7 +551,6 @@ class TestTreeDecorator(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=identity_transmuter,
             decorator=decorator,
         )
@@ -600,7 +582,6 @@ class TestTreeDecorator(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=decorator,
         )
         regression_tree.fit(X, y, sample_weight=sample_weight)
@@ -622,7 +603,6 @@ class TestTreeDecorator(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=decorator,
         )
         regression_tree.fit(X, y)
@@ -651,7 +631,6 @@ class TestTreeDecorator(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             transmuter=shift_transmuter,
             decorator=decorator,
         )
@@ -673,7 +652,6 @@ class TestTreeDecorator(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=decorator,
         )
         regression_tree.fit(X, y)
@@ -702,7 +680,6 @@ class TestTreeDecorator(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=decorator,
         )
         regression_tree.fit(X, y)
@@ -727,7 +704,6 @@ class TestTreeDecorator(unittest.TestCase):
             correlation="normal",
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
             decorator=decorator,
         )
         regression_tree.fit(X, y)
@@ -824,7 +800,7 @@ class TestNonFiniteRendering(unittest.TestCase):
         y = numpy.column_stack([time, event])
         X = rng.uniform(0.0, 1.0, (n, 1))
         survival_tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal", min_splits=10, min_buckets=5
+            min_splits=10, min_buckets=5
         )
         survival_tree.fit(X, y)
         output = survival_tree.to_text()
@@ -1075,9 +1051,6 @@ class TestPartitionExposesVariableSelectionTriple(unittest.TestCase):
         y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
         tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
-            test_stat="quadratic",
-            test_type="sidak",
-            alpha=0.05,
             random_state=0,
         )
         tree.fit(X, y)
@@ -1120,9 +1093,6 @@ class TestPartitionExposesVariableSelectionTriple(unittest.TestCase):
         X = categories.reshape(-1, 1)
         tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
-            test_stat="quadratic",
-            test_type="sidak",
-            alpha=0.05,
             categorical_features=[0],
             random_state=0,
         )

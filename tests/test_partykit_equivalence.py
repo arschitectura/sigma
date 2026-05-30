@@ -32,9 +32,7 @@ class TestRegressionTreePartykitEquivalence(unittest.TestCase):
         y = frame["Ozone"].to_numpy(dtype=float)
         # correlation="normal" mirrors partykit's raw-value scoring;
         # test_type="sidak" matches partykit's "Bonferroni" (Sidak formula).
-        estimator = sigma._tree_regression.RegressionTree(
-            correlation="normal", test_type="sidak"
-        )
+        estimator = sigma._tree_regression.RegressionTree(correlation="normal")
         # Ozone has many unique values, which makes sklearn's type_of_target
         # emit a "could represent a regression problem" UserWarning even
         # though RegressionTree is the right place to be.
@@ -81,7 +79,7 @@ class TestClassificationTreePartykitEquivalence(unittest.TestCase):
         # correlation="normal" mirrors partykit's raw-value scoring;
         # test_type="sidak" matches partykit's "Bonferroni" (Sidak formula).
         estimator = sigma._tree_classification.ClassificationTree(
-            correlation="normal", test_type="sidak"
+            correlation="normal"
         )
         estimator.fit(X, y)
         root = estimator.content_

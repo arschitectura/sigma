@@ -361,7 +361,6 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
             min_splits=10,
             min_buckets=5,
             max_depth=2,
-            metrics=("median",),
         )
         estimator.fit(X, y)
         output = estimator.to_text(
@@ -458,7 +457,6 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
             min_splits=10,
             min_buckets=5,
             max_depth=2,
-            metrics=("median",),
         )
         baseline.fit(X, y)
         expected = baseline.predict(X)
@@ -570,7 +568,7 @@ class TestSurvivalTreeScore(unittest.TestCase):
         X = (-time).reshape(-1, 1)
         y = numpy.column_stack([time, event])
         estimator = sigma._tree_survival.SurvivalTree(
-            alpha=1.0, min_splits=2, min_buckets=1, max_depth=None
+            alpha=1.0, min_splits=2, min_buckets=1
         )
         estimator.fit(X, y)
         score = estimator.score(X, y)
@@ -641,7 +639,7 @@ class TestSurvivalTreeScore(unittest.TestCase):
         """Caps concordance computation at 10,000 rows with a deterministic seed."""
         X, y = self._build_dataset(n=10_500, seed=1)
         estimator = sigma._tree_survival.SurvivalTree(
-            min_splits=20, min_buckets=10, max_depth=3, random_state=42
+            min_buckets=10, max_depth=3, random_state=42
         )
         estimator.fit(X, y)
         first = estimator.score(X, y)

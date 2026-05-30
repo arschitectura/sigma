@@ -37,7 +37,7 @@ class TestResponseNameExtraction(unittest.TestCase):
             numpy.where(X.ravel() <= 20, 0.0, 10.0), name="Charges"
         )
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertEqual(regression_tree.response_name_in_, "Charges")
@@ -49,7 +49,7 @@ class TestResponseNameExtraction(unittest.TestCase):
             numpy.where(X.ravel() <= 20, 0.0, 1.0), name="Survived"
         )
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         self.assertEqual(classification_tree.response_name_in_, "Survived")
@@ -59,7 +59,7 @@ class TestResponseNameExtraction(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertIsNone(regression_tree.response_name_in_)
@@ -69,7 +69,7 @@ class TestResponseNameExtraction(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = pandas.Series(numpy.where(X.ravel() <= 20, 0.0, 10.0))
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertIsNone(regression_tree.response_name_in_)
@@ -81,7 +81,7 @@ class TestResponseNameExtraction(unittest.TestCase):
             numpy.where(X.ravel() <= 20, 0.0, 10.0), name="Charges"
         )
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         output = regression_tree.to_text()
@@ -95,7 +95,7 @@ class TestResponseNameExtraction(unittest.TestCase):
             numpy.where(X.ravel() <= 20, 0.0, 10.0), name="Charges"
         )
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         output = regression_tree.to_text(response_name="Premium")
@@ -111,12 +111,9 @@ class TestResponseNameExtraction(unittest.TestCase):
         y = pandas.DataFrame({"Months": times, "event": events})
         X = numpy.column_stack([numpy.repeat([0.0, 1.0], 30)])
         survival_tree = sigma._tree_survival.SurvivalTree(
-            correlation="normal",
             categorical_features=[0],
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
-            metrics=("median",),
         )
         survival_tree.fit(X, y)
         self.assertEqual(survival_tree.response_name_in_, "Months")
@@ -132,7 +129,7 @@ class TestClassNamesFallback(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, "died", "survived")
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         output = classification_tree.to_text()
@@ -144,7 +141,7 @@ class TestClassNamesFallback(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, "died", "survived")
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         output = classification_tree.to_text(class_names=["alpha", "beta"])
@@ -164,7 +161,7 @@ class TestClassNamesFallback(unittest.TestCase):
             )
         )
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         numpy.testing.assert_array_equal(
@@ -178,7 +175,7 @@ class TestClassNamesFallback(unittest.TestCase):
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         classification_tree.fit(X, y)
         output = classification_tree.to_text()
@@ -207,7 +204,7 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame({"color": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertEqual(
@@ -227,7 +224,7 @@ class TestCategoricalAutoDetection(unittest.TestCase):
             }
         )
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertEqual(
@@ -242,7 +239,7 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame({"color": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         partition = regression_tree.content_.extension
@@ -262,7 +259,7 @@ class TestCategoricalAutoDetection(unittest.TestCase):
             }
         )
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertEqual(
@@ -277,7 +274,7 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame({"color": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertEqual(
@@ -296,7 +293,7 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         )
         y = rng.standard_normal(n)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertIsNone(regression_tree.category_labels_in_)
@@ -308,7 +305,7 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame({"color": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         output = regression_tree.to_text()
@@ -319,7 +316,7 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame({"color": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         output = regression_tree.to_text(
@@ -344,7 +341,6 @@ class TestCategoricalAutoDetection(unittest.TestCase):
             categorical_features=["category"],
             min_splits=2,
             min_buckets=1,
-            alpha=0.05,
         )
         regression_tree.fit(X, y)
         self.assertEqual(
@@ -357,7 +353,7 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame({"color": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         predictions = regression_tree.predict(X)
@@ -383,7 +379,7 @@ class TestBooleanColumnDetection(unittest.TestCase):
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame({"flag": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertEqual(
@@ -401,7 +397,7 @@ class TestBooleanColumnDetection(unittest.TestCase):
             }
         )
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertEqual(
@@ -414,7 +410,7 @@ class TestBooleanColumnDetection(unittest.TestCase):
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame({"flag": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertEqual(regression_tree.boolean_features_in_, frozenset({0}))
@@ -428,7 +424,7 @@ class TestBooleanColumnDetection(unittest.TestCase):
         )
         y = rng.standard_normal(n)
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertIsNone(regression_tree.boolean_features_in_)
@@ -440,7 +436,7 @@ class TestBooleanColumnDetection(unittest.TestCase):
         signal_with_na[0] = pandas.NA
         X = pandas.DataFrame({"flag": signal_with_na, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         with self.assertRaises(ValueError) as context:
             regression_tree.fit(X, y)
@@ -457,7 +453,7 @@ class TestBooleanColumnDetection(unittest.TestCase):
         y = numpy.where(flag, 9.0, 1.0)
         X = pandas.DataFrame({"flag": flag, "color": color, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         self.assertEqual(
@@ -478,7 +474,7 @@ class TestBooleanColumnDetection(unittest.TestCase):
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame({"flag": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
         partition = regression_tree.content_.extension
@@ -489,7 +485,7 @@ class TestBooleanColumnDetection(unittest.TestCase):
         signal, noise, y = self._two_level_design()
         X_fit = pandas.DataFrame({"flag": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1, alpha=0.05
+            correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X_fit, y)
         preds_bool = regression_tree.predict(X_fit)
