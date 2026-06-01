@@ -129,6 +129,7 @@ def _format_prediction(
     separator: str = ", ",
     precision: int = 3,
     bold_value: bool = False,
+    displayed_indices: None | set[int] = None,
 ) -> str:
     """Format prediction value with optional CI for display.
 
@@ -179,6 +180,9 @@ def _format_prediction(
         )
         return text
     if isinstance(node, _node.RankingNode):
+        ranking_indices = (
+            set() if displayed_indices is None else displayed_indices
+        )
         text = _format_ranking_prediction(
             node,
             prediction_formatter,
@@ -186,6 +190,7 @@ def _format_prediction(
             precision,
             count_part,
             bold_value,
+            ranking_indices,
         )
         return text
     regression_node = typing.cast(_node.RegressionNode, node)
@@ -225,7 +230,7 @@ def _format_classification_prediction(
     ci_high = node.ci_high
     parts: list[str] = []
     for i in range(len(class_distribution)):
-        raw = class_names[i] if class_names is not None else str(i)
+        raw = str(i) if class_names is None else class_names[i]
         name = _capitalize_first_letter(raw)
         value_text = _bold(formatter(class_distribution[i]), bold_value)
         part = f"{name} proba. = {value_text}"
@@ -250,10 +255,10 @@ def _format_regression_prediction(
 ) -> str:
     """Format the regression line of a node display."""
     formatter = prediction_formatter or (lambda v: _format_value(v, precision))
-    if response_name is not None:
-        label = _capitalize_first_letter(response_name)
-    else:
+    if response_name is None:
         label = "Predicted"
+    else:
+        label = _capitalize_first_letter(response_name)
     value_text = _bold(formatter(node.prediction), bold_value)
     prediction_part = f"{label} mean = {value_text}"
     ci_low = node.ci_low
@@ -301,11 +306,12 @@ def _format_ranking_prediction(
     precision: int,
     count_part: str,
     bold_value: bool,
+    displayed_indices: set[int],
 ) -> str:
     """Format one labeled line per displayed ranking metric."""
     parts: list[str] = []
-    for metric in node.metrics:
-        if not metric.is_displayed:
+    for index, metric in enumerate(node.metrics):
+        if index not in displayed_indices:
             continue
         line = _format_survival_metric_line(
             label=f"Rank of {metric.label}",
@@ -376,6 +382,7 @@ def _table_prediction_headers(
     node: _node.Node,
     class_names: None | list[str],
     response_name: None | str,
+    displayed_indices: None | set[int],
 ) -> list[str]:
     """Header strings for the prediction columns of node."""
     if isinstance(node, _node.ClassificationNode):
@@ -385,7 +392,10 @@ def _table_prediction_headers(
         result = _table_survival_prediction_headers(node, response_name)
         return result
     if isinstance(node, _node.RankingNode):
-        result = _table_ranking_prediction_headers(node)
+        ranking_indices = (
+            set() if displayed_indices is None else displayed_indices
+        )
+        result = _table_ranking_prediction_headers(node, ranking_indices)
         return result
     result = _table_regression_prediction_headers(response_name)
     return result
@@ -398,7 +408,7 @@ def _table_classification_prediction_headers(
     """Headers for a classification node's prediction columns."""
     headers: list[str] = []
     for i in range(len(node.class_distribution)):
-        raw = class_names[i] if class_names is not None else str(i)
+        raw = str(i) if class_names is None else class_names[i]
         name = _capitalize_first_letter(raw)
         headers.append(f"{name} proba.")
     headers.append("Obs. count")
@@ -410,10 +420,10 @@ def _table_regression_prediction_headers(
     response_name: None | str,
 ) -> list[str]:
     """Headers for a regression node's prediction columns."""
-    if response_name is not None:
-        label = _capitalize_first_letter(response_name)
-    else:
+    if response_name is None:
         label = "Predicted"
+    else:
+        label = _capitalize_first_letter(response_name)
     headers = [f"{label} mean", "Obs. count", "Obs. share"]
     return headers
 
@@ -434,12 +444,13 @@ def _table_survival_prediction_headers(
 
 def _table_ranking_prediction_headers(
     node: _node.RankingNode,
+    displayed_indices: set[int],
 ) -> list[str]:
     """Headers for a ranking node's displayed-item prediction columns."""
     headers = [
         f"Rank of {metric.label}"
-        for metric in node.metrics
-        if metric.is_displayed
+        for index, metric in enumerate(node.metrics)
+        if index in displayed_indices
     ]
     headers.append("Obs. count")
     headers.append("Obs. share")
@@ -450,6 +461,7 @@ def _table_prediction_cells(
     node: _node.Node,
     prediction_formatter: None | typing.Callable[[float], str],
     precision: int,
+    displayed_indices: None | set[int],
 ) -> list[str]:
     """Cell strings for the prediction columns of node."""
     if isinstance(node, _node.ClassificationNode):
@@ -463,8 +475,11 @@ def _table_prediction_cells(
         )
         return result
     if isinstance(node, _node.RankingNode):
+        ranking_indices = (
+            set() if displayed_indices is None else displayed_indices
+        )
         result = _table_ranking_prediction_cells(
-            node, prediction_formatter, precision
+            node, prediction_formatter, precision, ranking_indices
         )
         return result
     regression_node = typing.cast(_node.RegressionNode, node)
@@ -563,11 +578,12 @@ def _table_ranking_prediction_cells(
     node: _node.RankingNode,
     prediction_formatter: None | typing.Callable[[float], str],
     precision: int,
+    displayed_indices: set[int],
 ) -> list[str]:
     """Cells for a ranking node's displayed-item prediction columns."""
     cells: list[str] = []
-    for metric in node.metrics:
-        if not metric.is_displayed:
+    for index, metric in enumerate(node.metrics):
+        if index not in displayed_indices:
             continue
         cell = _format_survival_metric_cell(
             metric.value,
@@ -639,10 +655,18 @@ def _collect_text_rows(
     max_depth: None | int,
     precision: int,
     best_first: bool,
+    displayed_indices: None | set[int],
 ) -> list[_TextRow]:
     """Walk the tree and collect one _TextRow per displayed line."""
     rows: list[_TextRow] = []
-    _append_text_row(root, "All records", prediction_formatter, precision, rows)
+    _append_text_row(
+        root,
+        "All records",
+        prediction_formatter,
+        precision,
+        rows,
+        displayed_indices,
+    )
     _append_child_text_rows(
         root,
         category_labels,
@@ -653,6 +677,7 @@ def _collect_text_rows(
         best_first,
         "",
         rows,
+        displayed_indices,
     )
     return rows
 
@@ -663,9 +688,12 @@ def _append_text_row(
     prediction_formatter: None | typing.Callable[[float], str],
     precision: int,
     rows: list[_TextRow],
+    displayed_indices: None | set[int],
 ) -> None:
     """Append one _TextRow representing node to rows."""
-    cells = _table_prediction_cells(node, prediction_formatter, precision)
+    cells = _table_prediction_cells(
+        node, prediction_formatter, precision, displayed_indices
+    )
     match node.extension:
         case _partition.Partition() as partition:
             p_value_cell: None | str = _table_p_value_cell(partition)
@@ -695,6 +723,7 @@ def _append_child_text_rows(
     best_first: bool,
     indent: str,
     rows: list[_TextRow],
+    displayed_indices: None | set[int],
 ) -> None:
     """Recursively append text rows for each child of node."""
     match node.extension:
@@ -718,7 +747,14 @@ def _append_child_text_rows(
     ]:
         connector = "└──" if is_last else "├──"
         prefix = f"{indent}{connector} {branch_label}"
-        _append_text_row(child, prefix, prediction_formatter, precision, rows)
+        _append_text_row(
+            child,
+            prefix,
+            prediction_formatter,
+            precision,
+            rows,
+            displayed_indices,
+        )
         indent_extension = "    " if is_last else "│   "
         _append_child_text_rows(
             child,
@@ -730,6 +766,7 @@ def _append_child_text_rows(
             best_first,
             indent + indent_extension,
             rows,
+            displayed_indices,
         )
 
 
@@ -753,12 +790,13 @@ def _format_branch_labels(
 ) -> tuple[str, str]:
     """Return display labels for the left and right branches of a partition."""
     feature_index = partition.feature_index
-    if feature_names is not None:
-        name = str(feature_names[feature_index])
-    elif partition.feature_name is not None:
-        name = partition.feature_name
+    if feature_names is None:
+        if partition.feature_name is None:
+            name = f"X[{feature_index}]"
+        else:
+            name = partition.feature_name
     else:
-        name = f"X[{feature_index}]"
+        name = str(feature_names[feature_index])
     if isinstance(partition, _partition.BooleanPartition):
         left_label = f"{name} is false"
         right_label = f"{name} is true"
@@ -776,16 +814,16 @@ def _format_branch_labels(
     )
     included_cats = sorted(categorical.left_categories)
     excluded_cats = sorted(categorical.right_categories)
-    if labels is not None:
+    if labels is None:
+        included_items = [_format_repr(c) for c in included_cats]
+        excluded_items = [_format_repr(c) for c in excluded_cats]
+    else:
         included_items = [
             _format_repr(labels.get(c, str(c))) for c in included_cats
         ]
         excluded_items = [
             _format_repr(labels.get(c, str(c))) for c in excluded_cats
         ]
-    else:
-        included_items = [_format_repr(c) for c in included_cats]
-        excluded_items = [_format_repr(c) for c in excluded_cats]
     left_label = _format_categorical_condition(name, included_items)
     right_label = _format_categorical_condition(name, excluded_items)
     return (left_label, right_label)

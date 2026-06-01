@@ -156,10 +156,10 @@ class TestRankingTreeFit(unittest.TestCase):
         tree = sigma.RankingTree()
         self.assertEqual(tree.ci_method, "bayesian_bootstrap")
 
-    def test_default_n_top_items_is_ten(self):
-        """The constructor default for n_top_items is 10."""
+    def test_default_pca_components_is_ten(self):
+        """The constructor default for pca_components is 10."""
         tree = sigma.RankingTree()
-        self.assertEqual(tree.n_top_items, 10)
+        self.assertEqual(tree.pca_components, 10)
 
     def test_rejects_distribution_specific_ci_method_at_construction(self):
         """RankingTree refuses the seven distribution-specific CI names."""
@@ -180,10 +180,10 @@ class TestRankingTreeFit(unittest.TestCase):
                     "ci_method",
                 )
 
-    def test_rejects_n_top_items_below_one(self):
-        """n_top_items < 1 is rejected with ValueError."""
+    def test_rejects_pca_components_below_one(self):
+        """pca_components < 1 is rejected with ValueError."""
         with self.assertRaises(ValueError):
-            sigma.RankingTree(n_top_items=0)
+            sigma.RankingTree(pca_components=0)
 
     def test_no_offset_support(self):
         """Passing an offset to fit raises ValueError."""
@@ -283,7 +283,7 @@ class TestRankingTreeFit(unittest.TestCase):
         self.assertNotIn("min_obs_per_item", parameters)
 
     def test_pc_loadings_attribute_set_after_fit(self):
-        """After fit, _pc_loadings_ has shape (n_items, R = min(n_top_items, n_items))."""
+        """After fit, _pc_loadings_ has shape (n_items, R = min(pca_components, n_items))."""
         rng = numpy.random.default_rng(13)
         n_samples = 200
         n_items = 30
@@ -295,7 +295,7 @@ class TestRankingTreeFit(unittest.TestCase):
                 if X[i, 0] > 0
                 else numpy.arange(n_items, 0.0, -1.0)
             )
-        tree = sigma.RankingTree(n_top_items=5, random_state=0)
+        tree = sigma.RankingTree(pca_components=5, random_state=0)
         tree.fit(X, y)
         self.assertEqual(tree._pc_loadings_.shape, (n_items, 5))
 
@@ -308,29 +308,13 @@ class TestRankingTreeFit(unittest.TestCase):
         y = numpy.empty((n_samples, n_items), dtype=float)
         for i in range(n_samples):
             y[i] = rng.permutation(n_items).astype(float) + 1.0
-        tree = sigma.RankingTree(n_top_items=10, random_state=0)
+        tree = sigma.RankingTree(pca_components=10, random_state=0)
         tree.fit(X, y)
         V = tree._pc_loadings_
         product = V.T @ V
         numpy.testing.assert_allclose(
             product, numpy.eye(product.shape[0]), atol=1e-6
         )
-
-    def test_displayed_indices_picked_by_aggregate_loading(self):
-        """_top_indices_ matches the top-N items by sqrt(sum_r V[k,r]**2)."""
-        rng = numpy.random.default_rng(15)
-        n_samples = 200
-        n_items = 30
-        X = rng.normal(size=(n_samples, 1))
-        y = numpy.empty((n_samples, n_items), dtype=float)
-        for i in range(n_samples):
-            y[i] = rng.permutation(n_items).astype(float) + 1.0
-        tree = sigma.RankingTree(n_top_items=7, random_state=0)
-        tree.fit(X, y)
-        V = tree._pc_loadings_
-        importance = numpy.sqrt((V**2).sum(axis=1))
-        expected_top = numpy.sort(numpy.argsort(-importance, kind="stable")[:7])
-        numpy.testing.assert_array_equal(tree._top_indices_, expected_top)
 
     def test_per_node_metrics_cover_full_catalogue(self):
         """node.metrics has length equal to the full catalogue, not M+1."""
@@ -344,10 +328,90 @@ class TestRankingTreeFit(unittest.TestCase):
             if X[i, 0] < 0:
                 base = base[::-1].copy()
             y[i] = base
-        tree = sigma.RankingTree(n_top_items=5, random_state=0)
+        tree = sigma.RankingTree(pca_components=5, random_state=0)
         tree.fit(X, y)
         for node in tree.nodes_:
             self.assertEqual(len(node.metrics), n_items)
+
+
+class TestTopDisplayedItems(unittest.TestCase):
+    """Tests for the render-time top_displayed_items knob."""
+
+    __slots__ = ()
+
+    def _build_two_leaf_tree(self, top_a, top_b):
+        """Fit a depth-1 tree whose two leaves prefer disjoint items."""
+        rng = numpy.random.default_rng(31)
+        n_per_leaf = 100
+        n_items = 10
+        X_left = numpy.full((n_per_leaf, 1), -1.0)
+        X_right = numpy.full((n_per_leaf, 1), 1.0)
+        X = numpy.vstack([X_left, X_right]) + rng.normal(
+            scale=0.01, size=(2 * n_per_leaf, 1)
+        )
+        y_left = numpy.tile(
+            numpy.arange(1, n_items + 1, dtype=float), (n_per_leaf, 1)
+        )
+        y_left[:, top_a], y_left[:, 0 : len(top_a)] = (
+            y_left[:, 0 : len(top_a)].copy(),
+            y_left[:, top_a].copy(),
+        )
+        y_right = numpy.tile(
+            numpy.arange(1, n_items + 1, dtype=float), (n_per_leaf, 1)
+        )
+        y_right[:, top_b], y_right[:, 0 : len(top_b)] = (
+            y_right[:, 0 : len(top_b)].copy(),
+            y_right[:, top_b].copy(),
+        )
+        y = numpy.vstack([y_left, y_right])
+        tree = sigma.RankingTree(random_state=0)
+        tree.fit(X, y)
+        return tree
+
+    def test_to_text_default_top_displayed_items_is_three(self):
+        """Default top_displayed_items=3 picks the union of per-leaf top-3."""
+        tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
+        text = tree.to_text(precision=2)
+        first_row = text.splitlines()[0]
+        rank_columns = first_row.count("Rank of")
+        union_count = len(tree._compute_displayed_indices(3))
+        self.assertEqual(rank_columns, union_count)
+
+    def test_to_text_top_displayed_items_respects_argument(self):
+        """Passing top_displayed_items=5 widens the column union."""
+        tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
+        text = tree.to_text(precision=2, top_displayed_items=5)
+        first_row = text.splitlines()[0]
+        rank_columns = first_row.count("Rank of")
+        union_count = len(tree._compute_displayed_indices(5))
+        self.assertEqual(rank_columns, union_count)
+
+    def test_per_leaf_top_items_picked_by_lowest_mean_rank(self):
+        """Each leaf's contribution to the union is its top items by mean rank."""
+        tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
+        union = set(tree._compute_displayed_indices(3))
+        for leaf in tree.leaves_:
+            values = numpy.array([metric.value for metric in leaf.metrics])
+            leaf_top = set(numpy.argsort(values, kind="stable")[:3].tolist())
+            self.assertTrue(leaf_top.issubset(union))
+
+    def test_top_displayed_items_rejected_for_non_ranking_trees(self):
+        """Passing top_displayed_items to a non-ranking tree raises."""
+        rng = numpy.random.default_rng(32)
+        X = rng.normal(size=(40, 1))
+        y = (X[:, 0] > 0).astype(int)
+        tree = sigma.ClassificationTree(random_state=0)
+        tree.fit(X, y)
+        with self.assertRaises(ValueError):
+            tree.to_text(top_displayed_items=3)
+
+    def test_top_displayed_items_rejects_zero_and_negative(self):
+        """top_displayed_items must be at least 1."""
+        tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
+        with self.assertRaises(ValueError):
+            tree.to_text(top_displayed_items=0)
+        with self.assertRaises(ValueError):
+            tree.to_text(top_displayed_items=-1)
 
 
 if __name__ == "__main__":

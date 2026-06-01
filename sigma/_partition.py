@@ -25,9 +25,7 @@ class UnknownCategoryError(ValueError):
     __slots__ = ("feature_name", "value")
 
     def __init__(self, feature_name: None | str, value: object) -> None:
-        feature_label = (
-            feature_name if feature_name is not None else "<unnamed>"
-        )
+        feature_label = "<unnamed>" if feature_name is None else feature_name
         message = (
             f"unknown category {value!r} for feature {feature_label}"
             " (not observed at this node during training)"

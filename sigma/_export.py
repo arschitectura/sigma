@@ -20,6 +20,7 @@ import typing
 import sklearn.utils.validation
 
 from . import _tree
+from . import _tree_ranking
 from . import _tree_text
 
 
@@ -34,6 +35,7 @@ def export_text(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
+    top_displayed_items: None | int = None,
 ) -> str: ...
 
 
@@ -48,6 +50,7 @@ def export_text(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
+    top_displayed_items: None | int = None,
 ) -> None: ...
 
 
@@ -61,6 +64,7 @@ def export_text(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
+    top_displayed_items: None | int = None,
 ) -> None | str:
     """Build a text report of the fitted tree.
 
@@ -139,6 +143,7 @@ def export_text(
             " with a write method"
         )
     sklearn.utils.validation.check_is_fitted(tree, "content_")
+    displayed_indices = _resolve_displayed_indices(tree, top_displayed_items)
     names = tree._effective_feature_names(feature_names)
     resolved_category_labels = tree._resolve_category_labels(
         category_labels, names
@@ -154,9 +159,10 @@ def export_text(
         max_depth,
         precision,
         not tree.reverse_order,
+        displayed_indices,
     )
     prediction_headers = _tree_text._table_prediction_headers(
-        root, effective_class_names, effective_response_name
+        root, effective_class_names, effective_response_name, displayed_indices
     )
     # TODO XXX optimize/review these 2
     has_split = any(row.p_value_cell is not None for row in text_rows)
@@ -552,6 +558,7 @@ def export_image(
     split_colors: None | tuple[str, str, str] = None,
     leaf_colors: None | tuple[str, str, str] = None,
     background_color: None | str = None,
+    top_displayed_items: None | int = None,
 ) -> bytes: ...
 
 
@@ -574,6 +581,7 @@ def export_image(
     split_colors: None | tuple[str, str, str] = None,
     leaf_colors: None | tuple[str, str, str] = None,
     background_color: None | str = None,
+    top_displayed_items: None | int = None,
 ) -> None: ...
 
 
@@ -595,6 +603,7 @@ def export_image(
     split_colors: None | tuple[str, str, str] = None,
     leaf_colors: None | tuple[str, str, str] = None,
     background_color: None | str = None,
+    top_displayed_items: None | int = None,
 ) -> None | bytes:
     """Render the fitted tree as a GIF, PDF, PNG, or SVG image.
 
@@ -724,6 +733,7 @@ def export_image(
             " with a write method"
         )
     sklearn.utils.validation.check_is_fitted(tree, "content_")
+    displayed_indices = _resolve_displayed_indices(tree, top_displayed_items)
     effective_response_name = tree._effective_response_name(response_name)
     effective_class_names = tree._effective_class_names(class_names)
     if kind == "response":
@@ -736,6 +746,7 @@ def export_image(
             class_names=effective_class_names,
             dpi=dpi,
             background_color=background_color,
+            displayed_indices=displayed_indices,
         )
         match out_file:
             case None:
@@ -802,3 +813,36 @@ def export_image(
         case _:
             out_file.write(payload)
             return None
+
+
+_DEFAULT_TOP_DISPLAYED_ITEMS = 3
+
+
+def _resolve_displayed_indices(
+    tree: _tree.Tree,
+    top_displayed_items: None | int,
+) -> None | set[int]:
+    """Return the leaf-union top-N displayed item indices for a RankingTree."""
+    if isinstance(tree, _tree_ranking.RankingTree):
+        effective = (
+            _DEFAULT_TOP_DISPLAYED_ITEMS
+            if top_displayed_items is None
+            else top_displayed_items
+        )
+        if not isinstance(effective, int) or isinstance(effective, bool):
+            raise ValueError(
+                f"top_displayed_items must be an integer,"
+                f" got {type(effective).__name__}"
+            )
+        if effective < 1:
+            raise ValueError(
+                f"top_displayed_items must be at least 1, got {effective}"
+            )
+        indices = tree._compute_displayed_indices(effective)
+        result = set(indices)
+        return result
+    if top_displayed_items is not None:
+        raise ValueError(
+            "top_displayed_items is only supported for RankingTree estimators"
+        )
+    return None

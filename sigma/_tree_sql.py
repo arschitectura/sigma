@@ -154,12 +154,13 @@ def _format_sql_split_conditions(
 ) -> tuple[str, str]:
     """Return (left_condition, right_condition) SQL fragments for a partition."""
     feature_index = partition.feature_index
-    if feature_names is not None:
-        raw_name = str(feature_names[feature_index])
-    elif partition.feature_name is not None:
-        raw_name = partition.feature_name
+    if feature_names is None:
+        if partition.feature_name is None:
+            raw_name = f"X[{feature_index}]"
+        else:
+            raw_name = partition.feature_name
     else:
-        raw_name = f"X[{feature_index}]"
+        raw_name = str(feature_names[feature_index])
     feature = _format_sql_identifier(raw_name)
     if isinstance(partition, _partition.BooleanPartition):
         return (f"NOT {feature}", f"{feature}")
@@ -174,7 +175,14 @@ def _format_sql_split_conditions(
     )
     sorted_left = sorted(categorical.left_categories)
     sorted_right = sorted(categorical.right_categories)
-    if labels is not None:
+    if labels is None:
+        left_items = [
+            _format_sql_category_literal(category) for category in sorted_left
+        ]
+        right_items = [
+            _format_sql_category_literal(category) for category in sorted_right
+        ]
+    else:
         left_items = [
             _format_sql_category_literal(labels.get(category, category))
             for category in sorted_left
@@ -182,13 +190,6 @@ def _format_sql_split_conditions(
         right_items = [
             _format_sql_category_literal(labels.get(category, category))
             for category in sorted_right
-        ]
-    else:
-        left_items = [
-            _format_sql_category_literal(category) for category in sorted_left
-        ]
-        right_items = [
-            _format_sql_category_literal(category) for category in sorted_right
         ]
     if len(left_items) == 1:
         left_condition = f"{feature} = {left_items[0]}"

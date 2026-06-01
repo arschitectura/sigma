@@ -266,10 +266,10 @@ class RegressionTree(
         active = w_transmuted > 0
         if not numpy.any(active):
             return numpy.empty(0, dtype=float)
-        if offset_transmuted is not None:
-            residuals = y_transmuted[active] - offset_transmuted[active]
-        else:
+        if offset_transmuted is None:
             residuals = y_transmuted[active]
+        else:
+            residuals = y_transmuted[active] - offset_transmuted[active]
         w_active = w_transmuted[active]
         n_residuals = residuals.shape[0]
         if n_residuals <= size:

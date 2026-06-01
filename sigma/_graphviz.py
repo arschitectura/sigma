@@ -97,6 +97,7 @@ def _build_digraph(
     dpi: int = 192,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     reverse_order: bool = False,
+    displayed_indices: None | set[int] = None,
 ) -> graphviz.Digraph:
     """Build a graphviz Digraph from a fitted tree."""
     natural_dot = _emit_digraph(
@@ -116,6 +117,7 @@ def _build_digraph(
         orientation=orientation,
         reverse_order=reverse_order,
         uniform_width=None,
+        displayed_indices=displayed_indices,
     )
     uniform_width = _max_content_node_width(natural_dot)
     if uniform_width is None:
@@ -137,6 +139,7 @@ def _build_digraph(
         orientation=orientation,
         reverse_order=reverse_order,
         uniform_width=uniform_width,
+        displayed_indices=displayed_indices,
     )
     return final_dot
 
@@ -158,6 +161,7 @@ def _emit_digraph(
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     reverse_order: bool = False,
     uniform_width: None | float = None,
+    displayed_indices: None | set[int] = None,
 ) -> graphviz.Digraph:
     """Emit a graphviz Digraph in a single pass, optionally forcing a width."""
     display_reverse = reverse_order ^ (orientation == "left-to-right")
@@ -204,6 +208,7 @@ def _emit_digraph(
             separator="\n",
             precision=precision,
             bold_value=True,
+            displayed_indices=displayed_indices,
         )
         # TODO XXX review these
         extension = node.extension

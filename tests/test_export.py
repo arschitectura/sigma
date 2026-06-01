@@ -1677,6 +1677,7 @@ class TestPublicApiArgumentOrdering(unittest.TestCase):
             "prediction_formatter",
             "max_depth",
             "precision",
+            "top_displayed_items",
         ]
         self.assertEqual(self._params(sigma.export_text), expected)
 
@@ -1692,6 +1693,7 @@ class TestPublicApiArgumentOrdering(unittest.TestCase):
             "prediction_formatter",
             "max_depth",
             "precision",
+            "top_displayed_items",
         ]
         self.assertEqual(self._params(sigma._tree.Tree.to_text), expected)
 
@@ -1736,6 +1738,7 @@ class TestPublicApiArgumentOrdering(unittest.TestCase):
             "split_colors",
             "leaf_colors",
             "background_color",
+            "top_displayed_items",
         ]
         self.assertEqual(self._params(sigma.export_image), expected)
 
@@ -1759,6 +1762,7 @@ class TestPublicApiArgumentOrdering(unittest.TestCase):
             "split_colors",
             "leaf_colors",
             "background_color",
+            "top_displayed_items",
         ]
         self.assertEqual(self._params(sigma._tree.Tree.to_image), expected)
 

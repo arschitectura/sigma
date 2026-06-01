@@ -714,7 +714,14 @@ class Tree(
                 split_threshold = float(real_criterion)
         left_weights = weights * left_mask.astype(float)
         right_weights = weights * (~left_mask).astype(float)
-        if self.transmuter is not None:
+        if self.transmuter is None:
+            y_left_transmuted = y
+            w_left_transmuted = left_weights
+            offset_left_transmuted = offset
+            y_right_transmuted = y
+            w_right_transmuted = right_weights
+            offset_right_transmuted = offset
+        else:
             validation = self._validate_split_transmuted(
                 X,
                 y,
@@ -744,13 +751,6 @@ class Tree(
                 self._apply_decorator(leaf, X, y, weights, side_data, offset)
                 return leaf
             p_value = max(p_value, transmuted_p)
-        else:
-            y_left_transmuted = y
-            w_left_transmuted = left_weights
-            offset_left_transmuted = offset
-            y_right_transmuted = y
-            w_right_transmuted = right_weights
-            offset_right_transmuted = offset
         left_child = self._build_tree(
             X,
             y,
@@ -797,7 +797,7 @@ class Tree(
         mean_offset_proba = self._compute_mean_offset_proba(
             w_transmuted, offset_transmuted
         )
-        split_name = str(names[feature_index]) if names is not None else None
+        split_name = None if names is None else str(names[feature_index])
         T = selection.T
         mu = selection.mu
         Sigma = selection.Sigma
@@ -1151,8 +1151,8 @@ class Tree(
         active = weights > 0
         X_active = X[active]
         y_active = y[active]
-        w_active = sample_weight[active] if sample_weight is not None else None
-        side_data_active = side_data[active] if side_data is not None else None
+        w_active = None if sample_weight is None else sample_weight[active]
+        side_data_active = None if side_data is None else side_data[active]
         offset_active = self._offset_active_slice(offset, active)
         result = transmuter(
             X_active, y_active, w_active, offset_active, side_data_active
@@ -1223,12 +1223,8 @@ class Tree(
         right_active = ~left_mask & active
         X_left = X[left_active]
         y_left = y[left_active]
-        w_left = (
-            sample_weight[left_active] if sample_weight is not None else None
-        )
-        side_data_left = (
-            side_data[left_active] if side_data is not None else None
-        )
+        w_left = None if sample_weight is None else sample_weight[left_active]
+        side_data_left = None if side_data is None else side_data[left_active]
         offset_left = offset_active_slice(offset, left_active)
         left_result = transmuter(
             X_left, y_left, w_left, offset_left, side_data_left
@@ -1240,12 +1236,8 @@ class Tree(
         ) = validate_transmuter_return(left_result, offset_left is None)
         X_right = X[right_active]
         y_right = y[right_active]
-        w_right = (
-            sample_weight[right_active] if sample_weight is not None else None
-        )
-        side_data_right = (
-            side_data[right_active] if side_data is not None else None
-        )
+        w_right = None if sample_weight is None else sample_weight[right_active]
+        side_data_right = None if side_data is None else side_data[right_active]
         offset_right = offset_active_slice(offset, right_active)
         right_result = transmuter(
             X_right, y_right, w_right, offset_right, side_data_right
@@ -1380,7 +1372,7 @@ class Tree(
         X_active = X[active]
         y_active = y[active]
         w_active = weights[active]
-        side_data_active = side_data[active] if side_data is not None else None
+        side_data_active = None if side_data is None else side_data[active]
         offset_active = self._offset_active_slice(offset, active)
         node.decoration = decorator(
             X_active, y_active, w_active, offset_active, side_data_active
@@ -1397,6 +1389,7 @@ class Tree(
         prediction_formatter: None | typing.Callable[[float], str] = None,
         max_depth: None | int = None,
         precision: int = 3,
+        top_displayed_items: None | int = None,
     ) -> str: ...
 
     @typing.overload
@@ -1410,6 +1403,7 @@ class Tree(
         prediction_formatter: None | typing.Callable[[float], str] = None,
         max_depth: None | int = None,
         precision: int = 3,
+        top_displayed_items: None | int = None,
     ) -> None: ...
 
     def to_text(
@@ -1422,6 +1416,7 @@ class Tree(
         prediction_formatter: None | typing.Callable[[float], str] = None,
         max_depth: None | int = None,
         precision: int = 3,
+        top_displayed_items: None | int = None,
     ) -> None | str:
         """Serialize the fitted tree structure to text.
 
@@ -1435,6 +1430,11 @@ class Tree(
                 written, closed, and the function returns None. When a
                 file-like object (anything with a write method), the text
                 is written to it and the function returns None.
+            top_displayed_items: RankingTree only. The displayed item
+                columns are the union of each leaf's top items by lowest
+                mean rank; this argument sets how many per leaf. When
+                None and the tree is a RankingTree, defaults to 3. Must
+                be None for non-ranking trees.
 
         Returns:
             The text as a string when out_file is None; otherwise None.
@@ -1442,6 +1442,8 @@ class Tree(
         Raises:
             ValueError: If max_depth is a negative integer or not an integer.
             ValueError: If precision is not a non-negative integer.
+            ValueError: If top_displayed_items is supplied for a non-ranking
+                tree, is not a positive integer, or is less than 1.
             TypeError: If out_file is neither None, a string, nor a
                 file-like object with a write method.
         """
@@ -1457,6 +1459,7 @@ class Tree(
             prediction_formatter=prediction_formatter,
             max_depth=max_depth,
             precision=precision,
+            top_displayed_items=top_displayed_items,
         )
         return result
 
@@ -1574,6 +1577,7 @@ class Tree(
         split_colors: None | tuple[str, str, str] = None,
         leaf_colors: None | tuple[str, str, str] = None,
         background_color: None | str = None,
+        top_displayed_items: None | int = None,
     ) -> bytes: ...
 
     @typing.overload
@@ -1595,6 +1599,7 @@ class Tree(
         split_colors: None | tuple[str, str, str] = None,
         leaf_colors: None | tuple[str, str, str] = None,
         background_color: None | str = None,
+        top_displayed_items: None | int = None,
     ) -> None: ...
 
     def to_image(
@@ -1615,6 +1620,7 @@ class Tree(
         split_colors: None | tuple[str, str, str] = None,
         leaf_colors: None | tuple[str, str, str] = None,
         background_color: None | str = None,
+        top_displayed_items: None | int = None,
     ) -> None | bytes:
         """Render the fitted tree as a GIF, PDF, PNG, or SVG image.
 
@@ -1637,6 +1643,11 @@ class Tree(
                 response summary chart). See sigma.export_image for the
                 per-task layout and the parameters that apply to each
                 kind.
+            top_displayed_items: RankingTree only. The displayed item
+                columns are the union of each leaf's top items by lowest
+                mean rank; this argument sets how many per leaf. When
+                None and the tree is a RankingTree, defaults to 3. Must
+                be None for non-ranking trees.
 
         Returns:
             The rendered image bytes when out_file is None; otherwise None.
@@ -1647,6 +1658,8 @@ class Tree(
             ValueError: If max_depth is a negative integer or not an integer.
             ValueError: If precision is not a non-negative integer.
             ValueError: If dpi is not a positive integer.
+            ValueError: If top_displayed_items is supplied for a non-ranking
+                tree, is not a positive integer, or is less than 1.
             TypeError: If out_file is neither None, a string, nor a
                 file-like object with a write method.
             ImportError: If graphviz is not installed when kind is
@@ -1675,6 +1688,7 @@ class Tree(
             split_colors=split_colors,
             leaf_colors=leaf_colors,
             background_color=background_color,
+            top_displayed_items=top_displayed_items,
         )
         return result
 

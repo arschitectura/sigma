@@ -311,11 +311,6 @@ class RankingMetric:
         style: Formatting style; always "value" for ranking metrics.
         better_is: Prognostic direction; always "lower" because rank 1
             is the most-preferred position.
-        is_displayed: Whether this metric is shown in textual and
-            graphical tree renderings. RankingTree sets this to True
-            only for items it preselected as individual test columns;
-            non-preselected items keep their stats stored on the node
-            but are hidden from rendering by default.
     """
 
     __slots__ = (
@@ -325,7 +320,6 @@ class RankingMetric:
         "ci_high",
         "style",
         "better_is",
-        "is_displayed",
         "__weakref__",
         "__dict__",
     )
@@ -336,7 +330,6 @@ class RankingMetric:
         value: float,
         ci_low: None | float,
         ci_high: None | float,
-        is_displayed: bool = True,
     ) -> None:
         self.label = label
         self.value = value
@@ -344,7 +337,6 @@ class RankingMetric:
         self.ci_high = ci_high
         self.style: typing.Literal["value", "probability"] = "value"
         self.better_is: typing.Literal["higher", "lower"] = "lower"
-        self.is_displayed = is_displayed
 
 
 class RankingNode(Node):

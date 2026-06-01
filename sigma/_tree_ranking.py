@@ -44,7 +44,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
     The statistical-test response is not item-aligned. The full-catalogue
     Y is imputed with the per-row tail mean for NaN cells, log-transformed
     via log(1 + rank), column-centered, and projected onto the top
-    n_top_items right singular vectors of the resulting matrix. The
+    pca_components right singular vectors of the resulting matrix. The
     R-dimensional projection serves as the influence function for the
     stat tests, following Leydesdorff (2006), "Classification and
     Powerlaws: The Logarithmic Transformation," *Journal of the
@@ -52,18 +52,15 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
     1470-1486, who prescribes log-transformation of power-law-distributed
     rank data before multivariate factor analysis / PCA. Per-node
     mean-rank statistics and confidence intervals are computed over the
-    full catalogue. The n_top_items items with the largest aggregate
-    loading magnitude across the R principal components are flagged for
-    display so that tree text and graphviz renderings remain readable.
+    full catalogue. Tree text and response plots restrict the displayed
+    items to the union of each leaf's top-N items by lowest mean rank;
+    N is the top_displayed_items argument of to_text and to_image (default 3).
 
     Args:
-        n_top_items: Number of principal components computed from the
-            log-rank matrix, and number of items shown per leaf in
-            tree text / graphviz renderings (the items with the largest
-            aggregate loading magnitude across those components). Must
-            be at least 1. When n_top_items is at least the catalogue
-            size, the projection covers the full response space.
-            Default 10.
+        pca_components: Number of principal components computed from the
+            log-rank matrix. Must be at least 1. When pca_components is at
+            least the catalogue size, the projection covers the full
+            response space. Default 10.
         item_names: Optional display labels, one per item. When None and
             y is a numpy array, falls back to integer indices 0..n_items
             - 1. When y is a pandas DataFrame, its column names are used
@@ -126,12 +123,11 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
     n_items_: int
     item_names_: numpy.typing.NDArray
     _y_full_: numpy.typing.NDArray[numpy.floating]
-    _top_indices_: numpy.typing.NDArray[numpy.integer]
     _pc_loadings_: numpy.typing.NDArray[numpy.floating]
 
     def __init__(
         self,
-        n_top_items: int = 10,
+        pca_components: int = 10,
         item_names: None | collections.abc.Sequence[str] = None,
         correlation: typing.Literal["normal", "rank"] = "rank",
         test_stat: typing.Literal["maximum", "quadratic"] = "quadratic",
@@ -156,14 +152,16 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         random_state: None | int = None,
         reverse_order: bool = False,
     ) -> None:
-        if not isinstance(n_top_items, int) or isinstance(n_top_items, bool):
+        if not isinstance(pca_components, int) or isinstance(
+            pca_components, bool
+        ):
             raise TypeError(
-                f"n_top_items must be an integer,"
-                f" got {type(n_top_items).__name__}"
+                f"pca_components must be an integer,"
+                f" got {type(pca_components).__name__}"
             )
-        if n_top_items < 1:
+        if pca_components < 1:
             raise ValueError(
-                f"n_top_items must be at least 1, got {n_top_items}"
+                f"pca_components must be at least 1, got {pca_components}"
             )
         if transmuter is not None:
             raise ValueError(
@@ -175,7 +173,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         _types._validate_literal_param(
             ci_method, _types.CiMethodRankingTree, "ci_method"
         )
-        self.n_top_items = n_top_items
+        self.pca_components = pca_components
         self.item_names = item_names
         self.ci_method = ci_method
         super().__init__(
@@ -346,29 +344,30 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             )
         self._y_full_ = y_full
         self.n_items_ = n_items
-        if column_names is not None:
-            self.item_names_ = numpy.asarray(column_names)
-        elif self.item_names is not None:
-            names_list = list(self.item_names)
-            if len(names_list) != n_items:
-                raise ValueError(
-                    f"item_names has length {len(names_list)}"
-                    f" but y has {n_items} columns"
-                )
-            self.item_names_ = numpy.asarray(names_list)
+        if column_names is None:
+            if self.item_names is None:
+                self.item_names_ = numpy.arange(n_items)
+            else:
+                names_list = list(self.item_names)
+                if len(names_list) != n_items:
+                    raise ValueError(
+                        f"item_names has length {len(names_list)}"
+                        f" but y has {n_items} columns"
+                    )
+                self.item_names_ = numpy.asarray(names_list)
         else:
-            self.item_names_ = numpy.arange(n_items)
+            self.item_names_ = numpy.asarray(column_names)
         y_imputed = self._impute_tail_mean(y_full)
         y_log = numpy.log1p(y_imputed)
         y_log_centered = y_log - y_log.mean(axis=0)
-        n_components = min(self.n_top_items, n_items)
-        V = self._truncated_svd_v(y_log_centered, n_components)
+        n_components = min(self.pca_components, n_items)
+        if n_components >= n_items:
+            V = numpy.eye(n_items, dtype=float)
+            Z = y_log_centered
+        else:
+            V = self._truncated_svd_v(y_log_centered, n_components)
+            Z = y_log_centered @ V
         self._pc_loadings_ = V
-        Z = y_log_centered @ V
-        importance = numpy.sqrt((V**2).sum(axis=1))
-        n_display = min(self.n_top_items, n_items)
-        top = numpy.argsort(-importance, kind="stable")[:n_display]
-        self._top_indices_ = numpy.sort(top).astype(numpy.int64)
         return X_array, Z
 
     def _validate_offset(
@@ -545,7 +544,6 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         per_item_ci_low, per_item_ci_high = self._compute_per_item_ci(
             y_full_active, w_active
         )
-        displayed_set = set(int(idx) for idx in self._top_indices_.tolist())
         metrics: list[_node.RankingMetric] = []
         for k in range(self.n_items_):
             label = str(self.item_names_[k])
@@ -560,10 +558,27 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                     value=value,
                     ci_low=low,
                     ci_high=high,
-                    is_displayed=k in displayed_set,
                 )
             )
         return metrics
+
+    def _compute_displayed_indices(self, top_displayed_items: int) -> list[int]:
+        """Return the union of each leaf's top items by lowest mean rank."""
+        union: set[int] = set()
+        for leaf in self.leaves_:
+            values = numpy.array(
+                [metric.value for metric in leaf.metrics], dtype=float
+            )
+            valid = ~numpy.isnan(values)
+            valid_indices = numpy.flatnonzero(valid)
+            if valid_indices.size == 0:
+                continue
+            valid_values = values[valid_indices]
+            take = min(top_displayed_items, valid_indices.size)
+            order = numpy.argsort(valid_values, kind="stable")[:take]
+            for idx in valid_indices[order]:
+                union.add(int(idx))
+        return sorted(union)
 
     def _compute_per_item_ci(
         self,
@@ -573,12 +588,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         None | numpy.typing.NDArray[numpy.floating],
         None | numpy.typing.NDArray[numpy.floating],
     ]:
-        """Compute the per-item leaf CI on the full-catalogue active subset.
-
-        Only preselected items receive a computed CI; non-preselected
-        items report NaN bounds because the bootstrap cost scales with
-        the catalogue size and the renderer hides their values anyway.
-        """
+        """Compute the per-item leaf CI on the full-catalogue active subset."""
         ci_coverage = self.ci_coverage
         if ci_coverage is None:
             return None, None
@@ -591,10 +601,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         ci_method_enum = _types.CiMethodRankingTree(self.ci_method)
         ci_low_vec = numpy.full(n_items, numpy.nan, dtype=float)
         ci_high_vec = numpy.full(n_items, numpy.nan, dtype=float)
-        displayed_set = set(int(idx) for idx in self._top_indices_.tolist())
         for k in range(n_items):
-            if k not in displayed_set:
-                continue
             column = y_full_active[:, k]
             observed_mask = ~numpy.isnan(column)
             y_k = column[observed_mask]

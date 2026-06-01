@@ -56,6 +56,7 @@ def _render_response_image(
     class_names: None | list[str],
     dpi: int,
     background_color: None | str,
+    displayed_indices: None | set[int],
 ) -> bytes:
     """Render the per-leaf response plot of tree as image bytes."""
     try:
@@ -76,7 +77,10 @@ def _render_response_image(
     elif isinstance(tree, _tree_survival.SurvivalTree):
         _plot_survival(axes, tree, response_name)
     elif isinstance(tree, _tree_ranking.RankingTree):
-        _plot_ranking(axes, tree)
+        ranking_indices = (
+            set() if displayed_indices is None else displayed_indices
+        )
+        _plot_ranking(axes, tree, ranking_indices)
     else:
         raise TypeError(f"unsupported tree type: {type(tree).__name__}")
     transparent = background_color == "transparent"
@@ -193,10 +197,10 @@ def _plot_regression(
         )
         axes.scatter([x], [prediction], color=color, s=12, zorder=4)
     _configure_leaf_x_axis(axes, n_leaves)
-    if response_name is not None:
-        y_label = f"{_tree_text._capitalize_first_letter(response_name)} mean"
-    else:
+    if response_name is None:
         y_label = "Response mean"
+    else:
+        y_label = f"{_tree_text._capitalize_first_letter(response_name)} mean"
     axes.set_ylabel(y_label)
     axes.grid(axis="y", linestyle=":", alpha=0.4)
 
@@ -454,10 +458,10 @@ def _plot_survival(
     axes.set_ylim(-2.0, 102.0)
     axes.set_yticks([0.0, 20.0, 40.0, 60.0, 80.0, 100.0])
     axes.set_ylabel("Survival probability, %")
-    if response_name is not None:
-        x_label = _tree_text._capitalize_first_letter(response_name)
-    else:
+    if response_name is None:
         x_label = "Time"
+    else:
+        x_label = _tree_text._capitalize_first_letter(response_name)
     axes.set_xlabel(x_label)
     axes.grid(linestyle=":", alpha=0.4)
     handles, legend_labels = axes.get_legend_handles_labels()
@@ -475,6 +479,7 @@ def _plot_survival(
 def _plot_ranking(
     axes: matplotlib.axes.Axes,
     tree: _tree_ranking.RankingTree,
+    displayed_indices: set[int],
 ) -> None:
     """Draw per (leaf, item) mean-rank dots with CI boxes.
 
@@ -491,18 +496,14 @@ def _plot_ranking(
     bar_width = 0.6
     sorted_leaves = sorted(leaves, key=_leaf_id)
     line_xs = [_leaf_id(leaf) + 1 for leaf in sorted_leaves]
-    displayed_indices = [
-        index
-        for index, metric in enumerate(leaves[0].metrics)
-        if metric.is_displayed
-    ]
+    sorted_displayed = sorted(displayed_indices)
     if tree.reverse_order:
-        item_order = list(reversed(displayed_indices))
+        item_order = list(reversed(sorted_displayed))
     else:
-        item_order = list(displayed_indices)
-    n_displayed = len(item_order)
+        item_order = sorted_displayed
+    displayed_count = len(item_order)
     for slot_idx, item_index in enumerate(item_order):
-        color = _palette._leaf_color(slot_idx, n_displayed)
+        color = _palette._leaf_color(slot_idx, displayed_count)
         for leaf in leaves:
             leaf_id = _leaf_id(leaf)
             x = leaf_id + 1
@@ -561,7 +562,7 @@ def _plot_ranking(
     axes.grid(axis="y", linestyle=":", alpha=0.4)
     handles = [
         matplotlib.patches.Patch(
-            color=_palette._leaf_color(slot_idx, n_displayed),
+            color=_palette._leaf_color(slot_idx, displayed_count),
             label=item_names[item_index],
         )
         for slot_idx, item_index in enumerate(item_order)
@@ -588,10 +589,10 @@ def _resolve_class_labels(
     tree: _tree_classification.ClassificationTree, class_names: None | list[str]
 ) -> list[str]:
     """Return display labels per class, falling back to tree.classes_."""
-    if class_names is not None:
-        raw_labels = list(class_names)
-    else:
+    if class_names is None:
         raw_labels = [str(c) for c in tree.classes_]
+    else:
+        raw_labels = list(class_names)
     labels = [
         _tree_text._capitalize_first_letter(label) for label in raw_labels
     ]

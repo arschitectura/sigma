@@ -725,7 +725,7 @@ def _build_movielens_tree(output_path: str, dpi: int) -> None:
         ),
     })
     ranking_tree = sigma.RankingTree(
-        n_top_items=10,
+        pca_components=10,
         test_type="monte_carlo",
         resamples=5000,
         random_state=123,
@@ -866,7 +866,7 @@ def _build_sushi_tree(output_path: str, dpi: int) -> None:
         ).astype(bool),
     })
     ranking_tree = sigma.RankingTree(
-        n_top_items=n_items,
+        pca_components=n_items,
         test_type="monte_carlo",
         resamples=5000,
         random_state=123,
