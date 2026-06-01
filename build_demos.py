@@ -51,11 +51,11 @@ def run() -> int:
     _build_telco_churn_tree(
         os.path.join(output_dir, f"{prefix}telco_churn.png"), dpi
     )
-    _build_sushi_tree(
-        os.path.join(output_dir, f"{prefix}sushi.png"), dpi
-    )
     _build_movielens_tree(
         os.path.join(output_dir, f"{prefix}movielens.png"), dpi
+    )
+    _build_sushi_tree(
+        os.path.join(output_dir, f"{prefix}sushi.png"), dpi
     )
     return 0
 
@@ -66,8 +66,8 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Fit eight demo conditional inference trees (Diabetes, Titanic, "
-            "German Credit, Insurance, Breast Cancer, Telco Churn, Sushi, "
-            "MovieLens) and write one PNG per dataset."
+            "German Credit, Insurance, Breast Cancer, Telco Churn, MovieLens, "
+            "Sushi) and write one PNG per dataset."
         ),
     )
     parser.add_argument(
@@ -606,147 +606,6 @@ def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
     _write_png(_response_png_path(output_path), response_png, "responses")
 
 
-def _build_sushi_tree(output_path: str, dpi: int) -> None:
-    """Fit a ranking tree on the Sushi preference dataset and write a PNG to
-    output_path at the requested dpi.
-
-    Source: Kamishima (2003), "Nantonac collaborative filtering:
-    recommendation based on order responses," KDD '03. The SUSHI3A
-    dataset (10 sushi items, 5000 respondents) is fetched from
-    kamishima.net under a research-only, no-redistribution license; the
-    cache file is kept under .demo_data/.
-    """
-    _print_dataset_header("Sushi")
-    url = "https://www.kamishima.net/asset/sushi3-2016.zip"
-    zip_path = _cached_download(url, "sushi3-2016.zip")
-    with zipfile.ZipFile(zip_path) as archive:
-        with archive.open("sushi3-2016/sushi3a.5000.10.order") as order_file:
-            order_lines = order_file.read().decode("utf-8").splitlines()
-        with archive.open("sushi3-2016/sushi3.udata") as udata_file:
-            udata_lines = udata_file.read().decode("utf-8").splitlines()
-        with archive.open("sushi3-2016/sushi3.idata") as idata_file:
-            idata_lines = idata_file.read().decode("utf-8").splitlines()
-    sushi3a_item_count = 10
-    all_item_names = [
-        line.split("\t")[1] for line in idata_lines if line.strip()
-    ]
-    item_names = all_item_names[:sushi3a_item_count]
-    n_items = len(item_names)
-    if n_items != sushi3a_item_count:
-        raise ValueError(
-            f"SUSHI3A schema drift: expected {sushi3a_item_count}"
-            f" items, got {n_items}"
-        )
-    n_users = sum(1 for line in order_lines[1:] if line.strip())
-    ranks_in_cell = numpy.full((n_users, n_items), numpy.nan, dtype=float)
-    row_index = 0
-    for line in order_lines[1:]:
-        if not line.strip():
-            continue
-        tokens = line.split()
-        for position in range(n_items):
-            item_id = int(tokens[2 + position])
-            ranks_in_cell[row_index, item_id] = float(position + 1)
-        row_index += 1
-    rankings = pandas.DataFrame(ranks_in_cell, columns=item_names)
-    demographic_rows = []
-    for line in udata_lines:
-        if not line.strip():
-            continue
-        demographic_rows.append(line.split("\t"))
-    demographic_frame = pandas.DataFrame(
-        demographic_rows,
-        columns=[
-            "user_id",
-            "gender",
-            "age_group",
-            "completion_seconds",
-            "childhood_prefecture",
-            "childhood_region",
-            "childhood_east_west",
-            "current_prefecture",
-            "current_region",
-            "current_east_west",
-            "migrated",
-        ],
-    )
-    gender_labels = {"0": "male", "1": "female"}
-    age_labels = {
-        "0": "15-19",
-        "1": "20-29",
-        "2": "30-39",
-        "3": "40-49",
-        "4": "50-59",
-        "5": "60+",
-    }
-    region_labels = {
-        "0": "Hokkaido",
-        "1": "Tohoku",
-        "2": "Hokuriku",
-        "3": "Kanto+Shizuoka",
-        "4": "Nagoya",
-        "5": "Kinki",
-        "6": "Chugoku",
-        "7": "Shikoku",
-        "8": "Kyushu",
-        "9": "Okinawa",
-        "10": "abroad",
-        "11": "missing",
-    }
-    east_west_labels = {"0": "Eastern Japan", "1": "Western Japan"}
-    X_sushi = pandas.DataFrame({
-        "Gender": pandas.Categorical(
-            demographic_frame["gender"].map(gender_labels),
-            categories=["female", "male"],
-        ),
-        "Age group": pandas.Categorical(
-            demographic_frame["age_group"].map(age_labels),
-            categories=list(age_labels.values()),
-            ordered=True,
-        ),
-        "Childhood region": pandas.Categorical(
-            demographic_frame["childhood_region"].map(region_labels),
-            categories=list(region_labels.values()),
-        ),
-        "Childhood part of Japan": pandas.Categorical(
-            demographic_frame["childhood_east_west"].map(east_west_labels),
-            categories=list(east_west_labels.values()),
-        ),
-        "Current region": pandas.Categorical(
-            demographic_frame["current_region"].map(region_labels),
-            categories=list(region_labels.values()),
-        ),
-        "Migrated since age 15": demographic_frame["migrated"].map(
-            {"0": False, "1": True}
-        ).astype(bool),
-    })
-    ranking_tree = sigma.RankingTree(
-        n_top_items=n_items,
-        test_type="monte_carlo",
-        resamples=5000,
-        random_state=123,
-        max_depth=2,
-    )
-    ranking_tree.fit(X_sushi, rankings)
-    text = ranking_tree.to_text(precision=2)
-    print(text)
-    ranking_tree_png = ranking_tree.to_image(
-        "png",
-        dpi=dpi,
-        background_color="transparent",
-        orientation="left-to-right",
-        precision=2,
-    )
-    _write_png(output_path, ranking_tree_png, "tree")
-    response_png = ranking_tree.to_image(
-        "png",
-        kind="response",
-        dpi=dpi,
-        background_color="transparent",
-    )
-    _write_png(_response_png_path(output_path), response_png, "responses")
-
-
 def _build_movielens_tree(output_path: str, dpi: int) -> None:
     """Fit a ranking tree on the MovieLens-1M dataset and write a PNG to
     output_path at the requested dpi.
@@ -873,6 +732,147 @@ def _build_movielens_tree(output_path: str, dpi: int) -> None:
         max_depth=3,
     )
     ranking_tree.fit(X_movielens, rankings)
+    text = ranking_tree.to_text(precision=2)
+    print(text)
+    ranking_tree_png = ranking_tree.to_image(
+        "png",
+        dpi=dpi,
+        background_color="transparent",
+        orientation="left-to-right",
+        precision=2,
+    )
+    _write_png(output_path, ranking_tree_png, "tree")
+    response_png = ranking_tree.to_image(
+        "png",
+        kind="response",
+        dpi=dpi,
+        background_color="transparent",
+    )
+    _write_png(_response_png_path(output_path), response_png, "responses")
+
+
+def _build_sushi_tree(output_path: str, dpi: int) -> None:
+    """Fit a ranking tree on the Sushi preference dataset and write a PNG to
+    output_path at the requested dpi.
+
+    Source: Kamishima (2003), "Nantonac collaborative filtering:
+    recommendation based on order responses," KDD '03. The SUSHI3A
+    dataset (10 sushi items, 5000 respondents) is fetched from
+    kamishima.net under a research-only, no-redistribution license; the
+    cache file is kept under .demo_data/.
+    """
+    _print_dataset_header("Sushi")
+    url = "https://www.kamishima.net/asset/sushi3-2016.zip"
+    zip_path = _cached_download(url, "sushi3-2016.zip")
+    with zipfile.ZipFile(zip_path) as archive:
+        with archive.open("sushi3-2016/sushi3a.5000.10.order") as order_file:
+            order_lines = order_file.read().decode("utf-8").splitlines()
+        with archive.open("sushi3-2016/sushi3.udata") as udata_file:
+            udata_lines = udata_file.read().decode("utf-8").splitlines()
+        with archive.open("sushi3-2016/sushi3.idata") as idata_file:
+            idata_lines = idata_file.read().decode("utf-8").splitlines()
+    sushi3a_item_count = 10
+    all_item_names = [
+        line.split("\t")[1] for line in idata_lines if line.strip()
+    ]
+    item_names = all_item_names[:sushi3a_item_count]
+    n_items = len(item_names)
+    if n_items != sushi3a_item_count:
+        raise ValueError(
+            f"SUSHI3A schema drift: expected {sushi3a_item_count}"
+            f" items, got {n_items}"
+        )
+    n_users = sum(1 for line in order_lines[1:] if line.strip())
+    ranks_in_cell = numpy.full((n_users, n_items), numpy.nan, dtype=float)
+    row_index = 0
+    for line in order_lines[1:]:
+        if not line.strip():
+            continue
+        tokens = line.split()
+        for position in range(n_items):
+            item_id = int(tokens[2 + position])
+            ranks_in_cell[row_index, item_id] = float(position + 1)
+        row_index += 1
+    rankings = pandas.DataFrame(ranks_in_cell, columns=item_names)
+    demographic_rows = []
+    for line in udata_lines:
+        if not line.strip():
+            continue
+        demographic_rows.append(line.split("\t"))
+    demographic_frame = pandas.DataFrame(
+        demographic_rows,
+        columns=[
+            "user_id",
+            "gender",
+            "age_group",
+            "completion_seconds",
+            "childhood_prefecture",
+            "childhood_region",
+            "childhood_east_west",
+            "current_prefecture",
+            "current_region",
+            "current_east_west",
+            "migrated",
+        ],
+    )
+    gender_labels = {"0": "male", "1": "female"}
+    age_labels = {
+        "0": "15-19",
+        "1": "20-29",
+        "2": "30-39",
+        "3": "40-49",
+        "4": "50-59",
+        "5": "60+",
+    }
+    region_labels = {
+        "0": "Hokkaido",
+        "1": "Tohoku",
+        "2": "Hokuriku",
+        "3": "Kanto+Shizuoka",
+        "4": "Nagoya",
+        "5": "Kinki",
+        "6": "Chugoku",
+        "7": "Shikoku",
+        "8": "Kyushu",
+        "9": "Okinawa",
+        "10": "abroad",
+        "11": "missing",
+    }
+    east_west_labels = {"0": "Eastern Japan", "1": "Western Japan"}
+    X_sushi = pandas.DataFrame({
+        "Gender": pandas.Categorical(
+            demographic_frame["gender"].map(gender_labels),
+            categories=["female", "male"],
+        ),
+        "Age group": pandas.Categorical(
+            demographic_frame["age_group"].map(age_labels),
+            categories=list(age_labels.values()),
+            ordered=True,
+        ),
+        "Childhood region": pandas.Categorical(
+            demographic_frame["childhood_region"].map(region_labels),
+            categories=list(region_labels.values()),
+        ),
+        "Childhood part of Japan": pandas.Categorical(
+            demographic_frame["childhood_east_west"].map(east_west_labels),
+            categories=list(east_west_labels.values()),
+        ),
+        "Current region": pandas.Categorical(
+            demographic_frame["current_region"].map(region_labels),
+            categories=list(region_labels.values()),
+        ),
+        "Migrated since age 15": demographic_frame["migrated"].map(
+            {"0": False, "1": True}
+        ).astype(bool),
+    })
+    ranking_tree = sigma.RankingTree(
+        n_top_items=n_items,
+        test_type="monte_carlo",
+        resamples=5000,
+        random_state=123,
+        max_depth=2,
+    )
+    ranking_tree.fit(X_sushi, rankings)
     text = ranking_tree.to_text(precision=2)
     print(text)
     ranking_tree_png = ranking_tree.to_image(
