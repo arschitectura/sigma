@@ -9,6 +9,7 @@ import sklearn.preprocessing
 import sklearn.utils.estimator_checks
 
 import sigma._tree_classification
+import sigma._tree_ranking
 import sigma._tree_regression
 import sigma._tree_survival
 
@@ -60,6 +61,18 @@ _SURVIVAL_EXPECTED_FAILED_CHECKS = {
     ),
 }
 
+_RANKING_Y_SHAPE_FAILURE_REASON = (
+    "RankingTree requires y of shape (n_obs, n_items) carrying per-item"
+    " ranks (NaN for unranked); the standard sklearn check supplies 1D"
+    " float y."
+)
+_RANKING_EXPECTED_FAILED_CHECKS = {
+    **_EXPECTED_FAILED_CHECKS,
+    **dict.fromkeys(
+        _SURVIVAL_Y_SHAPE_FAILED_CHECKS, _RANKING_Y_SHAPE_FAILURE_REASON
+    ),
+}
+
 
 class TestSklearnCompliance(unittest.TestCase):
     """Tests for scikit-learn estimator contract compliance."""
@@ -103,6 +116,19 @@ class TestSklearnCompliance(unittest.TestCase):
             sklearn.utils.estimator_checks.check_estimator(
                 sigma._tree_survival.SurvivalTree(),
                 expected_failed_checks=_SURVIVAL_EXPECTED_FAILED_CHECKS,
+            )
+
+    def test_check_ranking_tree(self):
+        """RankingTree passes all scikit-learn estimator checks."""
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="invalid value encountered in cast",
+                category=RuntimeWarning,
+            )
+            sklearn.utils.estimator_checks.check_estimator(
+                sigma._tree_ranking.RankingTree(),
+                expected_failed_checks=_RANKING_EXPECTED_FAILED_CHECKS,
             )
 
 

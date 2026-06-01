@@ -298,6 +298,113 @@ class SurvivalNode(Node):
         return key
 
 
+class RankingMetric:
+    """Single per-item summary for a RankingTree estimator.
+
+    Attributes:
+        label: Display label of the item being ranked.
+        value: Weighted mean rank of the item.
+        ci_low: Lower confidence-interval bound on the mean rank, or
+            None when no CI is defined.
+        ci_high: Upper confidence-interval bound on the mean rank, or
+            None when no CI is defined.
+        style: Formatting style; always "value" for ranking metrics.
+        better_is: Prognostic direction; always "lower" because rank 1
+            is the most-preferred position.
+        is_displayed: Whether this metric is shown in textual and
+            graphical tree renderings. RankingTree sets this to True
+            only for items it preselected as individual test columns;
+            non-preselected items keep their stats stored on the node
+            but are hidden from rendering by default.
+    """
+
+    __slots__ = (
+        "label",
+        "value",
+        "ci_low",
+        "ci_high",
+        "style",
+        "better_is",
+        "is_displayed",
+        "__weakref__",
+        "__dict__",
+    )
+
+    def __init__(
+        self,
+        label: str,
+        value: float,
+        ci_low: None | float,
+        ci_high: None | float,
+        is_displayed: bool = True,
+    ) -> None:
+        self.label = label
+        self.value = value
+        self.ci_low = ci_low
+        self.ci_high = ci_high
+        self.style: typing.Literal["value", "probability"] = "value"
+        self.better_is: typing.Literal["higher", "lower"] = "lower"
+        self.is_displayed = is_displayed
+
+
+class RankingNode(Node):
+    """Node of a fitted RankingTree.
+
+    Attributes:
+        metrics: Ordered list of per-item RankingMetric records, one
+            entry per item in item-index order. Non-empty.
+    """
+
+    __slots__ = ("metrics",)
+
+    def __init__(
+        self,
+        depth: int,
+        n_samples: int,
+        share: float,
+        decoration: None | object,
+        extension: _extension.Extension[typing.Self],
+        metrics: list[RankingMetric],
+    ) -> None:
+        super().__init__(depth, n_samples, share, decoration, extension)
+        self.metrics = metrics
+
+    @property
+    def prediction(self) -> int:
+        """Index of the item with the lowest weighted mean rank."""
+        values = numpy.array(
+            [metric.value for metric in self.metrics], dtype=float
+        )
+        nan_mask = numpy.isnan(values)
+        if numpy.all(nan_mask):
+            return 0
+        safe = numpy.where(nan_mask, numpy.inf, values)
+        index = int(numpy.argmin(safe))
+        return index
+
+    @property
+    def ci_low(self) -> None | float:
+        """Lower CI bound on the favorite item's mean rank."""
+        bound = self.metrics[self.prediction].ci_low
+        return bound
+
+    @property
+    def ci_high(self) -> None | float:
+        """Upper CI bound on the favorite item's mean rank."""
+        bound = self.metrics[self.prediction].ci_high
+        return bound
+
+    def leaf_sort_key(self) -> tuple[float, ...]:
+        """Sort key: ascending lexicographic on per-item mean ranks."""
+        components: list[float] = []
+        for metric in self.metrics:
+            value = metric.value
+            sort_value = float("inf") if numpy.isnan(value) else value
+            components.append(sort_value)
+        key = tuple(components)
+        return key
+
+
 def _populate_share(root: Node) -> None:
     """Set share on every node as n_samples / root.n_samples."""
     total = root.n_samples

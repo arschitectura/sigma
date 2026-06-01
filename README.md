@@ -4,13 +4,13 @@
 
 **Conditional inference trees for Python.**
 
-Provides regression (`RegressionTree`), classification (`ClassificationTree`),
-and survival-analysis (`SurvivalTree`) estimators, compatible with
-scikit-learn.
+Provides classification (`ClassificationTree`), regression
+(`RegressionTree`), survival-analysis (`SurvivalTree`), and ranking
+(`RankingTree`) estimators, compatible with scikit-learn.
 
 - **Unbiased splits** - permutation-based p-values decouple variable selection from split search, avoiding CART's bias toward variables with many possible splits
 - **Interpretable by construction** - each split is a statistical hypothesis test with a reported p-value, and fitted trees render to PNG/SVG via `to_image`
-- **scikit-learn compatible** - `RegressionTree`, `ClassificationTree`, and `SurvivalTree` drop into any sklearn pipeline
+- **scikit-learn compatible** - `ClassificationTree`, `RegressionTree`, `SurvivalTree`, and `RankingTree` drop into any sklearn pipeline
 
 Every statistical method in Sigma comes from a [peer-reviewed paper](#references).
 
@@ -57,7 +57,7 @@ pip install ars-sigma
 
 ## 4. Sample Trees
 
-Three trees fitted on classic datasets. Each subsection shows the
+Four trees fitted on classic datasets. Each subsection shows the
 fit code, the `to_text` rendering, and the rendered tree and response
 images. Click an image to view it at full size.
 
@@ -194,6 +194,48 @@ All records                                               4.9 (4.2 to 5.5) 49.2%
   </tr>
 </table>
 
+### 4.4. Sushi (ranking)
+
+Predicting per-item mean rank with a Bayesian-bootstrap 95% confidence
+interval at each leaf - surfaces sex and age group as the strongest
+demographic drivers of sushi preference among 5000 Japanese respondents
+ranking ten classic sushi.
+
+```python
+tree = sigma.RankingTree(
+    n_items=10,
+    item_names=["ebi", "anago", "maguro", "ika", "uni", "tako",
+                "ikura", "tamago", "toro", "amaebi"],
+    random_state=123,
+    max_depth=2,
+)
+tree.fit(X, rankings)
+print(tree.to_text(precision=2))
+tree.to_image("png", "sushi.png", orientation="left-to-right", precision=2)
+tree.to_image("png", "sushi_response.png", kind="response")
+```
+
+```
+                                                                          Rank of ebi       Rank of anago      Rank of maguro         Rank of ika         Rank of uni        Rank of tako       Rank of ikura      Rank of tamago        Rank of toro      Rank of amaebi Obs. count Obs. share Split p-value Leaf index
+                                                                  ------------------- ------------------- ------------------- ------------------- ------------------- ------------------- ------------------- ------------------- ------------------- ------------------- ---------- ---------- ------------- ----------
+All records                                                       4.92 (4.85 to 4.99) 5.22 (5.15 to 5.30) 4.47 (4.41 to 4.54) 5.90 (5.83 to 5.97) 5.53 (5.43 to 5.62) 5.10 (5.02 to 5.18) 6.86 (6.78 to 6.93) 3.11 (3.04 to 3.18) 5.89 (5.83 to 5.95) 8.01 (7.96 to 8.07)       5000     100.0%         0.02%
+├── Gender is "male"                                              5.18 (5.09 to 5.28) 4.98 (4.86 to 5.09) 4.26 (4.17 to 4.35) 6.00 (5.90 to 6.10) 5.15 (5.02 to 5.28) 5.30 (5.19 to 5.41) 7.10 (7.00 to 7.19) 2.81 (2.72 to 2.89) 5.97 (5.89 to 6.06) 8.26 (8.18 to 8.34)       2373      47.5%         0.02%
+│   ├── Age group is "40-49", "50-59", or "60+"                   5.19 (5.02 to 5.35) 5.11 (4.93 to 5.30) 4.30 (4.15 to 4.45) 5.75 (5.58 to 5.92) 4.60 (4.41 to 4.81) 5.66 (5.48 to 5.84) 7.50 (7.35 to 7.66) 2.83 (2.68 to 2.98) 5.91 (5.76 to 6.06) 8.15 (8.01 to 8.28)        884      17.7%                        4
+│   └── Age group is "15-19", "20-29", or "30-39"                 5.18 (5.06 to 5.30) 4.89 (4.76 to 5.03) 4.23 (4.12 to 4.34) 6.14 (6.02 to 6.27) 5.47 (5.31 to 5.64) 5.09 (4.95 to 5.23) 6.86 (6.73 to 6.99) 2.79 (2.69 to 2.90) 6.02 (5.90 to 6.13) 8.33 (8.23 to 8.43)       1489      29.8%                        3
+└── Gender is "female"                                            4.68 (4.58 to 4.77) 5.45 (5.33 to 5.56) 4.67 (4.58 to 4.76) 5.81 (5.71 to 5.90) 5.87 (5.73 to 6.00) 4.91 (4.80 to 5.02) 6.64 (6.54 to 6.74) 3.39 (3.29 to 3.48) 5.81 (5.73 to 5.89) 7.79 (7.71 to 7.87)       2627      52.5%         0.02%
+    ├── Age group is "20-29", "30-39", "40-49", "50-59", or "60+" 4.68 (4.59 to 4.78) 5.37 (5.26 to 5.48) 4.72 (4.63 to 4.81) 5.79 (5.69 to 5.89) 5.73 (5.60 to 5.87) 4.91 (4.80 to 5.03) 6.68 (6.58 to 6.79) 3.41 (3.31 to 3.51) 5.86 (5.77 to 5.94) 7.85 (7.76 to 7.93)       2429      48.6%                        2
+    └── Age group is "15-19"                                      4.61 (4.25 to 4.97) 6.42 (6.04 to 6.79) 4.03 (3.73 to 4.34) 6.04 (5.70 to 6.37) 7.53 (7.08 to 7.93) 4.87 (4.45 to 5.29) 6.06 (5.68 to 6.42) 3.11 (2.79 to 3.45) 5.23 (4.95 to 5.52) 7.11 (6.80 to 7.41)        198       4.0%                        1
+```
+
+<table>
+  <tr>
+    <td><a href="https://arschitectura.com/medias/sigma_sushi.png"><img src="https://arschitectura.com/medias/sigma_sushi.png" alt="Tree fitted on the Sushi preference dataset"></a></td>
+  </tr>
+  <tr>
+    <td><a href="https://arschitectura.com/medias/sigma_sushi_response.png"><img src="https://arschitectura.com/medias/sigma_sushi_response.png" alt="Response plot for the Sushi preference dataset"></a></td>
+  </tr>
+</table>
+
 ## 5. Advanced usage
 
 ### 5.1. Controlling tree depth and node size
@@ -325,8 +367,9 @@ when to choose each option.
 | `min_buckets`                     | Minimum sum of weights in each child node                                    |
 | `max_depth`                       | Maximum tree depth                                                           |
 | `categorical_features`            | Which feature columns are categorical                                        |
-| `ci_method` (regression tree)     | Confidence interval method for node mean predictions                         |
 | `ci_method` (classification tree) | Confidence interval method for per-class proportions                         |
+| `ci_method` (regression tree)     | Confidence interval method for node mean predictions                         |
+| `ci_method` (ranking tree)        | Confidence interval method for per-item leaf mean-rank predictions           |
 | `ci_coverage`                     | Coverage level for node-prediction confidence intervals                      |
 | `transmuter`                      | Per-node data transform with post-hoc split validation                       |
 | `resamples`                       | Number of permutations for `test_type="monte_carlo"`                         |
@@ -539,7 +582,32 @@ size and $z$ a standard normal quantile.
   total weight $w_{\text{total}}$ is small and plain Wilson
   under-covers.
 
-### 6.11. `ci_coverage`
+### 6.11. `ci_method` (`RankingTree` only)
+
+**Default**: `"bayesian_bootstrap"`.
+
+Method for the per-item confidence intervals on each leaf's weighted
+mean rank vector. `RankingTree` reuses the `RegressionTree` CI
+machinery applied K times - once per item - so only the four
+distribution-free options apply; the seven distribution-specific
+methods of `RegressionTree` (`"beta"`, `"exponential"`, `"gamma"`,
+`"log_normal"`, `"log_normal_gci"`, `"poisson"`, `"poisson_jeffreys"`)
+are rejected at construction time because bounded integer ranks do not
+match their parametric assumptions.
+
+- `"bayesian_bootstrap"` (default) uses Dirichlet resampling of the
+  per-item weighted mean rank. Nonparametric: makes no distributional
+  assumption on the per-item rank distribution. The safe choice.
+- `"bca"` is the bias-corrected and accelerated bootstrap (Efron, 1987).
+  Nonparametric, frequentist counterpart to `"bayesian_bootstrap"`.
+  Non-deterministic across calls.
+- `"normal"` is the Wald interval $\bar{r}_k \pm z \cdot \text{SE}$
+  with the Kish effective sample size. Tight and cheap. Choose when
+  the central limit theorem applies comfortably.
+- `"student_t"` has the same form as `"normal"` but uses a Student-t
+  quantile. Wider than `"normal"` for small effective sample sizes.
+
+### 6.12. `ci_coverage`
 
 **Default**: `0.95`.
 
@@ -548,9 +616,10 @@ to skip CI computation entirely (the proper way to fully avoid the
 per-node `ci_method` cost). Common alternatives: `0.90` (less
 conservative), `0.99` (more conservative). For survival trees, also
 controls the confidence band drawn behind each Kaplan-Meier curve in
-the response plot.
+the response plot; for ranking trees, it sets the per-item whisker
+width in the mean-rank response plot.
 
-### 6.12. `transmuter`
+### 6.13. `transmuter`
 
 **Default**: `None`.
 
@@ -565,7 +634,7 @@ is rejected and the node becomes a leaf. Use cases: survival outcomes
 (Kaplan-Meier-style transformation), rate normalization (impressions
 to click-through rate), de-noising heavy-tailed responses.
 
-### 6.13. `resamples`
+### 6.14. `resamples`
 
 **Default**: `None`.
 
@@ -574,7 +643,7 @@ must be a positive integer when monte_carlo is selected; ignored
 otherwise. Typical choices: `1000` for day-to-day production, `10000`
 for paper-grade reproducible adjusted p-values.
 
-### 6.14. `decorator`
+### 6.15. `decorator`
 
 **Default**: `None`.
 
@@ -586,7 +655,7 @@ object is stored on the node as `node.decoration` and rendered by
 classification accuracy), business labels (segment names), diagnostic
 statistics.
 
-### 6.15. `random_state`
+### 6.16. `random_state`
 
 **Default**: `None`.
 
@@ -596,6 +665,9 @@ for reproducibility; `None` uses an unpredictable seed. Controls:
 - min-P permutation resampling under `test_type="monte_carlo"`;
 - the bootstrap-family CI methods of `RegressionTree`
   (`bayesian_bootstrap`, `bca`, `log_normal_gci`);
+- the bootstrap-family CI methods of `RankingTree`
+  (`bayesian_bootstrap`, `bca`) applied K times per leaf - once per
+  item;
 - the jitter of `to_image(kind="response")` raincloud plots
   (`RegressionTree` only; combined with the leaf index so each leaf
   receives a distinct pattern).
@@ -609,11 +681,19 @@ toward variables with many possible splits), conditional inference trees
 use permutation-based p-values to decouple variable selection from split
 search.
 
-The framework is generic: the only difference between regression and
-classification is the influence function $h$ applied to the response
-$Y_i$ of observation $i$. For regression, $h(Y_i) = Y_i$ (identity).
-For classification with $J$ classes, $h(Y_i) = e_J(Y_i)$ (one-hot
-encoding of the class label). All test statistics, p-value
+The framework is generic: the only difference between the four task
+families is the influence function $h$ applied to the response $Y_i$
+of observation $i$. For classification with $J$ classes,
+$h(Y_i) = e_J(Y_i)$ (one-hot encoding of the class label). For
+regression, $h(Y_i) = Y_i$ (identity). For survival, $h(Y_i)$ is the
+log-rank score (a scalar centred Savage score). For ranking, the
+ranks-in-cell $Y_i$ is imputed at unranked items with the per-row
+tail mean, log-transformed via $\log(1 + Y_i)$, column-centered, and
+projected onto the top-$R$ right singular vectors of the resulting
+matrix: $h(Y_i) = (\log(1 + Y_i) - \bar{m}) V$, where $\bar{m}$ is
+the global column mean and $V$ is the loading matrix. The
+log-transformation of power-law-distributed rank data before factor
+analysis follows Leydesdorff (2006). All test statistics, p-value
 computations, and splitting criteria use the same formulas.
 
 ### 7.1. Step 1: Variable selection and stopping
@@ -712,11 +792,12 @@ Three deliberate deviations from partykit are worth knowing about:
 3. **Leaves are reordered for display**: `leaves_` iterates in a
    task-appropriate canonical order, and `to_text` / `to_image` swap
    left and right children of each inner node to match. Sort keys are
-   ascending predicted response (`RegressionTree`), descending majority
-   class share (`ClassificationTree`), and worst prognosis first
-   (`SurvivalTree`). Partykit prints leaves in tree-traversal order.
-   The underlying tree is identical; only the iteration order of
-   `leaves_` and the visual left-vs-right placement of children in
+   descending majority class share (`ClassificationTree`), ascending
+   predicted response (`RegressionTree`), worst prognosis first
+   (`SurvivalTree`), and ascending lexicographic per-item mean rank
+   vector (`RankingTree`). Partykit prints leaves in tree-traversal
+   order. The underlying tree is identical; only the iteration order
+   of `leaves_` and the visual left-vs-right placement of children in
    exported renderings differ.
 
 ## 9. References
@@ -737,6 +818,10 @@ Three deliberate deviations from partykit are worth knowing about:
   *A Lego System for Conditional Inference.* *The American
   Statistician*, 60(3), 257-263.
   [doi:10.1198/000313006X118430](https://doi.org/10.1198/000313006X118430)
+- Leydesdorff, L. (2006). *Classification and Powerlaws: The
+  Logarithmic Transformation.* *Journal of the American Society for
+  Information Science and Technology*, 57(11), 1470-1486.
+  [doi:10.1002/asi.20467](https://doi.org/10.1002/asi.20467)
 - Olsson, U. (2005). *Confidence Intervals for the Mean of a
   Log-Normal Distribution.* *Journal of Statistics Education*, 13(1).
   [doi:10.1080/10691898.2005.11910638](https://doi.org/10.1080/10691898.2005.11910638)
@@ -767,6 +852,13 @@ Three deliberate deviations from partykit are worth knowing about:
 - Rubin, D. B. (1981). *The Bayesian Bootstrap.* *Annals of
   Statistics*, 9(1), 130-134.
   [doi:10.1214/aos/1176345338](https://doi.org/10.1214/aos/1176345338)
+- Efron, B. (1977). *The Efficiency of Cox's Likelihood Function for
+  Censored Data.* *Journal of the American Statistical Association*,
+  72(359), 557-565.
+  [doi:10.1080/01621459.1977.10480613](https://doi.org/10.1080/01621459.1977.10480613)
+- Breslow, N. E. (1974). *Covariance Analysis of Censored Survival
+  Data.* *Biometrics*, 30(1), 89-99.
+  [doi:10.2307/2529620](https://doi.org/10.2307/2529620)
 - Wilson, E. B. (1927). *Probable Inference, the Law of Succession,
   and Statistical Inference.* *Journal of the American Statistical
   Association*, 22(158), 209-212.

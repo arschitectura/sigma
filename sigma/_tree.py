@@ -1,9 +1,9 @@
 """Abstract Tree base class for conditional inference tree estimators.
 
 Implements the shared recursive partitioning algorithm from Hothorn,
-Hornik, and Zeileis (2006). The concrete RegressionTree,
-ClassificationTree, and SurvivalTree subclasses live in their own
-sibling modules.
+Hornik, and Zeileis (2006). The concrete ClassificationTree,
+RegressionTree, SurvivalTree, and RankingTree subclasses live in their
+own sibling modules.
 """
 
 from __future__ import annotations
@@ -791,6 +791,9 @@ class Tree(
         survival_metrics = self._compute_survival_metrics(
             y_transmuted, w_transmuted
         )
+        ranking_metrics = self._compute_ranking_metrics(
+            y_transmuted, w_transmuted
+        )
         mean_offset_proba = self._compute_mean_offset_proba(
             w_transmuted, offset_transmuted
         )
@@ -849,6 +852,7 @@ class Tree(
             survival_function=survival_function,
             survival_log_variance=survival_log_variance,
             survival_metrics=survival_metrics,
+            ranking_metrics=ranking_metrics,
             mean_offset_proba=mean_offset_proba,
             response_samples=None,
         )
@@ -874,6 +878,7 @@ class Tree(
         ],
         survival_log_variance: None | numpy.typing.NDArray[numpy.floating],
         survival_metrics: None | list[_node.SurvivalMetric],
+        ranking_metrics: None | list[_node.RankingMetric],
         mean_offset_proba: None | numpy.typing.NDArray[numpy.floating],
         response_samples: None | numpy.typing.NDArray[numpy.floating],
     ) -> N:
@@ -1005,6 +1010,14 @@ class Tree(
         weights: numpy.typing.NDArray[numpy.floating],
     ) -> None | list[_node.SurvivalMetric]:
         """Compute the per-node summary metrics for the display stack."""
+
+    @abc.abstractmethod
+    def _compute_ranking_metrics(
+        self,
+        y: numpy.typing.NDArray[numpy.floating],
+        weights: numpy.typing.NDArray[numpy.floating],
+    ) -> None | list[_node.RankingMetric]:
+        """Compute the per-item ranking metrics for the display stack."""
 
     @staticmethod
     def _offset_active_slice(
@@ -1320,6 +1333,9 @@ class Tree(
         survival_metrics = self._compute_survival_metrics(
             y_transmuted, w_transmuted
         )
+        ranking_metrics = self._compute_ranking_metrics(
+            y_transmuted, w_transmuted
+        )
         mean_offset_proba = self._compute_mean_offset_proba(
             w_transmuted, offset_transmuted
         )
@@ -1339,6 +1355,7 @@ class Tree(
             survival_function=survival_function,
             survival_log_variance=survival_log_variance,
             survival_metrics=survival_metrics,
+            ranking_metrics=ranking_metrics,
             mean_offset_proba=mean_offset_proba,
             response_samples=response_samples,
         )

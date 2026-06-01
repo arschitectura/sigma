@@ -231,6 +231,7 @@ class RegressionTree(
         survival_function,
         survival_log_variance,
         survival_metrics,
+        ranking_metrics,
         mean_offset_proba,
         response_samples,
     ):
@@ -712,6 +713,14 @@ class RegressionTree(
         weights: numpy.typing.NDArray[numpy.floating],
     ) -> None | list[_node.SurvivalMetric]:
         """Return None - regression has no survival metrics."""
+        return None
+
+    def _compute_ranking_metrics(
+        self,
+        y: numpy.typing.NDArray[numpy.floating],
+        weights: numpy.typing.NDArray[numpy.floating],
+    ) -> None | list[_node.RankingMetric]:
+        """Return None - regression has no ranking metrics."""
         return None
 
     def predict(

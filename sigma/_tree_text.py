@@ -178,6 +178,16 @@ def _format_prediction(
             bold_value,
         )
         return text
+    if isinstance(node, _node.RankingNode):
+        text = _format_ranking_prediction(
+            node,
+            prediction_formatter,
+            separator,
+            precision,
+            count_part,
+            bold_value,
+        )
+        return text
     regression_node = typing.cast(_node.RegressionNode, node)
     text = _format_regression_prediction(
         regression_node,
@@ -284,6 +294,36 @@ def _format_survival_prediction(
     return text
 
 
+def _format_ranking_prediction(
+    node: _node.RankingNode,
+    prediction_formatter: None | typing.Callable[[float], str],
+    separator: str,
+    precision: int,
+    count_part: str,
+    bold_value: bool,
+) -> str:
+    """Format one labeled line per displayed ranking metric."""
+    parts: list[str] = []
+    for metric in node.metrics:
+        if not metric.is_displayed:
+            continue
+        line = _format_survival_metric_line(
+            label=f"Rank of {metric.label}",
+            value=metric.value,
+            ci_low=metric.ci_low,
+            ci_high=metric.ci_high,
+            style=metric.style,
+            response_name=None,
+            prediction_formatter=prediction_formatter,
+            precision=precision,
+            bold_value=bold_value,
+        )
+        parts.append(line)
+    parts.append(count_part)
+    text = separator.join(parts)
+    return text
+
+
 def _format_survival_metric_line(
     label: str,
     value: float,
@@ -344,6 +384,9 @@ def _table_prediction_headers(
     if isinstance(node, _node.SurvivalNode):
         result = _table_survival_prediction_headers(node, response_name)
         return result
+    if isinstance(node, _node.RankingNode):
+        result = _table_ranking_prediction_headers(node)
+        return result
     result = _table_regression_prediction_headers(response_name)
     return result
 
@@ -389,6 +432,20 @@ def _table_survival_prediction_headers(
     return headers
 
 
+def _table_ranking_prediction_headers(
+    node: _node.RankingNode,
+) -> list[str]:
+    """Headers for a ranking node's displayed-item prediction columns."""
+    headers = [
+        f"Rank of {metric.label}"
+        for metric in node.metrics
+        if metric.is_displayed
+    ]
+    headers.append("Obs. count")
+    headers.append("Obs. share")
+    return headers
+
+
 def _table_prediction_cells(
     node: _node.Node,
     prediction_formatter: None | typing.Callable[[float], str],
@@ -402,6 +459,11 @@ def _table_prediction_cells(
         return result
     if isinstance(node, _node.SurvivalNode):
         result = _table_survival_prediction_cells(
+            node, prediction_formatter, precision
+        )
+        return result
+    if isinstance(node, _node.RankingNode):
+        result = _table_ranking_prediction_cells(
             node, prediction_formatter, precision
         )
         return result
@@ -495,6 +557,30 @@ def _format_survival_metric_cell(
     if ci_low is not None and ci_high is not None:
         cell += _format_ci_pair(formatter, ci_low, ci_high)
     return cell
+
+
+def _table_ranking_prediction_cells(
+    node: _node.RankingNode,
+    prediction_formatter: None | typing.Callable[[float], str],
+    precision: int,
+) -> list[str]:
+    """Cells for a ranking node's displayed-item prediction columns."""
+    cells: list[str] = []
+    for metric in node.metrics:
+        if not metric.is_displayed:
+            continue
+        cell = _format_survival_metric_cell(
+            metric.value,
+            metric.ci_low,
+            metric.ci_high,
+            metric.style,
+            prediction_formatter,
+            precision,
+        )
+        cells.append(cell)
+    cells.append(str(node.n_samples))
+    cells.append(_format_share(node.share))
+    return cells
 
 
 def _table_p_value_cell(partition: _partition.Partition) -> str:

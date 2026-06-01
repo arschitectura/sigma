@@ -12,6 +12,8 @@ from ._extension import Extension, Leaf
 from ._node import (
     ClassificationNode,
     Node,
+    RankingMetric,
+    RankingNode,
     RegressionNode,
     SurvivalMetric,
     SurvivalNode,
@@ -24,6 +26,7 @@ from ._partition import (
     UnknownCategoryError,
 )
 from ._tree_classification import ClassificationTree
+from ._tree_ranking import RankingTree
 from ._tree_regression import RegressionTree
 from ._tree_survival import SurvivalTree
 
@@ -37,6 +40,9 @@ __all__ = [
     "Node",
     "NumericalPartition",
     "Partition",
+    "RankingMetric",
+    "RankingNode",
+    "RankingTree",
     "RegressionNode",
     "RegressionTree",
     "SurvivalMetric",

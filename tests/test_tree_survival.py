@@ -102,8 +102,8 @@ class TestSurvivalTreeFit(unittest.TestCase):
         for prediction in predictions:
             self.assertIn(prediction, leaf_medians)
 
-    def test_predict_survival_function_shape_and_monotonicity(self):
-        """predict_survival_function returns non-increasing rows in [0, 1]."""
+    def test_predict_survival_shape_and_monotonicity(self):
+        """predict_survival returns non-increasing rows in [0, 1]."""
         rng = numpy.random.RandomState(0)
         n = 200
         arm = (numpy.arange(n) % 2).astype(float)
@@ -118,7 +118,7 @@ class TestSurvivalTreeFit(unittest.TestCase):
         )
         estimator.fit(X, y)
         times = numpy.array([0.0, 1.0, 2.0, 5.0, 10.0])
-        surv = estimator.predict_survival_function(X[:5], times)
+        surv = estimator.predict_survival(X[:5], times)
         self.assertEqual(surv.shape, (5, 5))
         self.assertTrue(numpy.all(surv >= 0.0))
         self.assertTrue(numpy.all(surv <= 1.0))
@@ -325,7 +325,7 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
             self.assertTrue(numpy.isfinite(prediction))
 
     def test_survival_value_matches_step_curve(self):
-        """('survival', t, ...) value equals predict_survival_function at t."""
+        """('survival', t, ...) value equals predict_survival at t."""
         X, y = self._build_dataset()
         estimator = sigma._tree_survival.SurvivalTree(
             min_splits=10,
@@ -335,9 +335,7 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
         )
         estimator.fit(X, y)
         from_metric = estimator.predict(X[:6])
-        from_curve = estimator.predict_survival_function(
-            X[:6], numpy.array([3.0])
-        )[:, 0]
+        from_curve = estimator.predict_survival(X[:6], numpy.array([3.0]))[:, 0]
         numpy.testing.assert_allclose(from_metric, from_curve)
 
     def test_text_render_emits_each_metric_label(self):

@@ -71,7 +71,8 @@ def export_text(
     Tree constructor to invert this.
 
     Args:
-        tree: A fitted Tree estimator (RegressionTree or ClassificationTree).
+        tree: A fitted Tree estimator (ClassificationTree, RegressionTree,
+            SurvivalTree, or RankingTree).
         out_file: Where to write the text. When None (the default), the
             text is returned as a string. When a string, it is treated as
             a filesystem path; the file is opened with UTF-8 encoding,
@@ -232,11 +233,15 @@ def export_sql(
     emitted expression is a single, recursively nested CASE that routes
     each row to its leaf and returns the leaf's prediction:
 
-    - RegressionTree: each leaf returns its predicted mean.
     - ClassificationTree: each leaf returns the probability of the
       target_class.
+    - RegressionTree: each leaf returns its predicted mean.
     - SurvivalTree: each leaf returns its first metric value (typically
       the median survival).
+    - RankingTree: SQL export is not supported because a single SQL
+      scalar cannot represent the per-item mean-rank vector predicted
+      at each leaf; calling export_sql on a fitted RankingTree raises
+      NotImplementedError.
 
     Categorical values not seen during training evaluate to the holding
     node's prediction, mirroring tree.predict. Other unmatched inputs
@@ -246,8 +251,9 @@ def export_sql(
     like to_text and to_image.
 
     Args:
-        tree: A fitted Tree estimator (RegressionTree, ClassificationTree,
-            or SurvivalTree).
+        tree: A fitted Tree estimator (ClassificationTree, RegressionTree,
+            SurvivalTree, or RankingTree). SQL export is unsupported for
+            RankingTree and raises NotImplementedError.
         out_file: Where to write the SQL. When None (the default), the SQL
             is returned as a string. When a string, it is treated as a
             filesystem path; the file is opened with UTF-8 encoding,
@@ -398,7 +404,8 @@ def export_graphviz(
     None.
 
     Args:
-        tree: A fitted Tree estimator (RegressionTree or ClassificationTree).
+        tree: A fitted Tree estimator (ClassificationTree, RegressionTree,
+            SurvivalTree, or RankingTree).
         out_file: Where to write the DOT source. When None (the default), the
             DOT source is returned as a string. When a string, it is treated
             as a filesystem path; the file is opened with UTF-8 encoding,
@@ -598,8 +605,8 @@ def export_image(
     view emits a per-leaf summary of the tree's predictions.
 
     Args:
-        tree: A fitted Tree estimator (RegressionTree, ClassificationTree,
-            or SurvivalTree).
+        tree: A fitted Tree estimator (ClassificationTree, RegressionTree,
+            SurvivalTree, or RankingTree).
         format: Output format, one of "gif", "pdf", "png", or "svg". For the
             DOT source see export_graphviz.
         out_file: Where to write the rendered bytes. When None (the default),
@@ -610,12 +617,14 @@ def export_image(
             it and the function returns None.
         kind: Which visualization to render. "tree" (the default) renders
             the decision tree diagram. "response" renders a per-leaf
-            response summary chosen by task: per-leaf box of [ci_low,
-            ci_high] with a tick at the predicted mean for regression;
-            per-leaf vertical stacked bar of class proportions (top
-            segment = first entry of class_names) for classification; one
-            Kaplan-Meier step curve per leaf, with the response_name as
-            the time axis, for survival. When kind is "response", the
+            response summary chosen by task: per (leaf, class) class
+            proportion dots with CI boxes for classification; per-leaf
+            box of [ci_low, ci_high] with a tick at the predicted mean
+            for regression; one Kaplan-Meier step curve per leaf, with
+            the response_name as the time axis, for survival; per
+            (leaf, item) mean-rank dots with CI boxes for ranking, with
+            an inverted y-axis so rank 1 sits at the top. When kind is
+            "response", the
             tree-rendering parameters feature_names, category_labels,
             prediction_formatter, root_colors, split_colors, leaf_colors,
             orientation, max_depth, and precision are ignored. The

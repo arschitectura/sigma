@@ -28,6 +28,7 @@ from . import _palette
 from . import _survival
 from . import _tree
 from . import _tree_classification
+from . import _tree_ranking
 from . import _tree_regression
 from . import _tree_survival
 from . import _tree_text
@@ -74,6 +75,8 @@ def _render_response_image(
         _plot_classification(axes, tree, class_names)
     elif isinstance(tree, _tree_survival.SurvivalTree):
         _plot_survival(axes, tree, response_name)
+    elif isinstance(tree, _tree_ranking.RankingTree):
+        _plot_ranking(axes, tree)
     else:
         raise TypeError(f"unsupported tree type: {type(tree).__name__}")
     transparent = background_color == "transparent"
@@ -463,6 +466,109 @@ def _plot_survival(
         [handles[index] for index in order],
         [legend_labels[index] for index in order],
         title="Leaf number",
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
+        frameon=False,
+    )
+
+
+def _plot_ranking(
+    axes: matplotlib.axes.Axes,
+    tree: _tree_ranking.RankingTree,
+) -> None:
+    """Draw per (leaf, item) mean-rank dots with CI boxes.
+
+    Per (leaf, item): a translucent CI box, a horizontal tick at the mean
+    rank, and a marker dot, all in the per-item palette color. All items
+    of a leaf share the same x position; a per-item line connects the
+    mean-rank dots across leaves.
+    """
+    import matplotlib.patches
+
+    leaves = tree.leaves_
+    n_leaves = len(leaves)
+    item_names = [str(name) for name in tree.item_names_]
+    bar_width = 0.6
+    sorted_leaves = sorted(leaves, key=_leaf_id)
+    line_xs = [_leaf_id(leaf) + 1 for leaf in sorted_leaves]
+    displayed_indices = [
+        index
+        for index, metric in enumerate(leaves[0].metrics)
+        if metric.is_displayed
+    ]
+    if tree.reverse_order:
+        item_order = list(reversed(displayed_indices))
+    else:
+        item_order = list(displayed_indices)
+    n_displayed = len(item_order)
+    for slot_idx, item_index in enumerate(item_order):
+        color = _palette._leaf_color(slot_idx, n_displayed)
+        for leaf in leaves:
+            leaf_id = _leaf_id(leaf)
+            x = leaf_id + 1
+            metric = leaf.metrics[item_index]
+            mean_rank = float(metric.value)
+            if numpy.isnan(mean_rank):
+                continue
+            if metric.ci_low is not None and metric.ci_high is not None:
+                low = float(metric.ci_low)
+                high = float(metric.ci_high)
+                if not (numpy.isnan(low) or numpy.isnan(high)):
+                    height = high - low
+                    axes.bar(
+                        x,
+                        height=height,
+                        bottom=low,
+                        width=bar_width,
+                        color=color,
+                        alpha=0.4,
+                        edgecolor=color,
+                        linewidth=1.0,
+                        zorder=2,
+                    )
+            axes.hlines(
+                mean_rank,
+                x - bar_width / 2.0,
+                x + bar_width / 2.0,
+                colors=color,
+                linewidth=2.0,
+                zorder=3,
+            )
+            axes.scatter([x], [mean_rank], color=color, s=12, zorder=4)
+        line_ys = [
+            float(leaf.metrics[item_index].value) for leaf in sorted_leaves
+        ]
+        axes.plot(line_xs, line_ys, color=color, linewidth=1.5, zorder=3)
+    _configure_leaf_x_axis(axes, n_leaves)
+    all_values: list[float] = []
+    for leaf in leaves:
+        for item_index in item_order:
+            value = leaf.metrics[item_index].value
+            if not numpy.isnan(value):
+                all_values.append(value)
+            metric = leaf.metrics[item_index]
+            if metric.ci_low is not None and not numpy.isnan(metric.ci_low):
+                all_values.append(float(metric.ci_low))
+            if metric.ci_high is not None and not numpy.isnan(metric.ci_high):
+                all_values.append(float(metric.ci_high))
+    if all_values:
+        lower = min(all_values)
+        upper = max(all_values)
+        padding = max(1.0, 0.05 * (upper - lower))
+        axes.set_ylim(lower - padding, upper + padding)
+    axes.invert_yaxis()
+    axes.set_ylabel("Mean rank (1 = most preferred)")
+    axes.grid(axis="y", linestyle=":", alpha=0.4)
+    handles = [
+        matplotlib.patches.Patch(
+            color=_palette._leaf_color(slot_idx, n_displayed),
+            label=item_names[item_index],
+        )
+        for slot_idx, item_index in enumerate(item_order)
+    ]
+    axes.legend(
+        handles=handles,
+        title="Item",
         loc="center left",
         bbox_to_anchor=(1.02, 0.5),
         frameon=False,

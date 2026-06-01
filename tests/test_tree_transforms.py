@@ -742,33 +742,31 @@ class TestSurvivalTreeOffset(unittest.TestCase):
         with_none.fit(X, y, offset=None)
         times_q = numpy.array([0.5, 1.0, 2.0])
         numpy.testing.assert_array_equal(
-            plain.predict_survival_function(X[:5], times_q),
-            with_none.predict_survival_function(X[:5], times_q),
+            plain.predict_survival(X[:5], times_q),
+            with_none.predict_survival(X[:5], times_q),
         )
 
-    def test_predict_survival_function_combines_multiplicatively(self):
-        """predict_survival_function with offset returns S_offset * S_leaf."""
+    def test_predict_survival_combines_multiplicatively(self):
+        """predict_survival with offset returns S_offset * S_leaf."""
         X, y = self._make_data()
         n = len(y)
         S_off_fit = numpy.full(n, 0.9)
         tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         tree.fit(X, y, offset=S_off_fit)
         times_q = numpy.array([0.5, 1.0, 2.0])
-        bare = tree.predict_survival_function(X[:3], times_q)
+        bare = tree.predict_survival(X[:3], times_q)
         offset_grid = numpy.full((3, 3), 0.8)
-        combined = tree.predict_survival_function(
-            X[:3], times_q, offset=offset_grid
-        )
+        combined = tree.predict_survival(X[:3], times_q, offset=offset_grid)
         numpy.testing.assert_allclose(combined, offset_grid * bare)
 
-    def test_predict_survival_function_default_no_offset(self):
-        """predict_survival_function without offset returns the bare leaf curve."""
+    def test_predict_survival_default_no_offset(self):
+        """predict_survival without offset returns the bare leaf curve."""
         X, y = self._make_data()
         S_off = numpy.full(len(y), 0.9)
         tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         tree.fit(X, y, offset=S_off)
         times_q = numpy.array([0.5, 1.0, 2.0])
-        bare = tree.predict_survival_function(X[:3], times_q)
+        bare = tree.predict_survival(X[:3], times_q)
         for i in range(3):
             self.assertTrue(numpy.all(bare[i] <= 1.0))
             self.assertTrue(numpy.all(bare[i] >= 0.0))
@@ -790,8 +788,8 @@ class TestSurvivalTreeOffset(unittest.TestCase):
         with self.assertRaises(ValueError):
             tree.fit(X, y, offset=bad)
 
-    def test_predict_survival_function_offset_shape_validation(self):
-        """predict_survival_function validates the offset shape."""
+    def test_predict_survival_offset_shape_validation(self):
+        """predict_survival validates the offset shape."""
         X, y = self._make_data()
         n = len(y)
         S_off = numpy.full(n, 0.9)
@@ -799,11 +797,11 @@ class TestSurvivalTreeOffset(unittest.TestCase):
         tree.fit(X, y, offset=S_off)
         times_q = numpy.array([0.5, 1.0, 2.0])
         with self.assertRaises(ValueError):
-            tree.predict_survival_function(
+            tree.predict_survival(
                 X[:3], times_q, offset=numpy.full((3, 5), 0.9)
             )
 
-    def test_predict_survival_function_offset_non_monotone_raises(self):
+    def test_predict_survival_offset_non_monotone_raises(self):
         """Offset must be non-increasing along the time axis."""
         X, y = self._make_data()
         S_off = numpy.full(len(y), 0.9)
@@ -818,7 +816,7 @@ class TestSurvivalTreeOffset(unittest.TestCase):
             ]
         )
         with self.assertRaises(ValueError):
-            tree.predict_survival_function(X[:3], times_q, offset=bad)
+            tree.predict_survival(X[:3], times_q, offset=bad)
 
     def test_offset_passed_to_transmuter(self):
         """The transmuter receives the active subset of offset."""

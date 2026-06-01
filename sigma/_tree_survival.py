@@ -284,7 +284,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             offset_grid = self._validate_predict_offset_grid(
                 offset, n_indices, n_event_grid
             )
-        bare = self.predict_survival_function(X, event_grid, offset=None)
+        bare = self.predict_survival(X, event_grid, offset=None)
         combined = offset_grid * bare
         first = self._get_metrics()[0]
         first_kind = first.kind
@@ -294,7 +294,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         )
         return predictions
 
-    def predict_survival_function(
+    def predict_survival(
         self,
         X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
         times: numpy.typing.NDArray[numpy.floating],
@@ -382,7 +382,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             y_array = y_array[indices]
             if weight_array is not None:
                 weight_array = weight_array[indices]
-        survival = self.predict_survival_function(X_subset, self.event_grid_)
+        survival = self.predict_survival(X_subset, self.event_grid_)
         clipped = numpy.clip(survival, numpy.finfo(float).tiny, 1.0)
         risk = -numpy.log(clipped).sum(axis=1)
         time_column = y_array[:, 0]
@@ -538,6 +538,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         survival_function,
         survival_log_variance,
         survival_metrics,
+        ranking_metrics,
         mean_offset_proba,
         response_samples,
     ):
@@ -687,6 +688,14 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             for resolved in self._get_metrics()
         ]
         return records
+
+    def _compute_ranking_metrics(
+        self,
+        y: numpy.typing.NDArray[numpy.floating],
+        weights: numpy.typing.NDArray[numpy.floating],
+    ) -> None | list[_node.RankingMetric]:
+        """Return None - survival has no ranking metrics."""
+        return None
 
     def _compute_metric_record(
         self,
