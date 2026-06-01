@@ -443,14 +443,47 @@ class TestTopDisplayedItems(unittest.TestCase):
             sigma._graphviz._DEFAULT_LEAF_COLORS,
             top_displayed_items=3,
         ).source
-        self.assertIn("i0 rank", dot_source)
-        self.assertIn("i1 rank", dot_source)
-        self.assertIn("i2 rank", dot_source)
-        self.assertIn("i7 rank", dot_source)
-        self.assertIn("i8 rank", dot_source)
-        self.assertIn("i9 rank", dot_source)
-        self.assertNotIn("i4 rank", dot_source)
-        self.assertNotIn("i5 rank", dot_source)
+        self.assertIn("I0 rank", dot_source)
+        self.assertIn("I1 rank", dot_source)
+        self.assertIn("I2 rank", dot_source)
+        self.assertIn("I7 rank", dot_source)
+        self.assertIn("I8 rank", dot_source)
+        self.assertIn("I9 rank", dot_source)
+        self.assertNotIn("I4 rank", dot_source)
+        self.assertNotIn("I5 rank", dot_source)
+
+    def test_item_label_first_letter_is_capitalized_in_renderings(self):
+        """Ranking labels capitalize the item's first letter like other tree types."""
+        import sigma._graphviz
+
+        tree = sigma.RankingTree(
+            item_names=["apple", "banana", "cherry"], random_state=0
+        )
+        rng = numpy.random.default_rng(42)
+        X = rng.normal(size=(200, 1))
+        y = numpy.empty((200, 3), dtype=float)
+        for i in range(200):
+            if X[i, 0] > 0:
+                y[i] = [1.0, 2.0, 3.0]
+            else:
+                y[i] = [3.0, 2.0, 1.0]
+        tree.fit(X, y)
+        text = tree.to_text(precision=2)
+        self.assertIn("Apple rank", text)
+        self.assertIn("Banana rank", text)
+        self.assertIn("Cherry rank", text)
+        self.assertNotIn("apple rank", text)
+        dot_source = sigma._graphviz._build_digraph(
+            tree.content_,
+            None,
+            None,
+            sigma._graphviz._DEFAULT_ROOT_COLORS,
+            sigma._graphviz._DEFAULT_SPLIT_COLORS,
+            sigma._graphviz._DEFAULT_LEAF_COLORS,
+            top_displayed_items=3,
+        ).source
+        self.assertIn("Apple rank", dot_source)
+        self.assertNotIn("apple rank", dot_source)
 
     def test_graphviz_per_node_label_uses_item_rank_format(self):
         """Graphviz labels render as '{item} rank = ...', not 'Rank of {item}'."""

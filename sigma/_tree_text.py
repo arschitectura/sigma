@@ -311,7 +311,7 @@ def _format_ranking_prediction(
     for index in displayed_indices:
         metric = node.metrics[index]
         line = _format_survival_metric_line(
-            label=f"{metric.label} rank",
+            label=f"{_capitalize_first_letter(metric.label)} rank",
             value=metric.value,
             ci_low=metric.ci_low,
             ci_high=metric.ci_high,
@@ -443,7 +443,8 @@ def _table_ranking_prediction_headers(
 ) -> list[str]:
     """Headers for a ranking node's displayed-item prediction columns."""
     headers = [
-        f"{node.metrics[index].label} rank" for index in displayed_indices
+        f"{_capitalize_first_letter(node.metrics[index].label)} rank"
+        for index in displayed_indices
     ]
     headers.append("Obs. count")
     headers.append("Obs. share")

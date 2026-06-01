@@ -560,7 +560,7 @@ def _plot_ranking(
     handles = [
         matplotlib.patches.Patch(
             color=_palette._leaf_color(slot_idx, displayed_count),
-            label=item_names[item_index],
+            label=_tree_text._capitalize_first_letter(item_names[item_index]),
         )
         for slot_idx, item_index in enumerate(item_order)
     ]
