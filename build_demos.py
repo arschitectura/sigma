@@ -729,10 +729,10 @@ def _build_movielens_tree(output_path: str, dpi: int) -> None:
         test_type="monte_carlo",
         resamples=5000,
         random_state=123,
-        max_depth=3,
+        max_depth=4,
     )
     ranking_tree.fit(X_movielens, rankings)
-    text = ranking_tree.to_text(precision=2)
+    text = ranking_tree.to_text(precision=2, top_displayed_items=1)
     print(text)
     ranking_tree_png = ranking_tree.to_image(
         "png",
@@ -740,6 +740,7 @@ def _build_movielens_tree(output_path: str, dpi: int) -> None:
         background_color="transparent",
         orientation="left-to-right",
         precision=2,
+        top_displayed_items=1,
     )
     _write_png(output_path, ranking_tree_png, "tree")
     response_png = ranking_tree.to_image(
@@ -870,7 +871,7 @@ def _build_sushi_tree(output_path: str, dpi: int) -> None:
         test_type="monte_carlo",
         resamples=5000,
         random_state=123,
-        max_depth=2,
+        max_depth=3,
     )
     ranking_tree.fit(X_sushi, rankings)
     text = ranking_tree.to_text(precision=2)
