@@ -733,12 +733,14 @@ def export_image(
             " with a write method"
         )
     sklearn.utils.validation.check_is_fitted(tree, "content_")
-    displayed_indices = _resolve_displayed_indices(tree, top_displayed_items)
     effective_response_name = tree._effective_response_name(response_name)
     effective_class_names = tree._effective_class_names(class_names)
     if kind == "response":
         from . import _response_plot
 
+        displayed_indices = _resolve_displayed_indices(
+            tree, top_displayed_items
+        )
         payload = _response_plot._render_response_image(
             tree,
             format,
@@ -760,6 +762,9 @@ def export_image(
                 return None
     from . import _graphviz
 
+    effective_top_displayed_items = _resolve_top_displayed_items(
+        tree, top_displayed_items
+    )
     names = tree._effective_feature_names(feature_names)
     resolved_category_labels = tree._resolve_category_labels(
         category_labels, names
@@ -783,6 +788,7 @@ def export_image(
         dpi=dpi,
         orientation=orientation,
         reverse_order=tree.reverse_order,
+        top_displayed_items=effective_top_displayed_items,
     )
     match format:
         case "gif":
@@ -818,11 +824,11 @@ def export_image(
 _DEFAULT_TOP_DISPLAYED_ITEMS = 3
 
 
-def _resolve_displayed_indices(
+def _resolve_top_displayed_items(
     tree: _tree.Tree,
     top_displayed_items: None | int,
-) -> None | set[int]:
-    """Return the leaf-union top-N displayed item indices for a RankingTree."""
+) -> None | int:
+    """Return the validated top-N count for a RankingTree, else None."""
     if isinstance(tree, _tree_ranking.RankingTree):
         effective = (
             _DEFAULT_TOP_DISPLAYED_ITEMS
@@ -838,11 +844,22 @@ def _resolve_displayed_indices(
             raise ValueError(
                 f"top_displayed_items must be at least 1, got {effective}"
             )
-        indices = tree._compute_displayed_indices(effective)
-        result = set(indices)
-        return result
+        return effective
     if top_displayed_items is not None:
         raise ValueError(
             "top_displayed_items is only supported for RankingTree estimators"
         )
     return None
+
+
+def _resolve_displayed_indices(
+    tree: _tree.Tree,
+    top_displayed_items: None | int,
+) -> None | list[int]:
+    """Return the leaf-union top-N displayed item indices for a RankingTree."""
+    effective = _resolve_top_displayed_items(tree, top_displayed_items)
+    if effective is None:
+        return None
+    ranking_tree = typing.cast(_tree_ranking.RankingTree, tree)
+    result = ranking_tree._compute_displayed_indices(effective)
+    return result

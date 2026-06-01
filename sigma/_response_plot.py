@@ -56,7 +56,7 @@ def _render_response_image(
     class_names: None | list[str],
     dpi: int,
     background_color: None | str,
-    displayed_indices: None | set[int],
+    displayed_indices: None | list[int],
 ) -> bytes:
     """Render the per-leaf response plot of tree as image bytes."""
     try:
@@ -77,9 +77,7 @@ def _render_response_image(
     elif isinstance(tree, _tree_survival.SurvivalTree):
         _plot_survival(axes, tree, response_name)
     elif isinstance(tree, _tree_ranking.RankingTree):
-        ranking_indices = (
-            set() if displayed_indices is None else displayed_indices
-        )
+        ranking_indices = [] if displayed_indices is None else displayed_indices
         _plot_ranking(axes, tree, ranking_indices)
     else:
         raise TypeError(f"unsupported tree type: {type(tree).__name__}")
@@ -479,7 +477,7 @@ def _plot_survival(
 def _plot_ranking(
     axes: matplotlib.axes.Axes,
     tree: _tree_ranking.RankingTree,
-    displayed_indices: set[int],
+    displayed_indices: list[int],
 ) -> None:
     """Draw per (leaf, item) mean-rank dots with CI boxes.
 
@@ -496,11 +494,10 @@ def _plot_ranking(
     bar_width = 0.6
     sorted_leaves = sorted(leaves, key=_leaf_id)
     line_xs = [_leaf_id(leaf) + 1 for leaf in sorted_leaves]
-    sorted_displayed = sorted(displayed_indices)
     if tree.reverse_order:
-        item_order = list(reversed(sorted_displayed))
+        item_order = list(reversed(displayed_indices))
     else:
-        item_order = sorted_displayed
+        item_order = list(displayed_indices)
     displayed_count = len(item_order)
     for slot_idx, item_index in enumerate(item_order):
         color = _palette._leaf_color(slot_idx, displayed_count)

@@ -129,7 +129,7 @@ def _format_prediction(
     separator: str = ", ",
     precision: int = 3,
     bold_value: bool = False,
-    displayed_indices: None | set[int] = None,
+    displayed_indices: None | list[int] = None,
 ) -> str:
     """Format prediction value with optional CI for display.
 
@@ -180,9 +180,7 @@ def _format_prediction(
         )
         return text
     if isinstance(node, _node.RankingNode):
-        ranking_indices = (
-            set() if displayed_indices is None else displayed_indices
-        )
+        ranking_indices = [] if displayed_indices is None else displayed_indices
         text = _format_ranking_prediction(
             node,
             prediction_formatter,
@@ -306,15 +304,14 @@ def _format_ranking_prediction(
     precision: int,
     count_part: str,
     bold_value: bool,
-    displayed_indices: set[int],
+    displayed_indices: list[int],
 ) -> str:
     """Format one labeled line per displayed ranking metric."""
     parts: list[str] = []
-    for index, metric in enumerate(node.metrics):
-        if index not in displayed_indices:
-            continue
+    for index in displayed_indices:
+        metric = node.metrics[index]
         line = _format_survival_metric_line(
-            label=f"Rank of {metric.label}",
+            label=f"{metric.label} rank",
             value=metric.value,
             ci_low=metric.ci_low,
             ci_high=metric.ci_high,
@@ -382,7 +379,7 @@ def _table_prediction_headers(
     node: _node.Node,
     class_names: None | list[str],
     response_name: None | str,
-    displayed_indices: None | set[int],
+    displayed_indices: None | list[int],
 ) -> list[str]:
     """Header strings for the prediction columns of node."""
     if isinstance(node, _node.ClassificationNode):
@@ -392,9 +389,7 @@ def _table_prediction_headers(
         result = _table_survival_prediction_headers(node, response_name)
         return result
     if isinstance(node, _node.RankingNode):
-        ranking_indices = (
-            set() if displayed_indices is None else displayed_indices
-        )
+        ranking_indices = [] if displayed_indices is None else displayed_indices
         result = _table_ranking_prediction_headers(node, ranking_indices)
         return result
     result = _table_regression_prediction_headers(response_name)
@@ -444,13 +439,11 @@ def _table_survival_prediction_headers(
 
 def _table_ranking_prediction_headers(
     node: _node.RankingNode,
-    displayed_indices: set[int],
+    displayed_indices: list[int],
 ) -> list[str]:
     """Headers for a ranking node's displayed-item prediction columns."""
     headers = [
-        f"Rank of {metric.label}"
-        for index, metric in enumerate(node.metrics)
-        if index in displayed_indices
+        f"{node.metrics[index].label} rank" for index in displayed_indices
     ]
     headers.append("Obs. count")
     headers.append("Obs. share")
@@ -461,7 +454,7 @@ def _table_prediction_cells(
     node: _node.Node,
     prediction_formatter: None | typing.Callable[[float], str],
     precision: int,
-    displayed_indices: None | set[int],
+    displayed_indices: None | list[int],
 ) -> list[str]:
     """Cell strings for the prediction columns of node."""
     if isinstance(node, _node.ClassificationNode):
@@ -475,9 +468,7 @@ def _table_prediction_cells(
         )
         return result
     if isinstance(node, _node.RankingNode):
-        ranking_indices = (
-            set() if displayed_indices is None else displayed_indices
-        )
+        ranking_indices = [] if displayed_indices is None else displayed_indices
         result = _table_ranking_prediction_cells(
             node, prediction_formatter, precision, ranking_indices
         )
@@ -578,13 +569,12 @@ def _table_ranking_prediction_cells(
     node: _node.RankingNode,
     prediction_formatter: None | typing.Callable[[float], str],
     precision: int,
-    displayed_indices: set[int],
+    displayed_indices: list[int],
 ) -> list[str]:
     """Cells for a ranking node's displayed-item prediction columns."""
     cells: list[str] = []
-    for index, metric in enumerate(node.metrics):
-        if index not in displayed_indices:
-            continue
+    for index in displayed_indices:
+        metric = node.metrics[index]
         cell = _format_survival_metric_cell(
             metric.value,
             metric.ci_low,
@@ -655,7 +645,7 @@ def _collect_text_rows(
     max_depth: None | int,
     precision: int,
     best_first: bool,
-    displayed_indices: None | set[int],
+    displayed_indices: None | list[int],
 ) -> list[_TextRow]:
     """Walk the tree and collect one _TextRow per displayed line."""
     rows: list[_TextRow] = []
@@ -688,7 +678,7 @@ def _append_text_row(
     prediction_formatter: None | typing.Callable[[float], str],
     precision: int,
     rows: list[_TextRow],
-    displayed_indices: None | set[int],
+    displayed_indices: None | list[int],
 ) -> None:
     """Append one _TextRow representing node to rows."""
     cells = _table_prediction_cells(
@@ -723,7 +713,7 @@ def _append_child_text_rows(
     best_first: bool,
     indent: str,
     rows: list[_TextRow],
-    displayed_indices: None | set[int],
+    displayed_indices: None | list[int],
 ) -> None:
     """Recursively append text rows for each child of node."""
     match node.extension:

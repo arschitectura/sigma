@@ -373,7 +373,7 @@ class TestTopDisplayedItems(unittest.TestCase):
         tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
         text = tree.to_text(precision=2)
         first_row = text.splitlines()[0]
-        rank_columns = first_row.count("Rank of")
+        rank_columns = first_row.count(" rank")
         union_count = len(tree._compute_displayed_indices(3))
         self.assertEqual(rank_columns, union_count)
 
@@ -382,7 +382,7 @@ class TestTopDisplayedItems(unittest.TestCase):
         tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
         text = tree.to_text(precision=2, top_displayed_items=5)
         first_row = text.splitlines()[0]
-        rank_columns = first_row.count("Rank of")
+        rank_columns = first_row.count(" rank")
         union_count = len(tree._compute_displayed_indices(5))
         self.assertEqual(rank_columns, union_count)
 
@@ -412,6 +412,62 @@ class TestTopDisplayedItems(unittest.TestCase):
             tree.to_text(top_displayed_items=0)
         with self.assertRaises(ValueError):
             tree.to_text(top_displayed_items=-1)
+
+    def test_graphviz_per_node_top_items_ordered_by_mean_rank(self):
+        """Each leaf in the graphviz tree picture shows its OWN top items."""
+        import sigma._graphviz
+
+        tree = sigma.RankingTree(
+            item_names=[f"i{k}" for k in range(10)], random_state=0
+        )
+        rng = numpy.random.default_rng(41)
+        n_per_leaf = 100
+        n_items = 10
+        X_left = numpy.full((n_per_leaf, 1), -1.0)
+        X_right = numpy.full((n_per_leaf, 1), 1.0)
+        X = numpy.vstack([X_left, X_right]) + rng.normal(
+            scale=0.01, size=(2 * n_per_leaf, 1)
+        )
+        ascending = numpy.arange(1, n_items + 1, dtype=float)
+        descending = numpy.arange(n_items, 0, -1, dtype=float)
+        y_left = numpy.tile(ascending, (n_per_leaf, 1))
+        y_right = numpy.tile(descending, (n_per_leaf, 1))
+        y = numpy.vstack([y_left, y_right])
+        tree.fit(X, y)
+        dot_source = sigma._graphviz._build_digraph(
+            tree.content_,
+            None,
+            None,
+            sigma._graphviz._DEFAULT_ROOT_COLORS,
+            sigma._graphviz._DEFAULT_SPLIT_COLORS,
+            sigma._graphviz._DEFAULT_LEAF_COLORS,
+            top_displayed_items=3,
+        ).source
+        self.assertIn("i0 rank", dot_source)
+        self.assertIn("i1 rank", dot_source)
+        self.assertIn("i2 rank", dot_source)
+        self.assertIn("i7 rank", dot_source)
+        self.assertIn("i8 rank", dot_source)
+        self.assertIn("i9 rank", dot_source)
+        self.assertNotIn("i4 rank", dot_source)
+        self.assertNotIn("i5 rank", dot_source)
+
+    def test_graphviz_per_node_label_uses_item_rank_format(self):
+        """Graphviz labels render as '{item} rank = ...', not 'Rank of {item}'."""
+        import sigma._graphviz
+
+        tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
+        dot_source = sigma._graphviz._build_digraph(
+            tree.content_,
+            None,
+            None,
+            sigma._graphviz._DEFAULT_ROOT_COLORS,
+            sigma._graphviz._DEFAULT_SPLIT_COLORS,
+            sigma._graphviz._DEFAULT_LEAF_COLORS,
+            top_displayed_items=3,
+        ).source
+        self.assertNotIn("Rank of", dot_source)
+        self.assertRegex(dot_source, r"\w+ rank = ")
 
 
 if __name__ == "__main__":

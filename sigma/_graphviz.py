@@ -5,6 +5,7 @@ from __future__ import annotations
 import typing
 
 import graphviz
+import numpy
 import numpy.typing
 
 from . import _extension
@@ -16,6 +17,36 @@ from . import _tree_text
 _DEFAULT_ROOT_COLORS = ("white", "black", "black")
 _DEFAULT_SPLIT_COLORS = ("black", "lightgray", "black")
 _DEFAULT_LEAF_COLORS = ("white", "#0F62FE", "#0F62FE")
+
+
+def _per_node_displayed_indices(
+    node: _node.Node, top_displayed_items: None | int
+) -> list[int]:
+    """Return the node's own top items by lowest non-NaN mean rank.
+
+    Args:
+        node: Tree node. Returns [] for non-ranking nodes.
+        top_displayed_items: Maximum number of items to return. None
+            yields [].
+
+    Returns:
+        Sorted-by-mean-rank-ascending list of item indices (length at
+        most top_displayed_items). Items with NaN mean rank are
+        excluded.
+    """
+    if top_displayed_items is None:
+        return []
+    if not isinstance(node, _node.RankingNode):
+        return []
+    values = numpy.array([metric.value for metric in node.metrics], dtype=float)
+    valid_indices = numpy.flatnonzero(~numpy.isnan(values))
+    if valid_indices.size == 0:
+        return []
+    take = min(top_displayed_items, valid_indices.size)
+    valid_values = values[valid_indices]
+    order = numpy.argsort(valid_values, kind="stable")[:take]
+    result = [int(idx) for idx in valid_indices[order]]
+    return result
 
 
 def _escape_html_with_bold(text: str) -> str:
@@ -97,7 +128,7 @@ def _build_digraph(
     dpi: int = 192,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     reverse_order: bool = False,
-    displayed_indices: None | set[int] = None,
+    top_displayed_items: None | int = None,
 ) -> graphviz.Digraph:
     """Build a graphviz Digraph from a fitted tree."""
     natural_dot = _emit_digraph(
@@ -117,7 +148,7 @@ def _build_digraph(
         orientation=orientation,
         reverse_order=reverse_order,
         uniform_width=None,
-        displayed_indices=displayed_indices,
+        top_displayed_items=top_displayed_items,
     )
     uniform_width = _max_content_node_width(natural_dot)
     if uniform_width is None:
@@ -139,7 +170,7 @@ def _build_digraph(
         orientation=orientation,
         reverse_order=reverse_order,
         uniform_width=uniform_width,
-        displayed_indices=displayed_indices,
+        top_displayed_items=top_displayed_items,
     )
     return final_dot
 
@@ -161,7 +192,7 @@ def _emit_digraph(
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     reverse_order: bool = False,
     uniform_width: None | float = None,
-    displayed_indices: None | set[int] = None,
+    top_displayed_items: None | int = None,
 ) -> graphviz.Digraph:
     """Emit a graphviz Digraph in a single pass, optionally forcing a width."""
     display_reverse = reverse_order ^ (orientation == "left-to-right")
@@ -200,6 +231,7 @@ def _emit_digraph(
     stack: list[_node.Node] = [root]
     while stack:
         node = stack.pop()
+        node_displayed = _per_node_displayed_indices(node, top_displayed_items)
         label = _tree_text._format_prediction(
             node,
             class_names,
@@ -208,7 +240,7 @@ def _emit_digraph(
             separator="\n",
             precision=precision,
             bold_value=True,
-            displayed_indices=displayed_indices,
+            displayed_indices=node_displayed,
         )
         # TODO XXX review these
         extension = node.extension
