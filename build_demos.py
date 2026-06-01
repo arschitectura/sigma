@@ -173,7 +173,7 @@ def _build_diabetes_tree(output_path: str, dpi: int) -> None:
     )
     regression_tree = sigma.RegressionTree(
         test_type="monte_carlo",
-        resamples=5000,
+        resamples=2000,
         random_state=123,
         reverse_order=True,
     )
@@ -242,7 +242,7 @@ def _build_titanic_tree(output_path: str, dpi: int) -> None:
     )
     classification_tree = sigma.ClassificationTree(
         test_type="monte_carlo",
-        resamples=5000,
+        resamples=2000,
         random_state=123,
     )
     classification_tree.fit(X_titanic, y_titanic)
@@ -320,7 +320,7 @@ def _build_german_credit_tree(output_path: str, dpi: int) -> None:
     )
     classification_tree = sigma.ClassificationTree(
         test_type="monte_carlo",
-        resamples=5000,
+        resamples=2000,
         random_state=123,
         reverse_order=True,
     )
@@ -383,7 +383,7 @@ def _build_insurance_tree(output_path: str, dpi: int) -> None:
     y_insurance = insurance_dataframe["charges"].rename("Charges")
     regression_tree = sigma.RegressionTree(
         test_type="monte_carlo",
-        resamples=5000,
+        resamples=2000,
         random_state=123,
         max_depth=4,
         reverse_order=True,
@@ -466,7 +466,7 @@ def _build_breast_cancer_tree(output_path: str, dpi: int) -> None:
     })
     survival_tree = sigma.SurvivalTree(
         test_type="monte_carlo",
-        resamples=5000,
+        resamples=2000,
         random_state=123,
         metrics=("median", ("survival", 5.0, "years")),
     )
@@ -581,7 +581,7 @@ def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
     })
     survival_tree = sigma.SurvivalTree(
         test_type="monte_carlo",
-        resamples=5000,
+        resamples=2000,
         random_state=123,
         max_depth=4,
         metrics=("median", ("survival", 12.0, "months")),
