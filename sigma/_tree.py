@@ -1571,7 +1571,7 @@ class Tree(
         prediction_formatter: None | typing.Callable[[float], str] = None,
         max_depth: None | int = None,
         precision: int = 3,
-        max_branch_length: int = 50,
+        max_branch_length: int = 60,
         orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
         dpi: int = 192,
         root_colors: None | tuple[str, str, str] = None,
@@ -1594,7 +1594,7 @@ class Tree(
         prediction_formatter: None | typing.Callable[[float], str] = None,
         max_depth: None | int = None,
         precision: int = 3,
-        max_branch_length: int = 50,
+        max_branch_length: int = 60,
         orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
         dpi: int = 192,
         root_colors: None | tuple[str, str, str] = None,
@@ -1616,7 +1616,7 @@ class Tree(
         prediction_formatter: None | typing.Callable[[float], str] = None,
         max_depth: None | int = None,
         precision: int = 3,
-        max_branch_length: int = 50,
+        max_branch_length: int = 60,
         orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
         dpi: int = 192,
         root_colors: None | tuple[str, str, str] = None,
@@ -1649,7 +1649,7 @@ class Tree(
             max_branch_length: Maximum number of characters per branch
                 label describing a split condition. Longer labels are
                 truncated with a trailing "..." in the rendered tree.
-                Defaults to 50. Ignored when kind is "response".
+                Defaults to 60. Ignored when kind is "response".
             top_displayed_items: RankingTree only. The displayed item
                 columns are the union of each leaf's top items by lowest
                 expected rank; this argument sets how many per leaf.

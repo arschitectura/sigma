@@ -357,7 +357,7 @@ def export_graphviz(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
-    max_branch_length: int = 50,
+    max_branch_length: int = 60,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -378,7 +378,7 @@ def export_graphviz(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
-    max_branch_length: int = 50,
+    max_branch_length: int = 60,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -398,7 +398,7 @@ def export_graphviz(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
-    max_branch_length: int = 50,
+    max_branch_length: int = 60,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -455,7 +455,7 @@ def export_graphviz(
             shares. Defaults to 3.
         max_branch_length: Maximum number of characters per branch label
             describing a split condition. Longer labels are truncated with
-            a trailing "..." in the rendered tree. Defaults to 50.
+            a trailing "..." in the rendered tree. Defaults to 60.
         orientation: Layout direction for the rendered tree, one of
             "top-down" (the default, with the root at the top and leaves
             below) or "left-to-right" (with the root at the left and leaves
@@ -562,7 +562,7 @@ def export_image(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
-    max_branch_length: int = 50,
+    max_branch_length: int = 60,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -586,7 +586,7 @@ def export_image(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
-    max_branch_length: int = 50,
+    max_branch_length: int = 60,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -609,7 +609,7 @@ def export_image(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
-    max_branch_length: int = 50,
+    max_branch_length: int = 60,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -686,7 +686,7 @@ def export_image(
             shares. Defaults to 3.
         max_branch_length: Maximum number of characters per branch label
             describing a split condition. Longer labels are truncated with
-            a trailing "..." in the rendered tree. Defaults to 50. Ignored
+            a trailing "..." in the rendered tree. Defaults to 60. Ignored
             when kind is "response".
         orientation: Layout direction for the rendered tree, one of
             "top-down" (the default, with the root at the top and leaves

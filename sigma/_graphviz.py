@@ -129,7 +129,7 @@ def _build_digraph(
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     reverse_order: bool = False,
     top_displayed_items: None | int = None,
-    max_branch_length: int = 50,
+    max_branch_length: int = 60,
 ) -> graphviz.Digraph:
     """Build a graphviz Digraph from a fitted tree."""
     natural_dot = _emit_digraph(
@@ -196,7 +196,7 @@ def _emit_digraph(
     reverse_order: bool = False,
     uniform_width: None | float = None,
     top_displayed_items: None | int = None,
-    max_branch_length: int = 50,
+    max_branch_length: int = 60,
 ) -> graphviz.Digraph:
     """Emit a graphviz Digraph in a single pass, optionally forcing a width."""
     display_reverse = reverse_order ^ (orientation == "left-to-right")
