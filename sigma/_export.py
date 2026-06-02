@@ -357,6 +357,7 @@ def export_graphviz(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
+    max_branch_length: int = 50,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -377,6 +378,7 @@ def export_graphviz(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
+    max_branch_length: int = 50,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -396,6 +398,7 @@ def export_graphviz(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
+    max_branch_length: int = 50,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -450,6 +453,9 @@ def export_graphviz(
             default formatters for predictions, CI bounds, split thresholds,
             and class probabilities. Does not affect p-values or observation
             shares. Defaults to 3.
+        max_branch_length: Maximum number of characters per branch label
+            describing a split condition. Longer labels are truncated with
+            a trailing "..." in the rendered tree. Defaults to 50.
         orientation: Layout direction for the rendered tree, one of
             "top-down" (the default, with the root at the top and leaves
             below) or "left-to-right" (with the root at the left and leaves
@@ -476,6 +482,7 @@ def export_graphviz(
         ValueError: If max_depth is a negative integer or not an integer.
         ValueError: If precision is not a non-negative integer.
         ValueError: If dpi is not a positive integer.
+        ValueError: If max_branch_length is not a positive integer.
         TypeError: If out_file is neither None, a string, nor a file-like
             object with a write method.
         ImportError: If graphviz is not installed.
@@ -488,6 +495,8 @@ def export_graphviz(
         raise ValueError("precision must be a non-negative integer")
     if not isinstance(dpi, int) or dpi <= 0:
         raise ValueError("dpi must be a positive integer")
+    if not isinstance(max_branch_length, int) or max_branch_length <= 0:
+        raise ValueError("max_branch_length must be a positive integer")
     if (
         out_file is not None
         and not isinstance(out_file, str)
@@ -525,6 +534,7 @@ def export_graphviz(
         dpi=dpi,
         orientation=orientation,
         reverse_order=tree.reverse_order,
+        max_branch_length=max_branch_length,
     )
     dot_source = dot.source.rstrip("\n")
     match out_file:
@@ -552,6 +562,7 @@ def export_image(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
+    max_branch_length: int = 50,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -575,6 +586,7 @@ def export_image(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
+    max_branch_length: int = 50,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -597,6 +609,7 @@ def export_image(
     prediction_formatter: None | typing.Callable[[float], str] = None,
     max_depth: None | int = None,
     precision: int = 3,
+    max_branch_length: int = 50,
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
@@ -671,6 +684,10 @@ def export_image(
             default formatters for predictions, CI bounds, split thresholds,
             and class probabilities. Does not affect p-values or observation
             shares. Defaults to 3.
+        max_branch_length: Maximum number of characters per branch label
+            describing a split condition. Longer labels are truncated with
+            a trailing "..." in the rendered tree. Defaults to 50. Ignored
+            when kind is "response".
         orientation: Layout direction for the rendered tree, one of
             "top-down" (the default, with the root at the top and leaves
             below) or "left-to-right" (with the root at the left and leaves
@@ -703,6 +720,7 @@ def export_image(
         ValueError: If max_depth is a negative integer or not an integer.
         ValueError: If precision is not a non-negative integer.
         ValueError: If dpi is not a positive integer.
+        ValueError: If max_branch_length is not a positive integer.
         TypeError: If out_file is neither None, a string, nor a file-like
             object with a write method.
         ImportError: If graphviz is not installed when kind is "tree", or
@@ -723,6 +741,8 @@ def export_image(
         raise ValueError("precision must be a non-negative integer")
     if not isinstance(dpi, int) or dpi <= 0:
         raise ValueError("dpi must be a positive integer")
+    if not isinstance(max_branch_length, int) or max_branch_length <= 0:
+        raise ValueError("max_branch_length must be a positive integer")
     if (
         out_file is not None
         and not isinstance(out_file, str)
@@ -789,6 +809,7 @@ def export_image(
         orientation=orientation,
         reverse_order=tree.reverse_order,
         top_displayed_items=effective_top_displayed_items,
+        max_branch_length=max_branch_length,
     )
     match format:
         case "gif":

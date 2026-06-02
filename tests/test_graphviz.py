@@ -789,6 +789,112 @@ class TestBuildDigraphPrecision(unittest.TestCase):
             self.regression_tree.to_image("svg", precision=-1)
 
 
+class TestEllipsize(unittest.TestCase):
+    """Tests for the _ellipsize string truncation helper."""
+
+    __slots__ = ()
+
+    def test_returns_string_unchanged_when_shorter_than_limit(self):
+        """A string shorter than max_length is returned unchanged."""
+        from sigma._tree_text import _ellipsize
+
+        self.assertEqual(_ellipsize("Bla", 10), "Bla")
+
+    def test_returns_string_unchanged_at_exact_max_length(self):
+        """A string of length equal to max_length is returned unchanged."""
+        from sigma._tree_text import _ellipsize
+
+        self.assertEqual(_ellipsize("Hello", 5), "Hello")
+
+    def test_truncates_longer_string_with_trailing_ellipsis(self):
+        """A longer string is truncated to max_length characters ending in '...'."""
+        from sigma._tree_text import _ellipsize
+
+        result = _ellipsize("Bla bla bla bla", 6)
+        self.assertEqual(result, "Bla...")
+        self.assertEqual(len(result), 6)
+
+    def test_max_length_below_three_returns_truncated_ellipsis_only(self):
+        """When max_length is smaller than the ellipsis itself, only ellipsis chars are kept."""
+        from sigma._tree_text import _ellipsize
+
+        self.assertEqual(_ellipsize("Hello", 2), "..")
+        self.assertEqual(_ellipsize("Hello", 1), ".")
+        self.assertEqual(_ellipsize("Hello", 0), "")
+
+
+@unittest.skipUnless(_HAS_GRAPHVIZ, "graphviz not installed")
+class TestBuildDigraphMaxBranchLength(unittest.TestCase):
+    """Tests for the max_branch_length display knob on to_image / _build_digraph."""
+
+    __slots__ = ()
+
+    def setUp(self):
+        """Set up a fitted regression tree and a deliberately long feature name."""
+        from sigma import _graphviz
+
+        self._graphviz = _graphviz
+        self.regression_tree, _, _ = _make_regression_tree()
+        self.long_feature_name = (
+            "AVeryLongFeatureNameThatExceedsTheDefaultBranchLengthOfFifty"
+        )
+
+    def _build(self, max_branch_length):
+        """Invoke _build_digraph with the long feature name and a max_branch_length."""
+        digraph = self._graphviz._build_digraph(
+            self.regression_tree.content_,
+            None,
+            None,
+            self._graphviz._DEFAULT_ROOT_COLORS,
+            self._graphviz._DEFAULT_SPLIT_COLORS,
+            self._graphviz._DEFAULT_LEAF_COLORS,
+            feature_names=numpy.array([self.long_feature_name]),
+            max_branch_length=max_branch_length,
+        )
+        return digraph
+
+    def test_default_truncates_long_branch_labels_with_ellipsis(self):
+        """At the default max_branch_length, a long branch label ends in '...'."""
+        digraph = self._graphviz._build_digraph(
+            self.regression_tree.content_,
+            None,
+            None,
+            self._graphviz._DEFAULT_ROOT_COLORS,
+            self._graphviz._DEFAULT_SPLIT_COLORS,
+            self._graphviz._DEFAULT_LEAF_COLORS,
+            feature_names=numpy.array([self.long_feature_name]),
+        )
+        self.assertIn("...", digraph.source)
+        self.assertNotIn(self.long_feature_name, digraph.source)
+
+    def test_larger_max_branch_length_keeps_full_label(self):
+        """A max_branch_length above the natural label length leaves it untouched."""
+        digraph = self._build(max_branch_length=1000)
+        self.assertIn(self.long_feature_name, digraph.source)
+        self.assertNotIn("...", digraph.source)
+
+    def test_small_max_branch_length_still_renders(self):
+        """A very small max_branch_length still produces a valid DOT source."""
+        digraph = self._build(max_branch_length=4)
+        self.assertTrue(digraph.source)
+        self.assertIn("...", digraph.source)
+
+    def test_max_branch_length_zero_raises_value_error(self):
+        """to_image with max_branch_length=0 raises ValueError."""
+        with self.assertRaises(ValueError):
+            self.regression_tree.to_image("svg", max_branch_length=0)
+
+    def test_max_branch_length_negative_raises_value_error(self):
+        """to_image with a negative max_branch_length raises ValueError."""
+        with self.assertRaises(ValueError):
+            self.regression_tree.to_image("svg", max_branch_length=-1)
+
+    def test_max_branch_length_non_int_raises_value_error(self):
+        """to_image with a non-integer max_branch_length raises ValueError."""
+        with self.assertRaises(ValueError):
+            self.regression_tree.to_image("svg", max_branch_length=50.0)
+
+
 def _content_node_widths(plain_output, exclude_prefix="trunc_"):
     """Return per-node widths (in inches) parsed from graphviz plain output."""
     widths = {}

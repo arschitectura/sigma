@@ -1571,6 +1571,7 @@ class Tree(
         prediction_formatter: None | typing.Callable[[float], str] = None,
         max_depth: None | int = None,
         precision: int = 3,
+        max_branch_length: int = 50,
         orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
         dpi: int = 192,
         root_colors: None | tuple[str, str, str] = None,
@@ -1593,6 +1594,7 @@ class Tree(
         prediction_formatter: None | typing.Callable[[float], str] = None,
         max_depth: None | int = None,
         precision: int = 3,
+        max_branch_length: int = 50,
         orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
         dpi: int = 192,
         root_colors: None | tuple[str, str, str] = None,
@@ -1614,6 +1616,7 @@ class Tree(
         prediction_formatter: None | typing.Callable[[float], str] = None,
         max_depth: None | int = None,
         precision: int = 3,
+        max_branch_length: int = 50,
         orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
         dpi: int = 192,
         root_colors: None | tuple[str, str, str] = None,
@@ -1643,6 +1646,10 @@ class Tree(
                 response summary chart). See sigma.export_image for the
                 per-task layout and the parameters that apply to each
                 kind.
+            max_branch_length: Maximum number of characters per branch
+                label describing a split condition. Longer labels are
+                truncated with a trailing "..." in the rendered tree.
+                Defaults to 50. Ignored when kind is "response".
             top_displayed_items: RankingTree only. The displayed item
                 columns are the union of each leaf's top items by lowest
                 expected rank; this argument sets how many per leaf.
@@ -1658,6 +1665,7 @@ class Tree(
             ValueError: If max_depth is a negative integer or not an integer.
             ValueError: If precision is not a non-negative integer.
             ValueError: If dpi is not a positive integer.
+            ValueError: If max_branch_length is not a positive integer.
             ValueError: If top_displayed_items is supplied for a non-ranking
                 tree, is not a positive integer, or is less than 1.
             TypeError: If out_file is neither None, a string, nor a
@@ -1689,6 +1697,7 @@ class Tree(
             leaf_colors=leaf_colors,
             background_color=background_color,
             top_displayed_items=top_displayed_items,
+            max_branch_length=max_branch_length,
         )
         return result
 

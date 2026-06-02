@@ -129,6 +129,7 @@ def _build_digraph(
     orientation: typing.Literal["top-down", "left-to-right"] = "top-down",
     reverse_order: bool = False,
     top_displayed_items: None | int = None,
+    max_branch_length: int = 50,
 ) -> graphviz.Digraph:
     """Build a graphviz Digraph from a fitted tree."""
     natural_dot = _emit_digraph(
@@ -149,6 +150,7 @@ def _build_digraph(
         reverse_order=reverse_order,
         uniform_width=None,
         top_displayed_items=top_displayed_items,
+        max_branch_length=max_branch_length,
     )
     uniform_width = _max_content_node_width(natural_dot)
     if uniform_width is None:
@@ -171,6 +173,7 @@ def _build_digraph(
         reverse_order=reverse_order,
         uniform_width=uniform_width,
         top_displayed_items=top_displayed_items,
+        max_branch_length=max_branch_length,
     )
     return final_dot
 
@@ -193,6 +196,7 @@ def _emit_digraph(
     reverse_order: bool = False,
     uniform_width: None | float = None,
     top_displayed_items: None | int = None,
+    max_branch_length: int = 50,
 ) -> graphviz.Digraph:
     """Emit a graphviz Digraph in a single pass, optionally forcing a width."""
     display_reverse = reverse_order ^ (orientation == "left-to-right")
@@ -307,6 +311,8 @@ def _emit_digraph(
                 feature_names,
                 precision=precision,
             )
+            left_label = _tree_text._ellipsize(left_label, max_branch_length)
+            right_label = _tree_text._ellipsize(right_label, max_branch_length)
             left_child, right_child = (
                 descend_partition.left,
                 descend_partition.right,

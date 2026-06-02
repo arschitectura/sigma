@@ -210,6 +210,16 @@ def _capitalize_first_letter(text: str) -> str:
     return result
 
 
+def _ellipsize(s: str, max_length: int) -> str:
+    """Truncate s to at most max_length characters with a trailing '...' on truncation."""
+    if len(s) <= max_length:
+        return s
+    if max_length >= 3:
+        result = s[: max_length - 3] + "..."
+        return result
+    return "..."[:max_length]
+
+
 def _format_classification_prediction(
     node: _node.ClassificationNode,
     class_names: None | list[str],
