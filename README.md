@@ -361,27 +361,27 @@ The table below is a quick reference; each parameter has a dedicated
 subsection further down with defaults, alternatives, and guidance on
 when to choose each option.
 
-| Parameter                         | Description                                                                  |
-| :-------------------------------- | :--------------------------------------------------------------------------- |
-| `correlation`                     | Rank-transform inputs (robust) or use raw values (classical)                 |
-| `test_stat`                       | How the multivariate score is aggregated into a scalar test statistic        |
-| `test_type`                       | Multiplicity adjustment applied across covariates                            |
-| `alpha`                           | Significance level for the stopping rule                                     |
-| `min_splits`                      | Minimum sum of weights required to attempt a split                           |
-| `min_buckets`                     | Minimum sum of weights in each child node                                    |
-| `max_depth`                       | Maximum tree depth                                                           |
-| `categorical_features`            | Which feature columns are categorical                                        |
-| `ci_method` (classification tree) | Confidence interval method for per-class proportions                         |
-| `ci_method` (regression tree)     | Confidence interval method for node mean predictions                         |
+| Parameter                         | Description                                                                   |
+| :-------------------------------- | :---------------------------------------------------------------------------- |
+| `correlation`                     | Rank-transform inputs (robust) or use raw values (classical)                  |
+| `test_stat`                       | How the multivariate score is aggregated into a scalar test statistic         |
+| `test_type`                       | Multiplicity adjustment applied across covariates                             |
+| `alpha`                           | Significance level for the stopping rule                                      |
+| `min_splits`                      | Minimum sum of weights required to attempt a split                            |
+| `min_buckets`                     | Minimum sum of weights in each child node                                     |
+| `max_depth`                       | Maximum tree depth                                                            |
+| `categorical_features`            | Which feature columns are categorical                                         |
+| `ci_method` (classification tree) | Confidence interval method for per-class proportions                          |
+| `ci_method` (regression tree)     | Confidence interval method for node mean predictions                          |
 | `ci_method` (ranking tree)        | Confidence interval method for per-item leaf PL-MLE expected-rank predictions |
-| `npseudo`                         | Turner ghost-item pseudo-comparison weight for the per-node PL fit           |
-| `pl_max_iter`                     | Maximum Hunter MM iterations per node's Plackett-Luce fit                    |
-| `pl_tolerance`                    | Convergence tolerance on log-worth for the Hunter MM iteration               |
-| `ci_coverage`                     | Coverage level for node-prediction confidence intervals                      |
-| `transmuter`                      | Per-node data transform with post-hoc split validation                       |
-| `resamples`                       | Number of permutations for `test_type="monte_carlo"`                         |
-| `decorator`                       | Per-node decoration callable rendered by `to_text` / `to_image`              |
-| `random_state`                    | RNG seed for permutation resampling, bootstrap CI methods, and plot jitter   |
+| `npseudo`                         | Turner ghost-item pseudo-comparison weight for the per-node PL fit            |
+| `pl_max_iter`                     | Maximum Hunter MM iterations per node's Plackett-Luce fit                     |
+| `pl_tolerance`                    | Convergence tolerance on log-worth for the Hunter MM iteration                |
+| `ci_coverage`                     | Coverage level for node-prediction confidence intervals                       |
+| `transmuter`                      | Per-node data transform with post-hoc split validation                        |
+| `resamples`                       | Number of permutations for `test_type="monte_carlo"`                          |
+| `decorator`                       | Per-node decoration callable rendered by `to_text` / `to_image`               |
+| `random_state`                    | RNG seed for permutation resampling, bootstrap CI methods, and plot jitter    |
 
 ### 6.1. `correlation`
 

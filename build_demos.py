@@ -885,9 +885,9 @@ def _build_sushi_tree(output_path: str, dpi: int) -> None:
         ).astype(bool),
     })
     ranking_tree = sigma.RankingTree(
-        pca_components=n_items,
         random_state=123,
         max_depth=3,
+        ci_method="gaussian_multiplier",
     )
     fit_start = time.perf_counter()
     ranking_tree.fit(X_sushi, rankings)

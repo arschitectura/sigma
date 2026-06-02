@@ -182,20 +182,27 @@ class CiMethodRankingTree(enum.Enum):
 
     The leaf statistic is the per-item expected rank under a
     Plackett-Luce maximum-likelihood worth vector regularised by Turner
-    ghost-item pseudo-rankings. Both methods refit the PL MLE on
-    resampled rankings of the active rows and aggregate the resulting
-    expected-rank vectors marginally per item.
+    ghost-item pseudo-rankings.
 
     BAYESIAN_BOOTSTRAP: Bayesian bootstrap that draws Dirichlet weights
         for the active rows and refits PL on each replicate.
     BCA: Bias-corrected and accelerated bootstrap that resamples active
         rows with replacement and refits PL on each replicate.
+    WALD: Closed-form asymptotic interval that builds the observed
+        Plackett-Luce Fisher information and propagates a delta-method
+        standard error onto each per-item expected rank.
+    GAUSSIAN_MULTIPLIER: Multiplier-CLT bootstrap that samples Gaussian
+        weights against per-row score residuals at the fitted MLE and
+        forms percentile intervals on the linearised expected-rank
+        perturbations.
     """
 
     __slots__ = ()
 
     BAYESIAN_BOOTSTRAP = "bayesian_bootstrap"
     BCA = "bca"
+    WALD = "wald"
+    GAUSSIAN_MULTIPLIER = "gaussian_multiplier"
 
 
 class CiMethodClassificationTree(enum.Enum):

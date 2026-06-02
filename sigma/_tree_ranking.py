@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import collections.abc
 import typing
+import warnings
 
 import numpy
 import numpy.linalg
 import numpy.typing
+import scipy.linalg
 import scipy.stats
 import sklearn.base
 import sklearn.utils.extmath
@@ -96,12 +98,19 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             change in log-worth between successive MM iterations. Must
             be strictly positive. Defaults to 1e-6.
         ci_method: Per-item confidence interval method on the leaf
-            expected rank of each item. Both methods refit the
-            Plackett-Luce MLE on resampled active rows and aggregate the
-            resulting expected-rank vectors marginally per item.
+            expected rank of each item.
             "bayesian_bootstrap" (default): Dirichlet-weighted refit
             interval. "bca": bias-corrected and accelerated row-resample
-            refit interval.
+            refit interval. "wald": closed-form asymptotic interval
+            built from the observed Plackett-Luce Fisher information
+            with a delta-method propagation onto each per-item expected
+            rank. "gaussian_multiplier": multiplier-CLT bootstrap that
+            forms percentile intervals on Gaussian-weighted score
+            perturbations linearised through the Fisher information.
+        ci_replicates: Number of bootstrap replicates used by the
+            "bayesian_bootstrap", "bca" and "gaussian_multiplier" CI
+            methods. Must be a positive integer. Ignored when
+            ci_method="wald". Defaults to 200.
         ci_coverage: Coverage level for per-item expected-rank
             confidence intervals. Defaults to 0.95. Set to None to
             disable CI computation.
@@ -117,8 +126,9 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         random_state: Seed for stochastic operations. Pass an integer for
             reproducibility; None uses an unpredictable seed. Controls
             min-P permutation resampling under test_type="monte_carlo"
-            and the bootstrap-family CI methods ("bayesian_bootstrap",
-            "bca") applied per item per leaf.
+            and every resampling CI method
+            ("bayesian_bootstrap", "bca", "gaussian_multiplier")
+            applied per item per leaf.
 
     Attributes:
         content_: Root node of the fitted tree structure.
@@ -159,7 +169,10 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         ci_method: typing.Literal[
             "bayesian_bootstrap",
             "bca",
+            "wald",
+            "gaussian_multiplier",
         ] = "bayesian_bootstrap",
+        ci_replicates: int = 200,
         ci_coverage: None | float = 0.95,
         transmuter: None | typing.Callable = None,
         resamples: None | int = None,
@@ -217,12 +230,24 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         _types._validate_literal_param(
             ci_method, _types.CiMethodRankingTree, "ci_method"
         )
+        if not isinstance(ci_replicates, int) or isinstance(
+            ci_replicates, bool
+        ):
+            raise TypeError(
+                f"ci_replicates must be an integer,"
+                f" got {type(ci_replicates).__name__}"
+            )
+        if ci_replicates < 1:
+            raise ValueError(
+                f"ci_replicates must be at least 1, got {ci_replicates}"
+            )
         self.pca_components = pca_components
         self.item_names = item_names
         self.npseudo = float(npseudo)
         self.pl_max_iter = int(pl_max_iter)
         self.pl_tolerance = float(pl_tolerance)
         self.ci_method = ci_method
+        self.ci_replicates = int(ci_replicates)
         super().__init__(
             correlation=correlation,
             test_stat=test_stat,
@@ -641,8 +666,6 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                 union.add(int(idx))
         return sorted(union)
 
-    _CI_BOOTSTRAP_REPLICATES = 200
-
     def _compute_per_item_ci(
         self,
         y_full_active: numpy.typing.NDArray[numpy.floating],
@@ -663,20 +686,22 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         tail_alpha = (1.0 - ci_coverage) / 2.0
         ci_method_enum = _types.CiMethodRankingTree(self.ci_method)
         replicate_ranks = numpy.empty(
-            (self._CI_BOOTSTRAP_REPLICATES, n_items), dtype=float
+            (self.ci_replicates, n_items), dtype=float
         )
         weights_total = float(weights_active.sum())
+        cache = _ranking._extract_orderings_cache(y_full_active, weights_active)
         match ci_method_enum:
             case _types.CiMethodRankingTree.BAYESIAN_BOOTSTRAP:
                 dirichlet_alphas = weights_active.astype(float, copy=False)
-                for b in range(self._CI_BOOTSTRAP_REPLICATES):
+                for b in range(self.ci_replicates):
                     bootstrap_weights = (
                         self._rng_ci_.dirichlet(dirichlet_alphas)
                         * weights_total
                     )
-                    replicate_alpha = _ranking.compute_pl_mle(
-                        y_full_active,
-                        bootstrap_weights,
+                    replicate_alpha = _ranking._compute_pl_mle_from_cache(
+                        cache,
+                        bootstrap_weights[cache.row_indices_in_y],
+                        n_items,
                         npseudo=self.npseudo,
                         tolerance=self.pl_tolerance,
                         max_iter=self.pl_max_iter,
@@ -684,7 +709,15 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                     replicate_ranks[b] = _ranking.pl_expected_rank(
                         replicate_alpha
                     )
-                with numpy.errstate(invalid="ignore"):
+                with (
+                    numpy.errstate(invalid="ignore"),
+                    warnings.catch_warnings(),
+                ):
+                    warnings.filterwarnings(
+                        "ignore",
+                        message="All-NaN slice encountered",
+                        category=RuntimeWarning,
+                    )
                     quantiles = numpy.nanquantile(
                         replicate_ranks,
                         [tail_alpha, 1.0 - tail_alpha],
@@ -700,21 +733,22 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                     all_nan_columns, numpy.nan, ci_high_vec
                 )
             case _types.CiMethodRankingTree.BCA:
-                point_alpha = _ranking.compute_pl_mle(
-                    y_full_active,
-                    weights_active,
+                point_alpha = _ranking._compute_pl_mle_from_cache(
+                    cache,
+                    cache.ordering_weights,
+                    n_items,
                     npseudo=self.npseudo,
                     tolerance=self.pl_tolerance,
                     max_iter=self.pl_max_iter,
                 )
                 point_rank = _ranking.pl_expected_rank(point_alpha)
-                for b in range(self._CI_BOOTSTRAP_REPLICATES):
+                for b in range(self.ci_replicates):
                     indices = self._rng_ci_.integers(0, n_active, size=n_active)
-                    resampled_y = y_full_active[indices]
-                    resampled_w = weights_active[indices]
-                    replicate_alpha = _ranking.compute_pl_mle(
-                        resampled_y,
-                        resampled_w,
+                    subset = _ranking._subset_cache(cache, indices)
+                    replicate_alpha = _ranking._compute_pl_mle_from_cache(
+                        subset,
+                        subset.ordering_weights,
+                        n_items,
                         npseudo=self.npseudo,
                         tolerance=self.pl_tolerance,
                         max_iter=self.pl_max_iter,
@@ -725,9 +759,28 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                 ci_low_vec, ci_high_vec = _bca_per_item_quantiles(
                     point_rank,
                     replicate_ranks,
-                    y_full_active,
-                    weights_active,
+                    cache,
                     tail_alpha,
+                    self.npseudo,
+                    self.pl_tolerance,
+                    self.pl_max_iter,
+                )
+            case _types.CiMethodRankingTree.WALD:
+                ci_low_vec, ci_high_vec = _wald_per_item_ci(
+                    cache,
+                    n_items,
+                    ci_coverage,
+                    self.npseudo,
+                    self.pl_tolerance,
+                    self.pl_max_iter,
+                )
+            case _types.CiMethodRankingTree.GAUSSIAN_MULTIPLIER:
+                ci_low_vec, ci_high_vec = _gaussian_multiplier_per_item_ci(
+                    cache,
+                    n_items,
+                    ci_coverage,
+                    self._rng_ci_,
+                    self.ci_replicates,
                     self.npseudo,
                     self.pl_tolerance,
                     self.pl_max_iter,
@@ -748,8 +801,7 @@ def _argmin_with_nan(values: numpy.typing.NDArray[numpy.floating]) -> int:
 def _bca_per_item_quantiles(
     point_rank: numpy.typing.NDArray[numpy.floating],
     replicate_ranks: numpy.typing.NDArray[numpy.floating],
-    y_full_active: numpy.typing.NDArray[numpy.floating],
-    weights_active: numpy.typing.NDArray[numpy.floating],
+    cache: _ranking._OrderingsCache,
     tail_alpha: float,
     npseudo: float,
     pl_tolerance: float,
@@ -760,20 +812,23 @@ def _bca_per_item_quantiles(
 ]:
     """Apply BCa quantile adjustment per item to PL bootstrap replicates."""
     n_replicates, n_items = replicate_ranks.shape
-    n_active = y_full_active.shape[0]
+    n_active = int(cache.row_sizes.size)
     jackknife_ranks = numpy.empty((n_active, n_items), dtype=float)
-    keep_mask = numpy.ones(n_active, dtype=bool)
+    full_indices = numpy.arange(n_active, dtype=numpy.intp)
     for i in range(n_active):
-        keep_mask[i] = False
-        jackknife_alpha = _ranking.compute_pl_mle(
-            y_full_active[keep_mask],
-            weights_active[keep_mask],
+        keep_indices = numpy.concatenate(
+            (full_indices[:i], full_indices[i + 1 :])
+        )
+        subset = _ranking._subset_cache(cache, keep_indices)
+        jackknife_alpha = _ranking._compute_pl_mle_from_cache(
+            subset,
+            subset.ordering_weights,
+            n_items,
             npseudo=npseudo,
             tolerance=pl_tolerance,
             max_iter=pl_max_iter,
         )
         jackknife_ranks[i] = _ranking.pl_expected_rank(jackknife_alpha)
-        keep_mask[i] = True
     proportion_below = (replicate_ranks < point_rank.reshape(1, -1)).mean(
         axis=0
     )
@@ -816,4 +871,89 @@ def _bca_per_item_quantiles(
             continue
         ci_low_vec[k] = float(numpy.nanquantile(column, adjusted_lo[k]))
         ci_high_vec[k] = float(numpy.nanquantile(column, adjusted_hi[k]))
+    return ci_low_vec, ci_high_vec
+
+
+def _wald_per_item_ci(
+    cache: _ranking._OrderingsCache,
+    n_items: int,
+    ci_coverage: float,
+    npseudo: float,
+    pl_tolerance: float,
+    pl_max_iter: int,
+) -> tuple[
+    numpy.typing.NDArray[numpy.floating],
+    numpy.typing.NDArray[numpy.floating],
+]:
+    """Closed-form Wald CI on per-item expected ranks via PL Fisher info + delta."""
+    alpha = _ranking._compute_pl_mle_from_cache(
+        cache,
+        cache.ordering_weights,
+        n_items,
+        npseudo=npseudo,
+        tolerance=pl_tolerance,
+        max_iter=pl_max_iter,
+    )
+    point_rank = _ranking.pl_expected_rank(alpha)
+    with numpy.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        h = _ranking._compute_pl_fisher_info(
+            cache, alpha, cache.ordering_weights, n_items
+        )
+        trace_value = float(numpy.trace(h))
+        ridge = 1.0e-9 * max(trace_value, 1.0) / n_items
+        h_regularised = h + ridge * numpy.eye(n_items, dtype=float)
+        c_factor, lower = scipy.linalg.cho_factor(h_regularised, lower=True)
+        g = _ranking._compute_pl_expected_rank_jacobian(alpha)
+        z_matrix = scipy.linalg.cho_solve((c_factor, lower), g.T)
+        var_per_item = numpy.einsum("ki,ik->k", g, z_matrix)
+    se = numpy.sqrt(numpy.maximum(var_per_item, 0.0))
+    z = float(scipy.stats.norm.ppf((1.0 + ci_coverage) / 2.0))
+    halfwidth = z * se
+    ci_low_vec = point_rank - halfwidth
+    ci_high_vec = point_rank + halfwidth
+    return ci_low_vec, ci_high_vec
+
+
+def _gaussian_multiplier_per_item_ci(
+    cache: _ranking._OrderingsCache,
+    n_items: int,
+    ci_coverage: float,
+    rng: numpy.random.Generator,
+    n_replicates: int,
+    npseudo: float,
+    pl_tolerance: float,
+    pl_max_iter: int,
+) -> tuple[
+    numpy.typing.NDArray[numpy.floating],
+    numpy.typing.NDArray[numpy.floating],
+]:
+    """Multiplier-CLT bootstrap CI: B Gaussian-weighted score-linearised draws."""
+    alpha = _ranking._compute_pl_mle_from_cache(
+        cache,
+        cache.ordering_weights,
+        n_items,
+        npseudo=npseudo,
+        tolerance=pl_tolerance,
+        max_iter=pl_max_iter,
+    )
+    point_rank = _ranking.pl_expected_rank(alpha)
+    with numpy.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        h = _ranking._compute_pl_fisher_info(
+            cache, alpha, cache.ordering_weights, n_items
+        )
+        trace_value = float(numpy.trace(h))
+        ridge = 1.0e-9 * max(trace_value, 1.0) / n_items
+        h_regularised = h + ridge * numpy.eye(n_items, dtype=float)
+        c_factor, lower = scipy.linalg.cho_factor(h_regularised, lower=True)
+        score = _ranking._compute_pl_score_per_row(cache, alpha, n_items)
+        weighted_score = cache.ordering_weights[:, None] * score
+        n_orderings = int(cache.row_sizes.size)
+        omega = rng.normal(size=(n_replicates, n_orderings))
+        score_sums = omega @ weighted_score
+        delta_theta = scipy.linalg.cho_solve((c_factor, lower), score_sums.T).T
+        g = _ranking._compute_pl_expected_rank_jacobian(alpha)
+        delta_er = delta_theta @ g.T
+    tail = (1.0 - ci_coverage) / 2.0
+    ci_low_vec = point_rank + numpy.quantile(delta_er, tail, axis=0)
+    ci_high_vec = point_rank + numpy.quantile(delta_er, 1.0 - tail, axis=0)
     return ci_low_vec, ci_high_vec

@@ -545,7 +545,7 @@ class Tree(
         sorted_leaves = sorted(raw_leaves, key=lambda n: n.leaf_sort_key())
         if self.reverse_order:
             sorted_leaves = list(reversed(sorted_leaves))
-        self.leaves_ = typing.cast(list[N], sorted_leaves)
+        self.leaves_ = sorted_leaves
         for index, leaf in enumerate(sorted_leaves):
             leaf_extension = typing.cast(_extension.Leaf, leaf.extension)
             leaf_extension.leaf_id = index
