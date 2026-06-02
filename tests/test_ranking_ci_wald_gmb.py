@@ -32,6 +32,18 @@ import sigma._ranking
 import sigma._types
 
 
+def _quiet_fisher_info(*args, **kwargs):
+    """Call _compute_pl_fisher_info while suppressing spurious BLAS FPE flags.
+
+    The chunked matmul inside `_compute_pl_fisher_info` triggers benign
+    divide/overflow/invalid FPE flags on Apple Silicon's Accelerate BLAS.
+    Production callers (`_wald_per_item_ci`, `_gaussian_multiplier_per_item_ci`)
+    already wrap; tests do not, so suppress here.
+    """
+    with numpy.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        return sigma._ranking._compute_pl_fisher_info(*args, **kwargs)
+
+
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 _DEMO_DATA_DIR = os.path.join(_REPO_ROOT, ".demo_data")
 
@@ -118,9 +130,7 @@ class TestFisherInfoInvariants(unittest.TestCase):
         rankings = _simulate_full_rankings(alpha, 40, rng)
         weights = numpy.ones(rankings.shape[0])
         cache = sigma._ranking._extract_orderings_cache(rankings, weights)
-        h = sigma._ranking._compute_pl_fisher_info(
-            cache, alpha, cache.ordering_weights, alpha.size
-        )
+        h = _quiet_fisher_info(cache, alpha, cache.ordering_weights, alpha.size)
         product = h @ numpy.ones(alpha.size)
         numpy.testing.assert_allclose(
             product, numpy.zeros(alpha.size), atol=1e-10
@@ -133,9 +143,7 @@ class TestFisherInfoInvariants(unittest.TestCase):
         rankings = _simulate_full_rankings(alpha, 60, rng)
         weights = numpy.ones(rankings.shape[0])
         cache = sigma._ranking._extract_orderings_cache(rankings, weights)
-        h = sigma._ranking._compute_pl_fisher_info(
-            cache, alpha, cache.ordering_weights, alpha.size
-        )
+        h = _quiet_fisher_info(cache, alpha, cache.ordering_weights, alpha.size)
         numpy.testing.assert_allclose(h, h.T, rtol=1e-12, atol=1e-12)
         eigenvalues = numpy.linalg.eigvalsh(h)
         self.assertGreaterEqual(float(eigenvalues.min()), -1e-10)
@@ -165,9 +173,7 @@ class TestWaldSeAtUniformAlpha(unittest.TestCase):
                 rankings[index, item] = float(position + 1)
         weights = numpy.ones(rankings.shape[0])
         cache = sigma._ranking._extract_orderings_cache(rankings, weights)
-        h = sigma._ranking._compute_pl_fisher_info(
-            cache, alpha, cache.ordering_weights, n_items
-        )
+        h = _quiet_fisher_info(cache, alpha, cache.ordering_weights, n_items)
         ridge = 1e-9 * float(numpy.trace(h)) / n_items
         h_reg = h + ridge * numpy.eye(n_items)
         sigma_theta = numpy.linalg.inv(h_reg)
@@ -219,7 +225,7 @@ class TestFiniteDifferenceCrossChecks(unittest.TestCase):
         rankings = _simulate_full_rankings(alpha, 40, rng)
         weights = numpy.ones(rankings.shape[0])
         cache = sigma._ranking._extract_orderings_cache(rankings, weights)
-        h_analytic = sigma._ranking._compute_pl_fisher_info(
+        h_analytic = _quiet_fisher_info(
             cache, alpha, cache.ordering_weights, n_items
         )
         epsilon = 1e-3
@@ -514,7 +520,7 @@ class TestBootstrapAsymptoticAgreement(unittest.TestCase):
 
     def _wald_se(self):
         """Compute Wald per-item SE from the cached fit."""
-        h = sigma._ranking._compute_pl_fisher_info(
+        h = _quiet_fisher_info(
             self.cache,
             self.alpha,
             self.cache.ordering_weights,
@@ -557,7 +563,7 @@ class TestBootstrapAsymptoticAgreement(unittest.TestCase):
     def test_gmb_collapses_to_wald_at_large_b(self):
         """GMB per-item SE at B=2000 matches Wald SE within Monte-Carlo noise."""
         wald_se = self._wald_se()
-        h = sigma._ranking._compute_pl_fisher_info(
+        h = _quiet_fisher_info(
             self.cache,
             self.alpha,
             self.cache.ordering_weights,

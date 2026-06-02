@@ -408,35 +408,32 @@ def _compute_pl_fisher_info(
         numpy.arange(n_total, dtype=numpy.intp) - cache.row_starts[row_of_flat]
     )
     inv_risk_flat = aux.inv_risk_flat
-    with numpy.errstate(divide="ignore", over="ignore", invalid="ignore"):
-        for t_start in range(0, n_total, chunk_size):
-            t_end = min(t_start + chunk_size, n_total)
-            chunk_len = t_end - t_start
-            u_chunk = alpha[None, :] * inv_risk_flat[t_start:t_end, None]
-            counts = step_in_row_flat[t_start:t_end].astype(
-                numpy.intp, copy=False
+    for t_start in range(0, n_total, chunk_size):
+        t_end = min(t_start + chunk_size, n_total)
+        chunk_len = t_end - t_start
+        u_chunk = alpha[None, :] * inv_risk_flat[t_start:t_end, None]
+        counts = step_in_row_flat[t_start:t_end].astype(numpy.intp, copy=False)
+        total_priors = int(counts.sum())
+        if total_priors > 0:
+            chunk_row = row_of_flat[t_start:t_end]
+            chunk_step_repeated = numpy.repeat(
+                numpy.arange(chunk_len, dtype=numpy.intp), counts
             )
-            total_priors = int(counts.sum())
-            if total_priors > 0:
-                chunk_row = row_of_flat[t_start:t_end]
-                chunk_step_repeated = numpy.repeat(
-                    numpy.arange(chunk_len, dtype=numpy.intp), counts
-                )
-                cumcounts = numpy.empty(chunk_len + 1, dtype=numpy.intp)
-                cumcounts[0] = 0
-                numpy.cumsum(counts, out=cumcounts[1:])
-                offsets_within_row = numpy.arange(
-                    total_priors, dtype=numpy.intp
-                ) - numpy.repeat(cumcounts[:-1], counts)
-                chunk_row_repeated = numpy.repeat(chunk_row, counts)
-                prior_flat_positions = (
-                    cache.row_starts[chunk_row_repeated] + offsets_within_row
-                )
-                prior_item_indices = cache.flat_idx[prior_flat_positions]
-                u_chunk[chunk_step_repeated, prior_item_indices] = 0.0
-            w_chunk = w_flat[t_start:t_end]
-            weighted_u = w_chunk[:, None] * u_chunk
-            h -= weighted_u.T @ u_chunk
+            cumcounts = numpy.empty(chunk_len + 1, dtype=numpy.intp)
+            cumcounts[0] = 0
+            numpy.cumsum(counts, out=cumcounts[1:])
+            offsets_within_row = numpy.arange(
+                total_priors, dtype=numpy.intp
+            ) - numpy.repeat(cumcounts[:-1], counts)
+            chunk_row_repeated = numpy.repeat(chunk_row, counts)
+            prior_flat_positions = (
+                cache.row_starts[chunk_row_repeated] + offsets_within_row
+            )
+            prior_item_indices = cache.flat_idx[prior_flat_positions]
+            u_chunk[chunk_step_repeated, prior_item_indices] = 0.0
+        w_chunk = w_flat[t_start:t_end]
+        weighted_u = w_chunk[:, None] * u_chunk
+        h -= weighted_u.T @ u_chunk
     return h
 
 
