@@ -737,7 +737,6 @@ def _build_movielens_tree(output_path: str, dpi: int) -> None:
         background_color="transparent",
         orientation="left-to-right",
         precision=2,
-        top_displayed_items=1,
     )
     _write_png(output_path, ranking_tree_png, "tree")
     response_png = ranking_tree.to_image(

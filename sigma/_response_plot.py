@@ -479,12 +479,12 @@ def _plot_ranking(
     tree: _tree_ranking.RankingTree,
     displayed_indices: list[int],
 ) -> None:
-    """Draw per (leaf, item) mean-rank dots with CI boxes.
+    """Draw per (leaf, item) expected-rank dots with CI boxes.
 
-    Per (leaf, item): a translucent CI box, a horizontal tick at the mean
-    rank, and a marker dot, all in the per-item palette color. All items
-    of a leaf share the same x position; a per-item line connects the
-    mean-rank dots across leaves.
+    Per (leaf, item): a translucent CI box, a horizontal tick at the
+    expected rank, and a marker dot, all in the per-item palette color.
+    All items of a leaf share the same x position; a per-item line
+    connects the expected-rank dots across leaves.
     """
     import matplotlib.patches
 
@@ -505,8 +505,8 @@ def _plot_ranking(
             leaf_id = _leaf_id(leaf)
             x = leaf_id + 1
             metric = leaf.metrics[item_index]
-            mean_rank = float(metric.value)
-            if numpy.isnan(mean_rank):
+            expected_rank = float(metric.value)
+            if numpy.isnan(expected_rank):
                 continue
             if metric.ci_low is not None and metric.ci_high is not None:
                 low = float(metric.ci_low)
@@ -525,14 +525,14 @@ def _plot_ranking(
                         zorder=2,
                     )
             axes.hlines(
-                mean_rank,
+                expected_rank,
                 x - bar_width / 2.0,
                 x + bar_width / 2.0,
                 colors=color,
                 linewidth=2.0,
                 zorder=3,
             )
-            axes.scatter([x], [mean_rank], color=color, s=12, zorder=4)
+            axes.scatter([x], [expected_rank], color=color, s=12, zorder=4)
         line_ys = [
             float(leaf.metrics[item_index].value) for leaf in sorted_leaves
         ]
@@ -555,7 +555,7 @@ def _plot_ranking(
         padding = max(1.0, 0.05 * (upper - lower))
         axes.set_ylim(lower - padding, upper + padding)
     axes.invert_yaxis()
-    axes.set_ylabel("Mean rank (1 = most preferred)")
+    axes.set_ylabel("Expected rank (1 = most preferred)")
     axes.grid(axis="y", linestyle=":", alpha=0.4)
     handles = [
         matplotlib.patches.Patch(

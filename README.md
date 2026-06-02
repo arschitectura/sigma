@@ -196,15 +196,14 @@ All records                                               4.9 (4.2 to 5.5) 49.2%
 
 ### 4.4. Sushi (ranking)
 
-Predicting per-item mean rank with a Bayesian-bootstrap 95% confidence
-interval at each leaf - surfaces sex and age group as the strongest
-demographic drivers of sushi preference among 5000 Japanese respondents
-ranking ten classic sushi.
+Predicting per-item Plackett-Luce expected rank with a Bayesian-bootstrap
+95% confidence interval at each leaf - surfaces sex and age group as the
+strongest demographic drivers of sushi preference among 5000 Japanese
+respondents ranking ten classic sushi.
 
 ```python
 tree = sigma.RankingTree(
-    test_type="monte_carlo",
-    resamples=5000,
+    pca_components=10,
     random_state=123,
     max_depth=3,
 )
@@ -215,21 +214,21 @@ tree.to_image("png", "sushi_response.png", kind="response")
 ```
 
 ```
-                                                                                                                              ebi rank          anago rank         maguro rank            uni rank         tamago rank Obs. count Obs. share Split p-value Leaf index
+                                                                                                                              Ebi rank          Anago rank         Maguro rank            Uni rank         Tamago rank Obs. count Obs. share Split p-value Leaf index
                                                                                                                    ------------------- ------------------- ------------------- ------------------- ------------------- ---------- ---------- ------------- ----------
-All records                                                                                                        4.92 (4.85 to 4.98) 5.22 (5.15 to 5.30) 4.47 (4.41 to 4.53) 5.53 (5.43 to 5.62) 3.11 (3.04 to 3.18)       5000     100.0%         0.02%
-├── Gender is "male"                                                                                               5.18 (5.08 to 5.28) 4.98 (4.87 to 5.08) 4.26 (4.17 to 4.35) 5.15 (5.02 to 5.28) 2.81 (2.72 to 2.90)       2373      47.5%         0.02%
-│   ├── Age group is "40-49", "50-59", or "60+"                                                                    5.19 (5.03 to 5.35) 5.11 (4.94 to 5.29) 4.30 (4.15 to 4.45) 4.60 (4.40 to 4.81) 2.83 (2.68 to 2.98)        884      17.7%         0.56%
-│   │   ├── Childhood region is "Tohoku", "Hokuriku", "Kanto+Shizuoka", "Nagoya", "Kinki", "Chugoku", or "Okinawa" 5.29 (5.12 to 5.47) 5.01 (4.82 to 5.20) 4.29 (4.13 to 4.46) 4.67 (4.45 to 4.90) 2.81 (2.64 to 2.97)        735      14.7%                        6
-│   │   └── Childhood region is "Hokkaido", "Shikoku", "Kyushu", or "abroad"                                       4.66 (4.27 to 5.06) 5.62 (5.18 to 6.06) 4.38 (4.03 to 4.73) 4.29 (3.83 to 4.79) 2.93 (2.60 to 3.30)        149       3.0%                        3
-│   └── Age group is "15-19", "20-29", or "30-39"                                                                  5.18 (5.05 to 5.30) 4.89 (4.76 to 5.04) 4.23 (4.11 to 4.34) 5.47 (5.30 to 5.63) 2.79 (2.69 to 2.90)       1489      29.8%         0.02%
-│       ├── Age group is "30-39"                                                                                   5.32 (5.15 to 5.49) 4.83 (4.65 to 5.02) 4.35 (4.19 to 4.51) 5.03 (4.82 to 5.25) 2.76 (2.61 to 2.90)        830      16.6%                        7
-│       └── Age group is "15-19" or "20-29"                                                                        5.00 (4.82 to 5.18) 4.97 (4.77 to 5.18) 4.08 (3.91 to 4.25) 6.03 (5.78 to 6.27) 2.84 (2.68 to 3.01)        659      13.2%                        5
-└── Gender is "female"                                                                                             4.68 (4.58 to 4.78) 5.45 (5.34 to 5.55) 4.67 (4.58 to 4.76) 5.87 (5.74 to 6.00) 3.39 (3.29 to 3.48)       2627      52.5%         0.02%
-    ├── Age group is "20-29", "30-39", "40-49", "50-59", or "60+"                                                  4.68 (4.58 to 4.78) 5.37 (5.25 to 5.48) 4.72 (4.63 to 4.81) 5.73 (5.59 to 5.87) 3.41 (3.31 to 3.51)       2429      48.6%         0.02%
-    │   ├── Age group is "40-49", "50-59", or "60+"                                                                4.95 (4.73 to 5.18) 5.43 (5.17 to 5.69) 4.49 (4.29 to 4.70) 5.22 (4.92 to 5.52) 3.37 (3.13 to 3.61)        475       9.5%                        4
-    │   └── Age group is "20-29" or "30-39"                                                                        4.62 (4.51 to 4.73) 5.35 (5.23 to 5.47) 4.77 (4.67 to 4.88) 5.85 (5.70 to 6.01) 3.42 (3.31 to 3.53)       1954      39.1%                        2
-    └── Age group is "15-19"                                                                                       4.61 (4.25 to 4.97) 6.42 (6.04 to 6.79) 4.03 (3.73 to 4.34) 7.53 (7.08 to 7.93) 3.11 (2.79 to 3.45)        198       4.0%                        1
+All records                                                                                                        4.94 (4.86 to 5.01) 5.39 (5.32 to 5.46) 4.37 (4.31 to 4.43) 6.07 (5.98 to 6.16) 3.24 (3.15 to 3.31)       5000     100.0%       <1e-300
+├── Gender is "male"                                                                                               5.16 (5.05 to 5.25) 5.15 (5.06 to 5.28) 4.22 (4.11 to 4.33) 5.66 (5.50 to 5.77) 2.90 (2.82 to 3.01)       2373      47.5%       <1e-300
+│   ├── Age group is "40-49", "50-59", or "60+"                                                                    5.21 (5.04 to 5.39) 5.28 (5.12 to 5.45) 4.29 (4.15 to 4.44) 5.03 (4.80 to 5.23) 2.96 (2.81 to 3.13)        884      17.7%         0.60%
+│   │   ├── Childhood region is "Tohoku", "Hokuriku", "Kanto+Shizuoka", "Nagoya", "Kinki", "Chugoku", or "Okinawa" 5.31 (5.13 to 5.50) 5.17 (4.97 to 5.34) 4.29 (4.14 to 4.43) 5.10 (4.88 to 5.33) 2.94 (2.76 to 3.15)        735      14.7%                        7
+│   │   └── Childhood region is "Hokkaido", "Shikoku", "Kyushu", or "abroad"                                       4.74 (4.36 to 5.13) 5.81 (5.37 to 6.23) 4.32 (3.98 to 4.66) 4.67 (4.23 to 5.19) 3.03 (2.66 to 3.35)        149       3.0%                        3
+│   └── Age group is "15-19", "20-29", or "30-39"                                                                  5.13 (5.02 to 5.24) 5.08 (4.94 to 5.21) 4.18 (4.07 to 4.28) 6.00 (5.82 to 6.19) 2.87 (2.76 to 2.98)       1489      29.8%      1.22e-06
+│       ├── Age group is "30-39"                                                                                   5.27 (5.14 to 5.43) 5.04 (4.83 to 5.23) 4.31 (4.18 to 4.45) 5.53 (5.30 to 5.75) 2.83 (2.71 to 2.99)        830      16.6%                        6
+│       └── Age group is "15-19" or "20-29"                                                                        4.96 (4.78 to 5.14) 5.14 (4.95 to 5.34) 4.01 (3.84 to 4.17) 6.54 (6.30 to 6.73) 2.93 (2.73 to 3.15)        659      13.2%                        5
+└── Gender is "female"                                                                                             4.73 (4.64 to 4.82) 5.62 (5.53 to 5.72) 4.52 (4.43 to 4.59) 6.44 (6.32 to 6.55) 3.54 (3.43 to 3.66)       2627      52.5%       <1e-300
+    ├── Age group is "20-29", "30-39", "40-49", "50-59", or "60+"                                                  4.73 (4.63 to 4.82) 5.55 (5.44 to 5.66) 4.56 (4.48 to 4.65) 6.30 (6.13 to 6.41) 3.57 (3.46 to 3.68)       2429      48.6%       <1e-300
+    │   ├── Childhood region is "Hokuriku", "Kanto+Shizuoka", "Kinki", "Chugoku", "Kyushu", or "abroad"            4.90 (4.78 to 5.01) 5.43 (5.28 to 5.57) 4.54 (4.46 to 4.63) 6.44 (6.31 to 6.59) 3.50 (3.38 to 3.62)       1833      36.7%                        4
+    │   └── Childhood region is "Hokkaido", "Tohoku", "Nagoya", "Shikoku", or "Okinawa"                            4.18 (4.02 to 4.38) 5.90 (5.70 to 6.12) 4.64 (4.47 to 4.82) 5.84 (5.55 to 6.13) 3.78 (3.61 to 3.99)        596      11.9%                        1
+    └── Age group is "15-19"                                                                                       4.73 (4.37 to 5.11) 6.46 (6.08 to 6.79) 3.96 (3.68 to 4.30) 7.90 (7.60 to 8.25) 3.25 (2.88 to 3.64)        198       4.0%                        2
 ```
 
 <table>
@@ -374,7 +373,10 @@ when to choose each option.
 | `categorical_features`            | Which feature columns are categorical                                        |
 | `ci_method` (classification tree) | Confidence interval method for per-class proportions                         |
 | `ci_method` (regression tree)     | Confidence interval method for node mean predictions                         |
-| `ci_method` (ranking tree)        | Confidence interval method for per-item leaf mean-rank predictions           |
+| `ci_method` (ranking tree)        | Confidence interval method for per-item leaf PL-MLE expected-rank predictions |
+| `npseudo`                         | Turner ghost-item pseudo-comparison weight for the per-node PL fit           |
+| `pl_max_iter`                     | Maximum Hunter MM iterations per node's Plackett-Luce fit                    |
+| `pl_tolerance`                    | Convergence tolerance on log-worth for the Hunter MM iteration               |
 | `ci_coverage`                     | Coverage level for node-prediction confidence intervals                      |
 | `transmuter`                      | Per-node data transform with post-hoc split validation                       |
 | `resamples`                       | Number of permutations for `test_type="monte_carlo"`                         |
@@ -591,26 +593,23 @@ size and $z$ a standard normal quantile.
 
 **Default**: `"bayesian_bootstrap"`.
 
-Method for the per-item confidence intervals on each leaf's weighted
-mean rank vector. `RankingTree` reuses the `RegressionTree` CI
-machinery applied K times - once per item - so only the four
-distribution-free options apply; the seven distribution-specific
-methods of `RegressionTree` (`"beta"`, `"exponential"`, `"gamma"`,
-`"log_normal"`, `"log_normal_gci"`, `"poisson"`, `"poisson_jeffreys"`)
-are rejected at construction time because bounded integer ranks do not
-match their parametric assumptions.
+Method for the per-item confidence intervals on each leaf's Plackett-Luce
+expected-rank vector. Both supported methods refit the PL MLE on
+resampled active rows and aggregate the resulting expected-rank vectors
+marginally per item; scalar-mean CI methods (`"normal"`, `"student_t"`)
+and the seven distribution-specific methods of `RegressionTree`
+(`"beta"`, `"exponential"`, `"gamma"`, `"log_normal"`,
+`"log_normal_gci"`, `"poisson"`, `"poisson_jeffreys"`) are rejected at
+construction time because PL expected rank is a non-linear functional of
+a joint MLE rather than a scalar sample mean.
 
-- `"bayesian_bootstrap"` (default) uses Dirichlet resampling of the
-  per-item weighted mean rank. Nonparametric: makes no distributional
-  assumption on the per-item rank distribution. The safe choice.
-- `"bca"` is the bias-corrected and accelerated bootstrap (Efron, 1987).
-  Nonparametric, frequentist counterpart to `"bayesian_bootstrap"`.
-  Non-deterministic across calls.
-- `"normal"` is the Wald interval $\bar{r}_k \pm z \cdot \text{SE}$
-  with the Kish effective sample size. Tight and cheap. Choose when
-  the central limit theorem applies comfortably.
-- `"student_t"` has the same form as `"normal"` but uses a Student-t
-  quantile. Wider than `"normal"` for small effective sample sizes.
+- `"bayesian_bootstrap"` (default) draws Dirichlet weights for the
+  active rows and refits the PL MLE on each replicate. Nonparametric;
+  the safe choice.
+- `"bca"` is the bias-corrected and accelerated bootstrap (Efron, 1987)
+  applied to row-resampled PL refits, with the acceleration term
+  computed from a leave-one-out jackknife of PL refits. Slower than
+  `"bayesian_bootstrap"`; non-deterministic across calls.
 
 ### 6.12. `ci_coverage`
 
@@ -622,7 +621,7 @@ per-node `ci_method` cost). Common alternatives: `0.90` (less
 conservative), `0.99` (more conservative). For survival trees, also
 controls the confidence band drawn behind each Kaplan-Meier curve in
 the response plot; for ranking trees, it sets the per-item whisker
-width in the mean-rank response plot.
+width in the expected-rank response plot.
 
 ### 6.13. `transmuter`
 
@@ -799,7 +798,7 @@ Three deliberate deviations from partykit are worth knowing about:
    left and right children of each inner node to match. Sort keys are
    descending majority class share (`ClassificationTree`), ascending
    predicted response (`RegressionTree`), worst prognosis first
-   (`SurvivalTree`), and ascending lexicographic per-item mean rank
+   (`SurvivalTree`), and ascending lexicographic per-item PL expected-rank
    vector (`RankingTree`). Partykit prints leaves in tree-traversal
    order. The underlying tree is identical; only the iteration order
    of `leaves_` and the visual left-vs-right placement of children in
@@ -811,6 +810,10 @@ Three deliberate deviations from partykit are worth knowing about:
   Recursive Partytioning in R.* *Journal of Machine Learning
   Research*, 16, 3905-3909.
   [jmlr.org/papers/v16/hothorn15a](https://jmlr.org/papers/v16/hothorn15a.html)
+- Turner, H., van Etten, J., Firth, D., & Kosmidis, I. (2020).
+  *Modelling Rankings in R: The PlackettLuce Package.* *Computational
+  Statistics*, 35(3), 1027-1057.
+  [doi:10.1007/s00180-020-00959-3](https://doi.org/10.1007/s00180-020-00959-3)
 - Patil, V. V., & Kulkarni, H. V. (2012). *Comparison of Confidence
   Intervals for the Poisson Mean: Some New Aspects.* *REVSTAT -
   Statistical Journal*, 10(2), 211-227.
@@ -830,6 +833,9 @@ Three deliberate deviations from partykit are worth knowing about:
 - Olsson, U. (2005). *Confidence Intervals for the Mean of a
   Log-Normal Distribution.* *Journal of Statistics Education*, 13(1).
   [doi:10.1080/10691898.2005.11910638](https://doi.org/10.1080/10691898.2005.11910638)
+- Hunter, D. R. (2004). *MM Algorithms for Generalized Bradley-Terry
+  Models.* *Annals of Statistics*, 32(1), 384-406.
+  [doi:10.1214/aos/1079120141](https://doi.org/10.1214/aos/1079120141)
 - Krishnamoorthy, K., & Mathew, T. (2003). *Inferences on the Means of
   Lognormal Distributions Using Generalized p-Values and Generalized
   Confidence Intervals.* *Journal of Statistical Planning and

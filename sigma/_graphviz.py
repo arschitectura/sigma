@@ -22,7 +22,7 @@ _DEFAULT_LEAF_COLORS = ("white", "#0F62FE", "#0F62FE")
 def _per_node_displayed_indices(
     node: _node.Node, top_displayed_items: None | int
 ) -> list[int]:
-    """Return the node's own top items by lowest non-NaN mean rank.
+    """Return the node's own top items by lowest non-NaN expected rank.
 
     Args:
         node: Tree node. Returns [] for non-ranking nodes.
@@ -30,8 +30,8 @@ def _per_node_displayed_indices(
             yields [].
 
     Returns:
-        Sorted-by-mean-rank-ascending list of item indices (length at
-        most top_displayed_items). Items with NaN mean rank are
+        Sorted-by-expected-rank-ascending list of item indices (length
+        at most top_displayed_items). Items with NaN expected rank are
         excluded.
     """
     if top_displayed_items is None:

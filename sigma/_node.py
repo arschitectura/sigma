@@ -303,11 +303,11 @@ class RankingMetric:
 
     Attributes:
         label: Display label of the item being ranked.
-        value: Weighted mean rank of the item.
-        ci_low: Lower confidence-interval bound on the mean rank, or
+        value: Plackett-Luce expected rank of the item, in [1, n_items].
+        ci_low: Lower confidence-interval bound on the expected rank, or
             None when no CI is defined.
-        ci_high: Upper confidence-interval bound on the mean rank, or
-            None when no CI is defined.
+        ci_high: Upper confidence-interval bound on the expected rank,
+            or None when no CI is defined.
         style: Formatting style; always "value" for ranking metrics.
         better_is: Prognostic direction; always "lower" because rank 1
             is the most-preferred position.
@@ -363,7 +363,7 @@ class RankingNode(Node):
 
     @property
     def prediction(self) -> int:
-        """Index of the item with the lowest weighted mean rank."""
+        """Index of the item with the lowest expected rank."""
         values = numpy.array(
             [metric.value for metric in self.metrics], dtype=float
         )
@@ -376,18 +376,18 @@ class RankingNode(Node):
 
     @property
     def ci_low(self) -> None | float:
-        """Lower CI bound on the favorite item's mean rank."""
+        """Lower CI bound on the favorite item's expected rank."""
         bound = self.metrics[self.prediction].ci_low
         return bound
 
     @property
     def ci_high(self) -> None | float:
-        """Upper CI bound on the favorite item's mean rank."""
+        """Upper CI bound on the favorite item's expected rank."""
         bound = self.metrics[self.prediction].ci_high
         return bound
 
     def leaf_sort_key(self) -> tuple[float, ...]:
-        """Sort key: ascending lexicographic on per-item mean ranks."""
+        """Sort key: ascending lexicographic on per-item expected ranks."""
         components: list[float] = []
         for metric in self.metrics:
             value = metric.value

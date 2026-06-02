@@ -1,4 +1,4 @@
-"""RankingTree estimator and its per-item mean-rank confidence intervals."""
+"""RankingTree estimator and its per-item expected-rank confidence intervals."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import typing
 import numpy
 import numpy.linalg
 import numpy.typing
+import scipy.stats
 import sklearn.base
 import sklearn.utils.extmath
 import sklearn.utils.validation
@@ -15,7 +16,6 @@ import sklearn.utils.validation
 from . import _node
 from . import _ranking
 from . import _tree
-from . import _tree_regression
 from . import _types
 
 if typing.TYPE_CHECKING:
@@ -50,11 +50,18 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
     Powerlaws: The Logarithmic Transformation," *Journal of the
     American Society for Information Science and Technology*, 57(11),
     1470-1486, who prescribes log-transformation of power-law-distributed
-    rank data before multivariate factor analysis / PCA. Per-node
-    mean-rank statistics and confidence intervals are computed over the
-    full catalogue. Tree text and response plots restrict the displayed
-    items to the union of each leaf's top-N items by lowest mean rank;
-    N is the top_displayed_items argument of to_text and to_image (default 3).
+    rank data before multivariate factor analysis / PCA. Each node fits a
+    Plackett-Luce maximum-likelihood worth vector on its weighted
+    partial rankings by Hunter (2004), "MM Algorithms for Generalized
+    Bradley-Terry Models," *Annals of Statistics*, 32(1), 384-406,
+    regularised by ghost-item pseudo-rankings introduced in Turner et
+    al. (2020), "Modelling Rankings in R: The PlackettLuce Package,"
+    *Computational Statistics*, 35(3), 1027-1057. The reported per-item
+    statistic is the implied Plackett-Luce expected rank, lying in
+    [1, n_items] with lower values denoting preference. Tree text and
+    response plots restrict the displayed items to the union of each
+    leaf's top-N items by lowest expected rank; N is the
+    top_displayed_items argument of to_text and to_image (default 3).
 
     Args:
         pca_components: Number of principal components computed from the
@@ -78,19 +85,26 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             are resolved against the DataFrame columns at fit time (i.e.,
             they require X to be a pandas DataFrame). None means all
             numeric.
-        ci_method: Per-item confidence interval method on the leaf mean
-            rank of each item. Reuses the RegressionTree CI dispatcher
-            applied per item. Only the four distribution-free options
-            apply because the distribution-specific methods of
-            RegressionTree rely on parametric assumptions incompatible
-            with rank data. "bayesian_bootstrap" (default): Bayesian
-            bootstrap interval. "bca": bias-corrected and accelerated
-            bootstrap interval. "normal": normal-approximation interval
-            on the weighted mean rank. "student_t": Student-t interval
-            on the weighted mean rank.
-        ci_coverage: Coverage level for per-item mean-rank confidence
-            intervals. Defaults to 0.95. Set to None to disable CI
-            computation.
+        npseudo: Weight of the Turner ghost-item pseudo-comparisons added
+            to each real item during the per-node Plackett-Luce fit.
+            Must be strictly positive. Defaults to 0.5 (Turner et al.
+            2020 default).
+        pl_max_iter: Maximum number of Hunter MM iterations per
+            Plackett-Luce fit. Must be a positive integer. Defaults to
+            100.
+        pl_tolerance: Convergence tolerance on the maximum absolute
+            change in log-worth between successive MM iterations. Must
+            be strictly positive. Defaults to 1e-6.
+        ci_method: Per-item confidence interval method on the leaf
+            expected rank of each item. Both methods refit the
+            Plackett-Luce MLE on resampled active rows and aggregate the
+            resulting expected-rank vectors marginally per item.
+            "bayesian_bootstrap" (default): Dirichlet-weighted refit
+            interval. "bca": bias-corrected and accelerated row-resample
+            refit interval.
+        ci_coverage: Coverage level for per-item expected-rank
+            confidence intervals. Defaults to 0.95. Set to None to
+            disable CI computation.
         transmuter: Optional callable applied to node data before
             computing predictions and confidence intervals, with post-hoc
             split validation. See Tree for full signature and behavior.
@@ -108,8 +122,8 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
 
     Attributes:
         content_: Root node of the fitted tree structure.
-        leaves_: List of leaf nodes, ordered by ascending mean rank of
-            the top-ranked item.
+        leaves_: List of leaf nodes, ordered by ascending expected rank
+            of the top-ranked item.
         nodes_: List of all nodes in pre-order DFS, ordered by node_id.
             Indices match the output of predict_index.
         n_items_: Total number of items K in the fit-time catalogue.
@@ -139,11 +153,12 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         min_buckets: int = 7,
         max_depth: None | int = None,
         categorical_features: None | collections.abc.Sequence[str | int] = None,
+        npseudo: float = 0.5,
+        pl_max_iter: int = 100,
+        pl_tolerance: float = 1.0e-6,
         ci_method: typing.Literal[
             "bayesian_bootstrap",
             "bca",
-            "normal",
-            "student_t",
         ] = "bayesian_bootstrap",
         ci_coverage: None | float = 0.95,
         transmuter: None | typing.Callable = None,
@@ -163,6 +178,35 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             raise ValueError(
                 f"pca_components must be at least 1, got {pca_components}"
             )
+        if isinstance(npseudo, bool) or not isinstance(npseudo, (int, float)):
+            raise TypeError(
+                f"npseudo must be a real number, got {type(npseudo).__name__}"
+            )
+        if not numpy.isfinite(npseudo) or npseudo <= 0.0:
+            raise ValueError(
+                f"npseudo must be a positive finite float, got {npseudo}"
+            )
+        if not isinstance(pl_max_iter, int) or isinstance(pl_max_iter, bool):
+            raise TypeError(
+                f"pl_max_iter must be an integer,"
+                f" got {type(pl_max_iter).__name__}"
+            )
+        if pl_max_iter < 1:
+            raise ValueError(
+                f"pl_max_iter must be at least 1, got {pl_max_iter}"
+            )
+        if isinstance(pl_tolerance, bool) or not isinstance(
+            pl_tolerance, (int, float)
+        ):
+            raise TypeError(
+                f"pl_tolerance must be a real number,"
+                f" got {type(pl_tolerance).__name__}"
+            )
+        if not numpy.isfinite(pl_tolerance) or pl_tolerance <= 0.0:
+            raise ValueError(
+                f"pl_tolerance must be a positive finite float,"
+                f" got {pl_tolerance}"
+            )
         if transmuter is not None:
             raise ValueError(
                 "RankingTree does not support a transmuter; the leaf-level"
@@ -175,6 +219,9 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         )
         self.pca_components = pca_components
         self.item_names = item_names
+        self.npseudo = float(npseudo)
+        self.pl_max_iter = int(pl_max_iter)
+        self.pl_tolerance = float(pl_tolerance)
         self.ci_method = ci_method
         super().__init__(
             correlation=correlation,
@@ -213,10 +260,10 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             offset: Ignored; RankingTree does not support offsets.
 
         Returns:
-            Per-sample label of the item with the lowest mean rank at
-            the sample's leaf, shape (n_samples,). The dtype matches
-            item_names_: integer indices when no names were provided
-            at fit, else the supplied labels.
+            Per-sample label of the item with the lowest Plackett-Luce
+            expected rank at the sample's leaf, shape (n_samples,). The
+            dtype matches item_names_: integer indices when no names
+            were provided at fit, else the supplied labels.
         """
         indices = self.predict_index(X)
         node_predictions = numpy.array(
@@ -230,15 +277,15 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         self,
         X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
     ) -> numpy.typing.NDArray[numpy.floating]:
-        """Predict the per-item mean rank vector for each sample.
+        """Predict the per-item Plackett-Luce expected rank for each sample.
 
         Args:
             X: Samples to predict, shape (n_samples, n_features).
 
         Returns:
-            Per-sample mean-rank matrix, shape (n_samples, n_items).
-            Items with no observations in the predicted leaf are
-            reported as NaN.
+            Per-sample expected-rank matrix, shape (n_samples, n_items).
+            Each finite entry lies in [1, n_items_]; leaves with no
+            active rows report NaN for every item.
         """
         indices = self.predict_index(X)
         node_mean_ranks = numpy.array(
@@ -442,8 +489,15 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             return 0.0
         y_full_active = self._y_full_[active]
         w_active = weights[active]
-        mean_rank = _ranking.compute_mean_rank_vector(y_full_active, w_active)
-        favorite_index = _argmin_with_nan(mean_rank)
+        alpha = _ranking.compute_pl_mle(
+            y_full_active,
+            w_active,
+            npseudo=self.npseudo,
+            tolerance=self.pl_tolerance,
+            max_iter=self.pl_max_iter,
+        )
+        expected_rank = _ranking.pl_expected_rank(alpha)
+        favorite_index = _argmin_with_nan(expected_rank)
         prediction = float(favorite_index)
         return prediction
 
@@ -540,14 +594,21 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         active = weights > 0
         y_full_active = self._y_full_[active]
         w_active = weights[active]
-        mean_rank = _ranking.compute_mean_rank_vector(y_full_active, w_active)
+        alpha = _ranking.compute_pl_mle(
+            y_full_active,
+            w_active,
+            npseudo=self.npseudo,
+            tolerance=self.pl_tolerance,
+            max_iter=self.pl_max_iter,
+        )
+        expected_rank = _ranking.pl_expected_rank(alpha)
         per_item_ci_low, per_item_ci_high = self._compute_per_item_ci(
             y_full_active, w_active
         )
         metrics: list[_node.RankingMetric] = []
         for k in range(self.n_items_):
             label = str(self.item_names_[k])
-            value = float(mean_rank[k])
+            value = float(expected_rank[k])
             low = None if per_item_ci_low is None else float(per_item_ci_low[k])
             high = (
                 None if per_item_ci_high is None else float(per_item_ci_high[k])
@@ -563,7 +624,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         return metrics
 
     def _compute_displayed_indices(self, top_displayed_items: int) -> list[int]:
-        """Return the union of each leaf's top items by lowest mean rank."""
+        """Return the union of each leaf's top items by lowest expected rank."""
         union: set[int] = set()
         for leaf in self.leaves_:
             values = numpy.array(
@@ -580,6 +641,8 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                 union.add(int(idx))
         return sorted(union)
 
+    _CI_BOOTSTRAP_REPLICATES = 200
+
     def _compute_per_item_ci(
         self,
         y_full_active: numpy.typing.NDArray[numpy.floating],
@@ -588,7 +651,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         None | numpy.typing.NDArray[numpy.floating],
         None | numpy.typing.NDArray[numpy.floating],
     ]:
-        """Compute the per-item leaf CI on the full-catalogue active subset."""
+        """Bootstrap a per-item expected-rank CI by refitting the PL MLE."""
         ci_coverage = self.ci_coverage
         if ci_coverage is None:
             return None, None
@@ -597,47 +660,78 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         if n_active == 0:
             empty = numpy.full(n_items, numpy.nan, dtype=float)
             return empty, empty
-        alpha = (1.0 - ci_coverage) / 2.0
+        tail_alpha = (1.0 - ci_coverage) / 2.0
         ci_method_enum = _types.CiMethodRankingTree(self.ci_method)
-        ci_low_vec = numpy.full(n_items, numpy.nan, dtype=float)
-        ci_high_vec = numpy.full(n_items, numpy.nan, dtype=float)
-        for k in range(n_items):
-            column = y_full_active[:, k]
-            observed_mask = ~numpy.isnan(column)
-            y_k = column[observed_mask]
-            w_k = weights_active[observed_mask]
-            n_observed = y_k.size
-            if n_observed == 0:
-                continue
-            if n_observed == 1:
-                ci_low_vec[k] = float(y_k[0])
-                ci_high_vec[k] = float(y_k[0])
-                continue
-            match ci_method_enum:
-                case _types.CiMethodRankingTree.BAYESIAN_BOOTSTRAP:
-                    low, high = (
-                        _tree_regression.RegressionTree._compute_ci_bayesian_bootstrap(
-                            self._rng_ci_, y_k, w_k, alpha
-                        )
+        replicate_ranks = numpy.empty(
+            (self._CI_BOOTSTRAP_REPLICATES, n_items), dtype=float
+        )
+        weights_total = float(weights_active.sum())
+        match ci_method_enum:
+            case _types.CiMethodRankingTree.BAYESIAN_BOOTSTRAP:
+                dirichlet_alphas = weights_active.astype(float, copy=False)
+                for b in range(self._CI_BOOTSTRAP_REPLICATES):
+                    bootstrap_weights = (
+                        self._rng_ci_.dirichlet(dirichlet_alphas)
+                        * weights_total
                     )
-                case _types.CiMethodRankingTree.BCA:
-                    low, high = _tree_regression.RegressionTree._compute_ci_bca(
-                        self._rng_ci_, y_k, w_k, alpha
+                    replicate_alpha = _ranking.compute_pl_mle(
+                        y_full_active,
+                        bootstrap_weights,
+                        npseudo=self.npseudo,
+                        tolerance=self.pl_tolerance,
+                        max_iter=self.pl_max_iter,
                     )
-                case _types.CiMethodRankingTree.NORMAL:
-                    low, high = (
-                        _tree_regression.RegressionTree._compute_ci_normal(
-                            y_k, w_k, alpha
-                        )
+                    replicate_ranks[b] = _ranking.pl_expected_rank(
+                        replicate_alpha
                     )
-                case _types.CiMethodRankingTree.STUDENT_T:
-                    low, high = (
-                        _tree_regression.RegressionTree._compute_ci_student_t(
-                            y_k, w_k, alpha
-                        )
+                with numpy.errstate(invalid="ignore"):
+                    quantiles = numpy.nanquantile(
+                        replicate_ranks,
+                        [tail_alpha, 1.0 - tail_alpha],
+                        axis=0,
                     )
-            ci_low_vec[k] = low
-            ci_high_vec[k] = high
+                ci_low_vec = quantiles[0]
+                ci_high_vec = quantiles[1]
+                all_nan_columns = numpy.all(
+                    numpy.isnan(replicate_ranks), axis=0
+                )
+                ci_low_vec = numpy.where(all_nan_columns, numpy.nan, ci_low_vec)
+                ci_high_vec = numpy.where(
+                    all_nan_columns, numpy.nan, ci_high_vec
+                )
+            case _types.CiMethodRankingTree.BCA:
+                point_alpha = _ranking.compute_pl_mle(
+                    y_full_active,
+                    weights_active,
+                    npseudo=self.npseudo,
+                    tolerance=self.pl_tolerance,
+                    max_iter=self.pl_max_iter,
+                )
+                point_rank = _ranking.pl_expected_rank(point_alpha)
+                for b in range(self._CI_BOOTSTRAP_REPLICATES):
+                    indices = self._rng_ci_.integers(0, n_active, size=n_active)
+                    resampled_y = y_full_active[indices]
+                    resampled_w = weights_active[indices]
+                    replicate_alpha = _ranking.compute_pl_mle(
+                        resampled_y,
+                        resampled_w,
+                        npseudo=self.npseudo,
+                        tolerance=self.pl_tolerance,
+                        max_iter=self.pl_max_iter,
+                    )
+                    replicate_ranks[b] = _ranking.pl_expected_rank(
+                        replicate_alpha
+                    )
+                ci_low_vec, ci_high_vec = _bca_per_item_quantiles(
+                    point_rank,
+                    replicate_ranks,
+                    y_full_active,
+                    weights_active,
+                    tail_alpha,
+                    self.npseudo,
+                    self.pl_tolerance,
+                    self.pl_max_iter,
+                )
         return ci_low_vec, ci_high_vec
 
 
@@ -649,3 +743,77 @@ def _argmin_with_nan(values: numpy.typing.NDArray[numpy.floating]) -> int:
     safe = numpy.where(nan_mask, numpy.inf, values)
     index = int(numpy.argmin(safe))
     return index
+
+
+def _bca_per_item_quantiles(
+    point_rank: numpy.typing.NDArray[numpy.floating],
+    replicate_ranks: numpy.typing.NDArray[numpy.floating],
+    y_full_active: numpy.typing.NDArray[numpy.floating],
+    weights_active: numpy.typing.NDArray[numpy.floating],
+    tail_alpha: float,
+    npseudo: float,
+    pl_tolerance: float,
+    pl_max_iter: int,
+) -> tuple[
+    numpy.typing.NDArray[numpy.floating],
+    numpy.typing.NDArray[numpy.floating],
+]:
+    """Apply BCa quantile adjustment per item to PL bootstrap replicates."""
+    n_replicates, n_items = replicate_ranks.shape
+    n_active = y_full_active.shape[0]
+    jackknife_ranks = numpy.empty((n_active, n_items), dtype=float)
+    keep_mask = numpy.ones(n_active, dtype=bool)
+    for i in range(n_active):
+        keep_mask[i] = False
+        jackknife_alpha = _ranking.compute_pl_mle(
+            y_full_active[keep_mask],
+            weights_active[keep_mask],
+            npseudo=npseudo,
+            tolerance=pl_tolerance,
+            max_iter=pl_max_iter,
+        )
+        jackknife_ranks[i] = _ranking.pl_expected_rank(jackknife_alpha)
+        keep_mask[i] = True
+    proportion_below = (replicate_ranks < point_rank.reshape(1, -1)).mean(
+        axis=0
+    )
+    proportion_clamped = numpy.clip(
+        proportion_below,
+        0.5 / n_replicates,
+        1.0 - 0.5 / n_replicates,
+    )
+    z0 = scipy.stats.norm.ppf(proportion_clamped)
+    jackknife_mean = jackknife_ranks.mean(axis=0)
+    deviations = jackknife_mean - jackknife_ranks
+    sum_cubed = (deviations**3).sum(axis=0)
+    sum_squared = (deviations**2).sum(axis=0)
+    acceleration = numpy.where(
+        sum_squared > 0.0,
+        sum_cubed / (6.0 * numpy.power(sum_squared, 1.5)),
+        0.0,
+    )
+    z_lo = float(scipy.stats.norm.ppf(tail_alpha))
+    z_hi = float(scipy.stats.norm.ppf(1.0 - tail_alpha))
+    denominator_lo = 1.0 - acceleration * (z0 + z_lo)
+    denominator_hi = 1.0 - acceleration * (z0 + z_hi)
+    adjusted_lo = numpy.where(
+        denominator_lo > 0.0,
+        scipy.stats.norm.cdf(z0 + (z0 + z_lo) / denominator_lo),
+        tail_alpha,
+    )
+    adjusted_hi = numpy.where(
+        denominator_hi > 0.0,
+        scipy.stats.norm.cdf(z0 + (z0 + z_hi) / denominator_hi),
+        1.0 - tail_alpha,
+    )
+    ci_low_vec = numpy.empty(n_items, dtype=float)
+    ci_high_vec = numpy.empty(n_items, dtype=float)
+    for k in range(n_items):
+        column = replicate_ranks[:, k]
+        if numpy.all(numpy.isnan(column)):
+            ci_low_vec[k] = numpy.nan
+            ci_high_vec[k] = numpy.nan
+            continue
+        ci_low_vec[k] = float(numpy.nanquantile(column, adjusted_lo[k]))
+        ci_high_vec[k] = float(numpy.nanquantile(column, adjusted_hi[k]))
+    return ci_low_vec, ci_high_vec

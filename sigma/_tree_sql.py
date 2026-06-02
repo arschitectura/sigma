@@ -139,7 +139,7 @@ def _leaf_numeric_value(
     if isinstance(node, _node.RankingNode):
         raise NotImplementedError(
             "SQL export is not supported for RankingTree: a single SQL"
-            " scalar cannot represent the per-item mean-rank vector"
+            " scalar cannot represent the per-item expected-rank vector"
             " predicted at each leaf."
         )
     regression_node = typing.cast(_node.RegressionNode, node)

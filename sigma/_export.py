@@ -245,9 +245,9 @@ def export_sql(
     - SurvivalTree: each leaf returns its first metric value (typically
       the median survival).
     - RankingTree: SQL export is not supported because a single SQL
-      scalar cannot represent the per-item mean-rank vector predicted
-      at each leaf; calling export_sql on a fitted RankingTree raises
-      NotImplementedError.
+      scalar cannot represent the per-item expected-rank vector
+      predicted at each leaf; calling export_sql on a fitted RankingTree
+      raises NotImplementedError.
 
     Categorical values not seen during training evaluate to the holding
     node's prediction, mirroring tree.predict. Other unmatched inputs
@@ -631,8 +631,8 @@ def export_image(
             box of [ci_low, ci_high] with a tick at the predicted mean
             for regression; one Kaplan-Meier step curve per leaf, with
             the response_name as the time axis, for survival; per
-            (leaf, item) mean-rank dots with CI boxes for ranking, with
-            an inverted y-axis so rank 1 sits at the top. When kind is
+            (leaf, item) expected-rank dots with CI boxes for ranking,
+            with an inverted y-axis so rank 1 sits at the top. When kind is
             "response", the
             tree-rendering parameters feature_names, category_labels,
             prediction_formatter, root_colors, split_colors, leaf_colors,

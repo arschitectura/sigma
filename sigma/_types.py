@@ -178,33 +178,24 @@ class CiMethodSurvival(enum.Enum):
 
 
 class CiMethodRankingTree(enum.Enum):
-    """Confidence interval method for ranking tree per-item mean rank predictions.
+    """Confidence interval method for ranking tree per-item expected rank predictions.
 
-    The leaf prediction is a length-K vector of weighted mean ranks; the
-    CI is computed independently for each item by reusing the
-    RegressionTree CI machinery, called K times. Only the four
-    distribution-free methods apply; the seven distribution-specific
-    methods of RegressionTree (Beta, Gamma, Log-normal, Poisson, etc.)
-    rely on parametric assumptions that are incompatible with bounded
-    integer ranks.
+    The leaf statistic is the per-item expected rank under a
+    Plackett-Luce maximum-likelihood worth vector regularised by Turner
+    ghost-item pseudo-rankings. Both methods refit the PL MLE on
+    resampled rankings of the active rows and aggregate the resulting
+    expected-rank vectors marginally per item.
 
-    BAYESIAN_BOOTSTRAP: Dirichlet-based Bayesian bootstrap of the weighted
-        mean rank. Non-parametric; makes no distributional assumption on
-        the per-item rank distribution.
-    BCA: Bias-corrected and accelerated bootstrap interval for the
-        weighted mean rank. Non-parametric; the frequentist counterpart
-        to BAYESIAN_BOOTSTRAP.
-    NORMAL: Normal-approximation interval on the weighted mean rank.
-    STUDENT_T: Student-t interval on the weighted mean rank. Wider than
-        NORMAL for small effective sample sizes.
+    BAYESIAN_BOOTSTRAP: Bayesian bootstrap that draws Dirichlet weights
+        for the active rows and refits PL on each replicate.
+    BCA: Bias-corrected and accelerated bootstrap that resamples active
+        rows with replacement and refits PL on each replicate.
     """
 
     __slots__ = ()
 
     BAYESIAN_BOOTSTRAP = "bayesian_bootstrap"
     BCA = "bca"
-    NORMAL = "normal"
-    STUDENT_T = "student_t"
 
 
 class CiMethodClassificationTree(enum.Enum):

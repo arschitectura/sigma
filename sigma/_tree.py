@@ -1432,9 +1432,9 @@ class Tree(
                 is written to it and the function returns None.
             top_displayed_items: RankingTree only. The displayed item
                 columns are the union of each leaf's top items by lowest
-                mean rank; this argument sets how many per leaf. When
-                None and the tree is a RankingTree, defaults to 3. Must
-                be None for non-ranking trees.
+                expected rank; this argument sets how many per leaf.
+                When None and the tree is a RankingTree, defaults to 3.
+                Must be None for non-ranking trees.
 
         Returns:
             The text as a string when out_file is None; otherwise None.
@@ -1645,9 +1645,9 @@ class Tree(
                 kind.
             top_displayed_items: RankingTree only. The displayed item
                 columns are the union of each leaf's top items by lowest
-                mean rank; this argument sets how many per leaf. When
-                None and the tree is a RankingTree, defaults to 3. Must
-                be None for non-ranking trees.
+                expected rank; this argument sets how many per leaf.
+                When None and the tree is a RankingTree, defaults to 3.
+                Must be None for non-ranking trees.
 
         Returns:
             The rendered image bytes when out_file is None; otherwise None.

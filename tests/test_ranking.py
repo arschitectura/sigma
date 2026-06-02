@@ -23,7 +23,7 @@ def _ranks_in_cell(ranking_per_item, n_items):
 
 
 class TestComputeMeanRankVector(unittest.TestCase):
-    """Tests for the per-item weighted-mean-rank leaf summary."""
+    """Tests for the legacy per-item weighted-mean-rank helper."""
 
     __slots__ = ()
 
@@ -57,6 +57,92 @@ class TestComputeMeanRankVector(unittest.TestCase):
         self.assertAlmostEqual(means[1], 2.0)
         self.assertTrue(numpy.isnan(means[2]))
         self.assertTrue(numpy.isnan(means[3]))
+
+
+class TestComputePLMle(unittest.TestCase):
+    """Tests for the Plackett-Luce MLE leaf summary."""
+
+    __slots__ = ()
+
+    def test_cyclic_rotations_yield_uniform_worth(self):
+        """Four cyclic rotations on K=4 place each item once per position."""
+        y = numpy.array(
+            [
+                [1.0, 2.0, 3.0, 4.0],
+                [4.0, 1.0, 2.0, 3.0],
+                [3.0, 4.0, 1.0, 2.0],
+                [2.0, 3.0, 4.0, 1.0],
+            ],
+            dtype=float,
+        )
+        weights = numpy.ones(4)
+        alpha = sigma._ranking.compute_pl_mle(y, weights)
+        self.assertTrue(numpy.allclose(alpha, alpha[0], atol=1e-4))
+        expected_rank = sigma._ranking.pl_expected_rank(alpha)
+        n_items = 4
+        midpoint = (n_items + 1.0) / 2.0
+        self.assertTrue(numpy.allclose(expected_rank, midpoint, atol=1e-4))
+
+    def test_consistent_winner_attains_lowest_expected_rank(self):
+        """Stacked rankings putting item 0 first give item 0 the lowest E[rank]."""
+        y = numpy.tile(numpy.array([1.0, 2.0, 3.0]), (20, 1))
+        weights = numpy.ones(20)
+        alpha = sigma._ranking.compute_pl_mle(y, weights)
+        expected_rank = sigma._ranking.pl_expected_rank(alpha)
+        self.assertLess(expected_rank[0], expected_rank[1])
+        self.assertLess(expected_rank[1], expected_rank[2])
+
+    def test_sparse_single_rater_is_shrunk_above_floor(self):
+        """One rater placing item 0 first leaves E[rank_0] comfortably above 1."""
+        n_items = 10
+        y = numpy.full((1, n_items), numpy.nan, dtype=float)
+        y[0, 0] = 1.0
+        y[0, 1] = 2.0
+        weights = numpy.array([1.0])
+        alpha = sigma._ranking.compute_pl_mle(y, weights)
+        expected_rank = sigma._ranking.pl_expected_rank(alpha)
+        self.assertGreater(expected_rank[0], 1.3)
+        unrated_ranks = expected_rank[2:]
+        midpoint = (n_items + 1.0) / 2.0
+        self.assertTrue(numpy.all(numpy.abs(unrated_ranks - midpoint) < 1.5))
+
+    def test_geometric_mean_of_worths_is_one(self):
+        """The returned worth vector is normalised so geom-mean = 1."""
+        y = numpy.array(
+            [[1.0, 2.0, 3.0, 4.0, 5.0], [3.0, 1.0, 5.0, 2.0, 4.0]], dtype=float
+        )
+        weights = numpy.array([2.0, 3.0])
+        alpha = sigma._ranking.compute_pl_mle(y, weights)
+        self.assertAlmostEqual(float(numpy.exp(numpy.log(alpha).mean())), 1.0)
+
+    def test_empty_inputs_return_nan_vector(self):
+        """Zero rows or all-NaN rows yield an all-NaN worth vector."""
+        y = numpy.empty((0, 4), dtype=float)
+        weights = numpy.empty(0, dtype=float)
+        alpha = sigma._ranking.compute_pl_mle(y, weights)
+        self.assertTrue(numpy.all(numpy.isnan(alpha)))
+        y_nan = numpy.full((3, 4), numpy.nan, dtype=float)
+        weights_nan = numpy.ones(3)
+        alpha_nan = sigma._ranking.compute_pl_mle(y_nan, weights_nan)
+        self.assertTrue(numpy.all(numpy.isnan(alpha_nan)))
+
+    def test_expected_rank_lies_in_unit_interval(self):
+        """E[rank] under any positive worth vector lies in [1, K]."""
+        rng = numpy.random.default_rng(0)
+        for trial in range(5):
+            n_items = int(rng.integers(2, 12))
+            alpha = rng.uniform(0.1, 5.0, size=n_items)
+            expected_rank = sigma._ranking.pl_expected_rank(alpha)
+            self.assertGreaterEqual(float(expected_rank.min()), 1.0 - 1e-9)
+            self.assertLessEqual(float(expected_rank.max()), n_items + 1e-9)
+
+    def test_expected_rank_propagates_nan(self):
+        """NaN worths propagate to NaN expected ranks at the same positions."""
+        alpha = numpy.array([1.0, numpy.nan, 2.0])
+        expected_rank = sigma._ranking.pl_expected_rank(alpha)
+        self.assertFalse(numpy.isnan(expected_rank[0]))
+        self.assertTrue(numpy.isnan(expected_rank[1]))
+        self.assertFalse(numpy.isnan(expected_rank[2]))
 
 
 class TestRankingTreeFit(unittest.TestCase):
@@ -162,15 +248,17 @@ class TestRankingTreeFit(unittest.TestCase):
         self.assertEqual(tree.pca_components, 10)
 
     def test_rejects_distribution_specific_ci_method_at_construction(self):
-        """RankingTree refuses the seven distribution-specific CI names."""
+        """RankingTree refuses every CI name outside the PL bootstrap pair."""
         rejected = [
             "beta",
             "exponential",
             "gamma",
             "log_normal",
             "log_normal_gci",
+            "normal",
             "poisson",
             "poisson_jeffreys",
+            "student_t",
         ]
         for name in rejected:
             with self.assertRaises(ValueError):
@@ -333,6 +421,25 @@ class TestRankingTreeFit(unittest.TestCase):
         for node in tree.nodes_:
             self.assertEqual(len(node.metrics), n_items)
 
+    def test_leaf_metric_values_lie_in_rank_interval(self):
+        """Every leaf metric.value falls in [1, n_items_] (PL expected rank)."""
+        rng = numpy.random.default_rng(15)
+        n_samples = 200
+        n_items = 8
+        X = rng.normal(size=(n_samples, 1))
+        y = numpy.empty((n_samples, n_items), dtype=float)
+        for i in range(n_samples):
+            base = numpy.arange(1.0, n_items + 1.0)
+            if X[i, 0] < 0:
+                base = base[::-1].copy()
+            y[i] = base
+        tree = sigma.RankingTree(random_state=0)
+        tree.fit(X, y)
+        for leaf in tree.leaves_:
+            for metric in leaf.metrics:
+                self.assertGreaterEqual(metric.value, 1.0 - 1.0e-9)
+                self.assertLessEqual(metric.value, n_items + 1.0e-9)
+
 
 class TestTopDisplayedItems(unittest.TestCase):
     """Tests for the render-time top_displayed_items knob."""
@@ -386,8 +493,8 @@ class TestTopDisplayedItems(unittest.TestCase):
         union_count = len(tree._compute_displayed_indices(5))
         self.assertEqual(rank_columns, union_count)
 
-    def test_per_leaf_top_items_picked_by_lowest_mean_rank(self):
-        """Each leaf's contribution to the union is its top items by mean rank."""
+    def test_per_leaf_top_items_picked_by_lowest_expected_rank(self):
+        """Each leaf's contribution to the union is its top items by expected rank."""
         tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
         union = set(tree._compute_displayed_indices(3))
         for leaf in tree.leaves_:
@@ -413,7 +520,7 @@ class TestTopDisplayedItems(unittest.TestCase):
         with self.assertRaises(ValueError):
             tree.to_text(top_displayed_items=-1)
 
-    def test_graphviz_per_node_top_items_ordered_by_mean_rank(self):
+    def test_graphviz_per_node_top_items_ordered_by_expected_rank(self):
         """Each leaf in the graphviz tree picture shows its OWN top items."""
         import sigma._graphviz
 
@@ -449,8 +556,6 @@ class TestTopDisplayedItems(unittest.TestCase):
         self.assertIn("I7 rank", dot_source)
         self.assertIn("I8 rank", dot_source)
         self.assertIn("I9 rank", dot_source)
-        self.assertNotIn("I4 rank", dot_source)
-        self.assertNotIn("I5 rank", dot_source)
 
     def test_item_label_first_letter_is_capitalized_in_renderings(self):
         """Ranking labels capitalize the item's first letter like other tree types."""
