@@ -255,7 +255,7 @@ class TestSurvivalTreeYEncodings(unittest.TestCase):
 
 
 class TestSurvivalTreeMetrics(unittest.TestCase):
-    """Tests for the configurable per-leaf metrics on SurvivalTree."""
+    """Tests for the configurable per-node metrics on SurvivalTree."""
 
     __slots__ = ()
 

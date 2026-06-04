@@ -938,10 +938,7 @@ class Tree(
         weights: numpy.typing.NDArray[numpy.floating],
         offset: None | numpy.typing.NDArray[numpy.floating],
     ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Compute the per-leaf weighted mean of offset probability rows.
-
-        Default implementation returns None; ClassificationTree overrides it.
-        """
+        """Compute the weighted mean of offset probability rows for a node."""
         return None
 
     @abc.abstractmethod

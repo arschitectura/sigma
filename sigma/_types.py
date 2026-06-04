@@ -145,7 +145,7 @@ class CiMethodRegressionTree(enum.Enum):
 
 
 class SurvivalMetricKind(enum.Enum):
-    """Kind of per-leaf summary computed by SurvivalTree.
+    """Kind of per-node summary computed by SurvivalTree.
 
     MEDIAN: Median survival time. CI: Brookmeyer-Crowley.
     RISK_SCORE: Nelson-Aalen cumulative hazard summed across unique

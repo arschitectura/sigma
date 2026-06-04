@@ -64,7 +64,7 @@ images. Click an image to view it at full size.
 ### 4.1. Titanic (classification)
 
 Predicting survival probability with a Jeffreys 95% confidence
-interval at each leaf - surfaces passenger class, sex, and age.
+interval at each node - surfaces passenger class, sex, and age.
 
 ```python
 tree = sigma.ClassificationTree(random_state=123)
@@ -104,7 +104,7 @@ All records                           59.6% (55.9% to 63.1%) 40.4% (36.9% to 44.
 ### 4.2. Diabetes (regression)
 
 Predicting one-year disease progression with a Bayesian-bootstrap 95%
-confidence interval at each leaf - surfaces age, BMI, and HDL
+confidence interval at each node - surfaces age, BMI, and HDL
 cholesterol.
 
 ```python
@@ -153,7 +153,7 @@ All records                                  152.1 (145.1 to 159.3)        442  
 ### 4.3. GBSG-2 breast cancer (survival)
 
 Predicting recurrence-free years with a Brookmeyer-Crowley 95%
-confidence interval at each leaf - splits on positive lymph nodes,
+confidence interval at each node - splits on positive lymph nodes,
 hormone therapy, and progesterone receptor level.
 
 ```python
@@ -197,7 +197,7 @@ All records                                               4.9 (4.2 to 5.5) 49.2%
 ### 4.4. Sushi (ranking)
 
 Predicting per-item Plackett-Luce expected rank with a Bayesian-bootstrap
-95% confidence interval at each leaf - surfaces sex and age group as the
+95% confidence interval at each node - surfaces sex and age group as the
 strongest demographic drivers of sushi preference among 5000 Japanese
 respondents ranking ten classic sushi.
 
@@ -490,10 +490,10 @@ Algorithm section).
 
 **Default**: `"bayesian_bootstrap"`.
 
-Method for the confidence interval on each leaf's mean prediction. In
+Method for the confidence interval on each node's mean prediction. In
 the descriptions below, $y$ denotes the per-row response, $n$ the
-sample size at the leaf, and $n_{\text{eff}}$ the Kish effective
-sample size at the leaf.
+sample size at the node, and $n_{\text{eff}}$ the Kish effective
+sample size at the node.
 
 - `"bayesian_bootstrap"` (default) uses Dirichlet resampling of the
   weighted mean. Nonparametric: makes no assumption on the response
@@ -531,7 +531,7 @@ sample size at the leaf.
   Cox's symmetric Wald form begins to lose calibration.
   Non-deterministic across calls.
 - `"normal"` is a Wald-style interval $\bar{Y} \pm z \cdot \text{SE}$
-  ($\bar{Y}$ the leaf weighted mean of $y$, $z$ a standard normal
+  ($\bar{Y}$ the node weighted mean of $y$, $z$ a standard normal
   quantile, $\text{SE}$ the standard error) with the Kish effective
   sample size. Tight and cheap. Choose when the central limit theorem
   applies comfortably ($n_{\text{eff}}$ well above 30, finite response
@@ -555,8 +555,8 @@ sample size at the leaf.
 
 **Default**: `"jeffreys"`.
 
-Method for the per-class confidence intervals on leaf class
-proportions. In the descriptions below, $n$ denotes the leaf sample
+Method for the per-class confidence intervals on node class
+proportions. In the descriptions below, $n$ denotes the node sample
 size and $z$ a standard normal quantile.
 
 - `"agresti_coull"` is the adjusted Wald interval: Wald applied
@@ -585,7 +585,7 @@ size and $z$ a standard normal quantile.
   speed and class proportions are not extreme.
 - `"wilson_cc"` is the Wilson score interval with Newcombe's
   continuity correction. Slightly wider than `"wilson"`, restoring
-  lower-tail coverage at small sample sizes. Choose when the leaf
+  lower-tail coverage at small sample sizes. Choose when the node
   total weight $w_{\text{total}}$ is small and plain Wilson
   under-covers.
 
@@ -593,7 +593,7 @@ size and $z$ a standard normal quantile.
 
 **Default**: `"bayesian_bootstrap"`.
 
-Method for the per-item confidence intervals on each leaf's Plackett-Luce
+Method for the per-item confidence intervals on each node's Plackett-Luce
 expected-rank vector. Both supported methods refit the PL MLE on
 resampled active rows and aggregate the resulting expected-rank vectors
 marginally per item; scalar-mean CI methods (`"normal"`, `"student_t"`)
@@ -655,7 +655,7 @@ Optional callable invoked once per node after the tree is built.
 Signature: `(X_active, y_active, w_active, side_data_active) ->
 decoration` where `decoration` is any object (or `None`). The returned
 object is stored on the node as `node.decoration` and rendered by
-`to_text` and `to_image`. Use cases: per-leaf metric (RMSE,
+`to_text` and `to_image`. Use cases: per-node metric (RMSE,
 classification accuracy), business labels (segment names), diagnostic
 statistics.
 
@@ -670,7 +670,7 @@ for reproducibility; `None` uses an unpredictable seed. Controls:
 - the bootstrap-family CI methods of `RegressionTree`
   (`bayesian_bootstrap`, `bca`, `log_normal_gci`);
 - the bootstrap-family CI methods of `RankingTree`
-  (`bayesian_bootstrap`, `bca`) applied K times per leaf - once per
+  (`bayesian_bootstrap`, `bca`) applied K times per node - once per
   item;
 - the jitter of `to_image(kind="response")` raincloud plots
   (`RegressionTree` only; combined with the leaf index so each leaf

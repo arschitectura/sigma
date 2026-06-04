@@ -124,7 +124,8 @@ def _format_leaf_line(
 def _leaf_numeric_value(
     node: _node.Node, target_class_index: None | int
 ) -> float:
-    """Return the numeric prediction to render at a leaf or truncated node."""
+    """Return the numeric value emitted at a SQL terminal (leaf, truncated
+    subtree, or internal-node categorical fallback)."""
     if isinstance(node, _node.ClassificationNode):
         if target_class_index is None:
             raise RuntimeError(

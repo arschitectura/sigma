@@ -48,7 +48,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
     Hothorn, Buhlmann, Dudoit, Molinaro, and Van der Laan (2006), "Survival
     Ensembles," *Biostatistics*, 7(3), 355-373.
 
-    The metrics parameter selects one or more per-leaf summaries to display
+    The metrics parameter selects one or more per-node summaries to display
     alongside the tree (median survival, S(t) at a reference time, restricted
     mean survival time, or risk score).
 
@@ -107,7 +107,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         random_state: Seed for the random number generator used in permutation
             resampling. Pass an integer for reproducibility. None uses an
             unpredictable seed. Ignored unless test_type="monte_carlo".
-        metrics: Sequence of per-leaf metric specifications. Each entry is
+        metrics: Sequence of per-node metric specifications. Each entry is
             either a literal string ("median", "risk_score") for
             parameter-free metrics, or a tuple (kind, value, unit) for
             parametrized metrics ("survival" and "rmst"). value is in y's
@@ -768,7 +768,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         event_column: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
     ) -> _node.SurvivalMetric:
-        """Sum of leaf cumulative hazard at training event times."""
+        """Sum of node cumulative hazard at training event times."""
         value = _survival.compute_risk_score(
             time_column, event_column, weights, self.event_grid_
         )

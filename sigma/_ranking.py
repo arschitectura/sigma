@@ -1,7 +1,7 @@
 """Ranking-data primitives used by RankingTree.
 
-`compute_pl_mle` and `pl_expected_rank` together form the leaf-level
-statistic of `RankingTree`: each leaf fits a Plackett-Luce model on its
+`compute_pl_mle` and `pl_expected_rank` together form the per-node
+statistic of `RankingTree`: each node fits a Plackett-Luce model on its
 weighted partial rankings by Hunter (2004) MM iterations, regularised by
 Turner et al. (2020) ghost-item pseudo-rankings, then reports the per-item
 expected rank under the fitted worth vector. `compute_mean_rank_vector`

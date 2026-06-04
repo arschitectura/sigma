@@ -97,8 +97,8 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         pl_tolerance: Convergence tolerance on the maximum absolute
             change in log-worth between successive MM iterations. Must
             be strictly positive. Defaults to 1e-6.
-        ci_method: Per-item confidence interval method on the leaf
-            expected rank of each item.
+        ci_method: Per-item confidence interval method on the expected
+            rank of each item.
             "bayesian_bootstrap" (default): Dirichlet-weighted refit
             interval. "bca": bias-corrected and accelerated row-resample
             refit interval. "wald": closed-form asymptotic interval
@@ -128,7 +128,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             min-P permutation resampling under test_type="monte_carlo"
             and every resampling CI method
             ("bayesian_bootstrap", "bca", "gaussian_multiplier")
-            applied per item per leaf.
+            applied per item per node.
 
     Attributes:
         content_: Root node of the fitted tree structure.
@@ -222,7 +222,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             )
         if transmuter is not None:
             raise ValueError(
-                "RankingTree does not support a transmuter; the leaf-level"
+                "RankingTree does not support a transmuter; the per-node"
                 " full-catalogue statistics require Y rows to align with"
                 " the fit-time Y, which a row-modifying transmuter would"
                 " break"
@@ -286,9 +286,9 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
 
         Returns:
             Per-sample label of the item with the lowest Plackett-Luce
-            expected rank at the sample's leaf, shape (n_samples,). The
-            dtype matches item_names_: integer indices when no names
-            were provided at fit, else the supplied labels.
+            expected rank at the node each sample reaches, shape
+            (n_samples,). The dtype matches item_names_: integer indices
+            when no names were provided at fit, else the supplied labels.
         """
         indices = self.predict_index(X)
         node_predictions = numpy.array(
@@ -309,8 +309,8 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
 
         Returns:
             Per-sample expected-rank matrix, shape (n_samples, n_items).
-            Each finite entry lies in [1, n_items_]; leaves with no
-            active rows report NaN for every item.
+            Each finite entry lies in [1, n_items_]; nodes with no active
+            rows report NaN for every item.
         """
         indices = self.predict_index(X)
         node_mean_ranks = numpy.array(

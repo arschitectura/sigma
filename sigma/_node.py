@@ -153,8 +153,9 @@ class ClassificationNode(Node):
             when CI is disabled.
         ci_high: Upper CI bounds per class, shape (n_classes,), or None
             when CI is disabled.
-        mean_offset_proba: Per-leaf weighted mean of the offset, shape
-            (n_classes,). None unless fit was called with an offset.
+        mean_offset_proba: Weighted mean of the fit-time offset over
+            this node's active samples, shape (n_classes,). None unless
+            fit was called with an offset.
     """
 
     __slots__ = (
@@ -183,7 +184,6 @@ class ClassificationNode(Node):
         self.class_distribution = class_distribution
         self.ci_low = ci_low
         self.ci_high = ci_high
-        # TODO elucidate the need for this
         self.mean_offset_proba = mean_offset_proba
 
     def leaf_sort_key(self) -> tuple[float, ...]:
@@ -243,10 +243,10 @@ class SurvivalNode(Node):
 
     Attributes:
         survival_function: Pair (times, surv) describing the
-            Kaplan-Meier estimate of S(t) at this leaf.
+            Kaplan-Meier estimate of S(t) at this node.
         survival_log_variance: Greenwood variance of log S(t) at the same
             times as survival_function, shape (n,).
-        metrics: Non-empty ordered list of per-leaf summary metrics.
+        metrics: Non-empty ordered list of per-node summary metrics.
     """
 
     __slots__ = ("survival_function", "survival_log_variance", "metrics")
