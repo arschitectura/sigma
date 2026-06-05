@@ -7,6 +7,7 @@ import typing
 
 import numpy
 import numpy.typing
+import typing_extensions
 
 from . import _extension
 from . import _partition
@@ -42,7 +43,7 @@ class Node(abc.ABC):
         "__dict__",
     )
 
-    extension: _extension.Extension[typing.Self]
+    extension: _extension.Extension[typing_extensions.Self]
     node_id: int
 
     def __init__(
@@ -51,7 +52,7 @@ class Node(abc.ABC):
         n_samples: int,
         share: float,
         decoration: None | object,
-        extension: _extension.Extension[typing.Self],
+        extension: _extension.Extension[typing_extensions.Self],
     ) -> None:
         self.depth = depth
         self.n_samples = n_samples
@@ -123,7 +124,7 @@ class RegressionNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        extension: _extension.Extension[typing.Self],
+        extension: _extension.Extension[typing_extensions.Self],
         prediction: float,
         ci_low: None | float,
         ci_high: None | float,
@@ -172,7 +173,7 @@ class ClassificationNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        extension: _extension.Extension[typing.Self],
+        extension: _extension.Extension[typing_extensions.Self],
         prediction: int,
         class_distribution: numpy.typing.NDArray[numpy.floating],
         ci_low: None | numpy.typing.NDArray[numpy.floating],
@@ -257,7 +258,7 @@ class SurvivalNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        extension: _extension.Extension[typing.Self],
+        extension: _extension.Extension[typing_extensions.Self],
         survival_function: tuple[
             numpy.typing.NDArray[numpy.floating],
             numpy.typing.NDArray[numpy.floating],
@@ -355,7 +356,7 @@ class RankingNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        extension: _extension.Extension[typing.Self],
+        extension: _extension.Extension[typing_extensions.Self],
         metrics: list[RankingMetric],
     ) -> None:
         super().__init__(depth, n_samples, share, decoration, extension)

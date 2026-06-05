@@ -164,9 +164,17 @@ def export_text(
     prediction_headers = _tree_text._table_prediction_headers(
         root, effective_class_names, effective_response_name, displayed_indices
     )
-    # TODO XXX optimize/review these 2
-    has_split = any(row.p_value_cell is not None for row in text_rows)
-    has_decoration = any(row.decoration is not None for row in text_rows)
+    has_split = False
+    has_decoration = False
+    for row in text_rows:
+        if row.p_value_cell is not None:
+            has_split = True
+            if has_decoration:
+                break
+        if row.decoration is not None:
+            has_decoration = True
+            if has_split:
+                break
     headers = ["", *prediction_headers]
     if has_split:
         headers.append("Split p-value")
