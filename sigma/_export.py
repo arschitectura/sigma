@@ -370,8 +370,9 @@ def export_graphviz(
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
     split_colors: None | tuple[str, str, str] = None,
-    leaf_colors: None | tuple[str, str, str] = None,
+    leaf_palette: None | tuple[str, str, str] = None,
     background_color: None | str = None,
+    foreground_color: None | str = None,
 ) -> str: ...
 
 
@@ -391,8 +392,9 @@ def export_graphviz(
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
     split_colors: None | tuple[str, str, str] = None,
-    leaf_colors: None | tuple[str, str, str] = None,
+    leaf_palette: None | tuple[str, str, str] = None,
     background_color: None | str = None,
+    foreground_color: None | str = None,
 ) -> None: ...
 
 
@@ -411,8 +413,9 @@ def export_graphviz(
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
     split_colors: None | tuple[str, str, str] = None,
-    leaf_colors: None | tuple[str, str, str] = None,
+    leaf_palette: None | tuple[str, str, str] = None,
     background_color: None | str = None,
+    foreground_color: None | str = None,
 ) -> None | str:
     """Export the fitted tree as a Graphviz DOT source.
 
@@ -472,15 +475,28 @@ def export_graphviz(
         dpi: Output resolution in dots per inch. Proportionally scales the
             width and height of any SVG produced from the returned DOT, and
             the pixel dimensions of any raster output. Defaults to 192.
-        root_colors: (font, fill, border) colors for the root node. Defaults
-            to ("white", "black", "black").
-        split_colors: (font, fill, border) colors for internal (split) nodes.
-            Defaults to ("black", "lightgray", "black").
-        leaf_colors: (font, fill, border) colors for leaf nodes. Defaults to
-            ("white", "#0F62FE", "#0F62FE").
-        background_color: Optional graphviz color string for the canvas
-            background (e.g., "white", "#ffeecc"). Defaults to "white" when
-            None. Pass "transparent" to request a transparent background.
+        background_color: Color of the canvas behind the entire diagram.
+            Defaults to "white" when None. Pass "transparent" for an
+            alpha-zero canvas so the host page background shows through.
+        foreground_color: Color of every element drawn outside the node
+            boxes: edge lines, edge labels, leaf-node borders, and the
+            truncation-edge line drawn when max_depth is set. Defaults to
+            "black" when None.
+        root_colors: A (text, fill, border) triple of colors for the root
+            node - the topmost box. Defaults to ("white", "black", "black")
+            when None.
+        split_colors: A (text, fill, border) triple of colors for every
+            internal split node - the boxes between the root and the
+            leaves. Also colors the truncation "..." placeholder node
+            emitted when max_depth is set. Defaults to
+            ("black", "lightgray", "black") when None.
+        leaf_palette: A (low, mid, high) triple of fill colors for leaf
+            nodes. The leaf with the lowest predicted value takes low; the
+            leaf with the highest predicted value takes high; leaves in
+            between take a blended fill. The text inside each leaf is then
+            chosen automatically (black or white) to contrast with the
+            fill. Defaults to ("#D91616", "#D9B816", "#16D916") (red,
+            yellow, green) when None.
 
     Returns:
         The DOT source as a string when out_file is None; otherwise None.
@@ -523,16 +539,20 @@ def export_graphviz(
     )
     effective_response_name = tree._effective_response_name(response_name)
     effective_class_names = tree._effective_class_names(class_names)
+    from . import _palette
+
     effective_root_colors = root_colors or _graphviz._DEFAULT_ROOT_COLORS
     effective_split_colors = split_colors or _graphviz._DEFAULT_SPLIT_COLORS
-    effective_leaf_colors = leaf_colors or _graphviz._DEFAULT_LEAF_COLORS
+    effective_leaf_palette = leaf_palette or _palette._DEFAULT_LEAF_PALETTE
+    effective_foreground_color = foreground_color or "black"
     dot = _graphviz._build_digraph(
         tree.content_,
         resolved_category_labels,
         effective_class_names,
         effective_root_colors,
         effective_split_colors,
-        effective_leaf_colors,
+        effective_leaf_palette,
+        effective_foreground_color,
         feature_names=names,
         response_name=effective_response_name,
         prediction_formatter=prediction_formatter,
@@ -575,8 +595,9 @@ def export_image(
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
     split_colors: None | tuple[str, str, str] = None,
-    leaf_colors: None | tuple[str, str, str] = None,
+    leaf_palette: None | tuple[str, str, str] = None,
     background_color: None | str = None,
+    foreground_color: None | str = None,
     top_displayed_items: None | int = None,
 ) -> bytes: ...
 
@@ -599,8 +620,9 @@ def export_image(
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
     split_colors: None | tuple[str, str, str] = None,
-    leaf_colors: None | tuple[str, str, str] = None,
+    leaf_palette: None | tuple[str, str, str] = None,
     background_color: None | str = None,
+    foreground_color: None | str = None,
     top_displayed_items: None | int = None,
 ) -> None: ...
 
@@ -622,8 +644,9 @@ def export_image(
     dpi: int = 192,
     root_colors: None | tuple[str, str, str] = None,
     split_colors: None | tuple[str, str, str] = None,
-    leaf_colors: None | tuple[str, str, str] = None,
+    leaf_palette: None | tuple[str, str, str] = None,
     background_color: None | str = None,
+    foreground_color: None | str = None,
     top_displayed_items: None | int = None,
 ) -> None | bytes:
     """Render the fitted tree as a GIF, PDF, PNG, or SVG image.
@@ -652,12 +675,13 @@ def export_image(
             box of [ci_low, ci_high] with a tick at the predicted mean
             for regression; one Kaplan-Meier step curve per leaf, with
             the response_name as the time axis, for survival; per
-            (leaf, item) expected-rank dots with CI boxes for ranking,
-            with an inverted y-axis so rank 1 sits at the top. When kind is
-            "response", the
-            tree-rendering parameters feature_names, category_labels,
-            prediction_formatter, root_colors, split_colors, leaf_colors,
-            orientation, max_depth, and precision are ignored. The
+            (leaf, item) expected-rank dots for ranking, with an inverted
+            y-axis so rank 1 sits at the top. When kind is
+            "response", the tree-rendering parameters feature_names,
+            category_labels, prediction_formatter, root_colors,
+            split_colors, orientation, max_depth, and precision are
+            ignored; foreground_color still colors the axes chrome and
+            leaf_palette still drives the per-leaf series colors. The
             tree's reverse_order attribute is honored using the same
             convention as the tree plot.
         feature_names: Optional display names for the covariates, one per
@@ -706,17 +730,34 @@ def export_image(
             width and height of the SVG output and the pixel dimensions of
             the GIF, PNG, and PDF outputs, regardless of kind. Defaults to
             192.
-        root_colors: (font, fill, border) colors for the root node. Defaults
-            to ("white", "black", "black").
-        split_colors: (font, fill, border) colors for internal (split) nodes.
-            Defaults to ("black", "lightgray", "black").
-        leaf_colors: (font, fill, border) colors for leaf nodes. Defaults to
-            ("white", "#0F62FE", "#0F62FE").
-        background_color: Optional graphviz color string for the canvas
-            background (e.g., "white", "#ffeecc"). Defaults to "white" when
-            None. Pass "transparent" to request a transparent background,
+        background_color: Color of the canvas behind the entire diagram.
+            Defaults to "white" when None. Pass "transparent" for an
+            alpha-zero canvas so the host page background shows through,
             provided the output format supports transparency (PDF, PNG, and
             SVG do; GIF supports 1-bit transparency).
+        foreground_color: Color of every element drawn outside the node
+            boxes: edge lines, edge labels, leaf-node borders, and the
+            truncation-edge line drawn when max_depth is set. For
+            kind="response", also colors the matplotlib axes title, axis
+            labels, tick labels, tick marks, axes spines, legend text, and
+            grid lines. Defaults to "black" when None.
+        root_colors: A (text, fill, border) triple of colors for the root
+            node - the topmost box. Defaults to ("white", "black", "black")
+            when None.
+        split_colors: A (text, fill, border) triple of colors for every
+            internal split node - the boxes between the root and the
+            leaves. Also colors the truncation "..." placeholder node
+            emitted when max_depth is set. Defaults to
+            ("black", "lightgray", "black") when None.
+        leaf_palette: A (low, mid, high) triple of fill colors for leaf
+            nodes. The leaf with the lowest predicted value takes low; the
+            leaf with the highest predicted value takes high; leaves in
+            between take a blended fill. The text inside each leaf is then
+            chosen automatically (black or white) to contrast with the
+            fill. For kind="response", also drives the per-leaf series
+            colors (raincloud, bars, KM step, dots, connecting lines).
+            Defaults to ("#D91616", "#D9B816", "#16D916") (red, yellow,
+            green) when None.
 
     Returns:
         The rendered image bytes when out_file is None; otherwise None.
@@ -761,8 +802,14 @@ def export_image(
             " with a write method"
         )
     sklearn.utils.validation.check_is_fitted(tree, "content_")
+    from . import _graphviz
+    from . import _palette
+
     effective_response_name = tree._effective_response_name(response_name)
     effective_class_names = tree._effective_class_names(class_names)
+    effective_split_colors = split_colors or _graphviz._DEFAULT_SPLIT_COLORS
+    effective_leaf_palette = leaf_palette or _palette._DEFAULT_LEAF_PALETTE
+    effective_foreground_color = foreground_color or "black"
     if kind == "response":
         from . import _response_plot
 
@@ -777,6 +824,8 @@ def export_image(
             dpi=dpi,
             background_color=background_color,
             displayed_indices=displayed_indices,
+            leaf_palette=effective_leaf_palette,
+            foreground_color=effective_foreground_color,
         )
         match out_file:
             case None:
@@ -788,8 +837,6 @@ def export_image(
             case _:
                 out_file.write(payload)
                 return None
-    from . import _graphviz
-
     effective_top_displayed_items = _resolve_top_displayed_items(
         tree, top_displayed_items
     )
@@ -798,15 +845,14 @@ def export_image(
         category_labels, names
     )
     effective_root_colors = root_colors or _graphviz._DEFAULT_ROOT_COLORS
-    effective_split_colors = split_colors or _graphviz._DEFAULT_SPLIT_COLORS
-    effective_leaf_colors = leaf_colors or _graphviz._DEFAULT_LEAF_COLORS
     dot = _graphviz._build_digraph(
         tree.content_,
         resolved_category_labels,
         effective_class_names,
         effective_root_colors,
         effective_split_colors,
-        effective_leaf_colors,
+        effective_leaf_palette,
+        effective_foreground_color,
         feature_names=names,
         response_name=effective_response_name,
         prediction_formatter=prediction_formatter,

@@ -187,7 +187,6 @@ def _build_diabetes_tree(output_path: str, dpi: int) -> None:
     regression_tree_png = regression_tree.to_image(
         "png",
         dpi=dpi,
-        background_color="transparent",
         orientation="left-to-right",
         precision=1,
     )
@@ -196,7 +195,6 @@ def _build_diabetes_tree(output_path: str, dpi: int) -> None:
         "png",
         kind="response",
         dpi=dpi,
-        background_color="transparent",
     )
     _write_png(_response_png_path(output_path), response_png, "responses")
 
@@ -258,7 +256,6 @@ def _build_titanic_tree(output_path: str, dpi: int) -> None:
     classification_tree_png = classification_tree.to_image(
         "png",
         dpi=dpi,
-        background_color="transparent",
         precision=1,
     )
     _write_png(output_path, classification_tree_png, "tree")
@@ -266,7 +263,6 @@ def _build_titanic_tree(output_path: str, dpi: int) -> None:
         "png",
         kind="response",
         dpi=dpi,
-        background_color="transparent",
     )
     _write_png(_response_png_path(output_path), response_png, "responses")
 
@@ -340,7 +336,6 @@ def _build_german_credit_tree(output_path: str, dpi: int) -> None:
     classification_tree_png = classification_tree.to_image(
         "png",
         dpi=dpi,
-        background_color="transparent",
         precision=1,
     )
     _write_png(output_path, classification_tree_png, "tree")
@@ -348,7 +343,6 @@ def _build_german_credit_tree(output_path: str, dpi: int) -> None:
         "png",
         kind="response",
         dpi=dpi,
-        background_color="transparent",
     )
     _write_png(_response_png_path(output_path), response_png, "responses")
 
@@ -407,7 +401,6 @@ def _build_insurance_tree(output_path: str, dpi: int) -> None:
     regression_tree_png = regression_tree.to_image(
         "png",
         dpi=dpi,
-        background_color="transparent",
         orientation="left-to-right",
         precision=0,
     )
@@ -416,7 +409,6 @@ def _build_insurance_tree(output_path: str, dpi: int) -> None:
         "png",
         kind="response",
         dpi=dpi,
-        background_color="transparent",
     )
     _write_png(_response_png_path(output_path), response_png, "responses")
 
@@ -492,7 +484,6 @@ def _build_breast_cancer_tree(output_path: str, dpi: int) -> None:
     survival_png = survival_tree.to_image(
         "png",
         dpi=dpi,
-        background_color="transparent",
         precision=1,
     )
     _write_png(output_path, survival_png, "tree")
@@ -500,7 +491,6 @@ def _build_breast_cancer_tree(output_path: str, dpi: int) -> None:
         "png",
         kind="response",
         dpi=dpi,
-        background_color="transparent",
     )
     _write_png(_response_png_path(output_path), response_png, "responses")
 
@@ -611,7 +601,6 @@ def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
     survival_png = survival_tree.to_image(
         "png",
         dpi=dpi,
-        background_color="transparent",
         orientation="left-to-right",
         precision=0,
     )
@@ -620,7 +609,6 @@ def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
         "png",
         kind="response",
         dpi=dpi,
-        background_color="transparent",
     )
     _write_png(_response_png_path(output_path), response_png, "responses")
 
@@ -756,7 +744,6 @@ def _build_movielens_tree(output_path: str, dpi: int) -> None:
     ranking_tree_png = ranking_tree.to_image(
         "png",
         dpi=dpi,
-        background_color="transparent",
         orientation="left-to-right",
         precision=2,
     )
@@ -765,7 +752,6 @@ def _build_movielens_tree(output_path: str, dpi: int) -> None:
         "png",
         kind="response",
         dpi=dpi,
-        background_color="transparent",
     )
     _write_png(_response_png_path(output_path), response_png, "responses")
 
@@ -898,7 +884,6 @@ def _build_sushi_tree(output_path: str, dpi: int) -> None:
     ranking_tree_png = ranking_tree.to_image(
         "png",
         dpi=dpi,
-        background_color="transparent",
         orientation="left-to-right",
         precision=2,
     )
@@ -907,7 +892,6 @@ def _build_sushi_tree(output_path: str, dpi: int) -> None:
         "png",
         kind="response",
         dpi=dpi,
-        background_color="transparent",
     )
     _write_png(_response_png_path(output_path), response_png, "responses")
 

@@ -1573,8 +1573,9 @@ class Tree(
         dpi: int = 192,
         root_colors: None | tuple[str, str, str] = None,
         split_colors: None | tuple[str, str, str] = None,
-        leaf_colors: None | tuple[str, str, str] = None,
+        leaf_palette: None | tuple[str, str, str] = None,
         background_color: None | str = None,
+        foreground_color: None | str = None,
         top_displayed_items: None | int = None,
     ) -> bytes: ...
 
@@ -1596,8 +1597,9 @@ class Tree(
         dpi: int = 192,
         root_colors: None | tuple[str, str, str] = None,
         split_colors: None | tuple[str, str, str] = None,
-        leaf_colors: None | tuple[str, str, str] = None,
+        leaf_palette: None | tuple[str, str, str] = None,
         background_color: None | str = None,
+        foreground_color: None | str = None,
         top_displayed_items: None | int = None,
     ) -> None: ...
 
@@ -1618,8 +1620,9 @@ class Tree(
         dpi: int = 192,
         root_colors: None | tuple[str, str, str] = None,
         split_colors: None | tuple[str, str, str] = None,
-        leaf_colors: None | tuple[str, str, str] = None,
+        leaf_palette: None | tuple[str, str, str] = None,
         background_color: None | str = None,
+        foreground_color: None | str = None,
         top_displayed_items: None | int = None,
     ) -> None | bytes:
         """Render the fitted tree as a GIF, PDF, PNG, or SVG image.
@@ -1691,8 +1694,9 @@ class Tree(
             dpi=dpi,
             root_colors=root_colors,
             split_colors=split_colors,
-            leaf_colors=leaf_colors,
+            leaf_palette=leaf_palette,
             background_color=background_color,
+            foreground_color=foreground_color,
             top_displayed_items=top_displayed_items,
             max_branch_length=max_branch_length,
         )

@@ -1,6 +1,6 @@
 """Per-leaf response plots produced by export_image with kind="response".
 
-Three private renderers, dispatched by tree task type:
+Four private renderers, dispatched by tree task type:
 
 - _plot_regression: per-leaf box [ci_low, ci_high] with a tick at the mean.
 - _plot_classification: per (leaf, class) box [ci_low, ci_high] with a
@@ -10,6 +10,10 @@ Three private renderers, dispatched by tree task type:
 - _plot_survival: one Kaplan-Meier step curve per leaf, on a time x-axis,
   with an optional log-log Greenwood CI band drawn behind each curve when
   the tree's ci_coverage is set.
+- _plot_ranking: per (leaf, item) expected-rank marker dot with a
+  horizontal tick at the same value, in the per-item palette color, with
+  all items of a leaf sharing the same x position and a per-item XY line
+  connecting the expected-rank dots across leaves.
 """
 
 from __future__ import annotations
@@ -57,6 +61,8 @@ def _render_response_image(
     dpi: int,
     background_color: None | str,
     displayed_indices: None | list[int],
+    leaf_palette: tuple[str, str, str],
+    foreground_color: str,
 ) -> bytes:
     """Render the per-leaf response plot of tree as image bytes."""
     try:
@@ -67,29 +73,65 @@ def _render_response_image(
             "matplotlib is required for kind='response' image output. "
             "Install it with: pip install ars-sigma[viz]"
         ) from import_error
+    transparent = background_color == "transparent"
+    if background_color is None or transparent:
+        effective_background = "white"
+    else:
+        effective_background = background_color
     figure = matplotlib.figure.Figure(figsize=(8.0, 4.5), dpi=dpi)
     matplotlib.backends.backend_agg.FigureCanvasAgg(figure)
     axes = figure.add_subplot(111)
     if isinstance(tree, _tree_regression.RegressionTree):
-        _plot_regression(axes, tree, response_name)
+        _plot_regression(
+            axes,
+            tree,
+            response_name,
+            leaf_palette=leaf_palette,
+            background_color=effective_background,
+        )
     elif isinstance(tree, _tree_classification.ClassificationTree):
-        _plot_classification(axes, tree, class_names)
+        _plot_classification(axes, tree, class_names, leaf_palette=leaf_palette)
     elif isinstance(tree, _tree_survival.SurvivalTree):
-        _plot_survival(axes, tree, response_name)
+        _plot_survival(axes, tree, response_name, leaf_palette=leaf_palette)
     elif isinstance(tree, _tree_ranking.RankingTree):
         ranking_indices = [] if displayed_indices is None else displayed_indices
-        _plot_ranking(axes, tree, ranking_indices)
+        _plot_ranking(axes, tree, ranking_indices, leaf_palette=leaf_palette)
     else:
         raise TypeError(f"unsupported tree type: {type(tree).__name__}")
-    transparent = background_color == "transparent"
+    _apply_axes_colors(axes, foreground_color, effective_background)
     if transparent:
         figure.patch.set_alpha(0.0)
         axes.patch.set_alpha(0.0)
-    elif background_color is not None:
-        figure.patch.set_facecolor(background_color)
+    else:
+        figure.patch.set_facecolor(effective_background)
+        axes.patch.set_facecolor(effective_background)
     figure.tight_layout()
     payload = _save_figure(figure, format, dpi, transparent)
     return payload
+
+
+def _apply_axes_colors(
+    axes: matplotlib.axes.Axes, foreground: str, background: str
+) -> None:
+    """Apply foreground/background-derived colors to chrome elements on axes."""
+    import matplotlib.colors
+
+    axes.title.set_color(foreground)
+    axes.xaxis.label.set_color(foreground)
+    axes.yaxis.label.set_color(foreground)
+    axes.tick_params(colors=foreground)
+    for spine in axes.spines.values():
+        spine.set_color(foreground)
+    foreground_hex = matplotlib.colors.to_hex(foreground)
+    background_hex = matplotlib.colors.to_hex(background)
+    grid_color = _palette._perceptual_midpoint(foreground_hex, background_hex)
+    for gridline in axes.get_xgridlines() + axes.get_ygridlines():
+        gridline.set_color(grid_color)
+    legend = axes.get_legend()
+    if legend is not None:
+        legend.get_title().set_color(foreground)
+        for text in legend.get_texts():
+            text.set_color(foreground)
 
 
 def _save_figure(
@@ -157,6 +199,8 @@ def _plot_regression(
     axes: matplotlib.axes.Axes,
     tree: _tree_regression.RegressionTree,
     response_name: None | str,
+    leaf_palette: tuple[str, str, str] = _palette._DEFAULT_LEAF_PALETTE,
+    background_color: str = "white",
 ) -> None:
     """Draw per-leaf raincloud + mean-with-CI for a regression tree."""
     leaves = tree.leaves_
@@ -165,9 +209,14 @@ def _plot_regression(
     for leaf in leaves:
         leaf_id = _leaf_id(leaf)
         x = leaf_id + 1
-        color = _palette._leaf_color(leaf_id, n_leaves)
+        color = _palette._leaf_color(leaf_id, n_leaves, leaf_palette)
         _draw_response_raincloud(
-            axes, x, leaf.response_samples, color, tree.random_state
+            axes,
+            x,
+            leaf.response_samples,
+            color,
+            tree.random_state,
+            background_color,
         )
         ci_low = leaf.ci_low
         ci_high = leaf.ci_high
@@ -209,6 +258,7 @@ def _draw_response_raincloud(
     samples: numpy.typing.NDArray[numpy.floating],
     color: str,
     random_state: None | int,
+    background_color: str = "white",
 ) -> None:
     """Overlay a per-leaf raincloud (half-violin + box + jittered dots).
 
@@ -266,7 +316,7 @@ def _draw_response_raincloud(
             (x - box_half_width, q1),
             2.0 * box_half_width,
             iqr,
-            facecolor="white",
+            facecolor=background_color,
             edgecolor=color,
             linewidth=1.0,
             zorder=2,
@@ -317,6 +367,7 @@ def _plot_classification(
     axes: matplotlib.axes.Axes,
     tree: _tree_classification.ClassificationTree,
     class_names: None | list[str],
+    leaf_palette: tuple[str, str, str] = _palette._DEFAULT_LEAF_PALETTE,
 ) -> None:
     """Draw per (leaf, class) class-proportion dots with CI boxes.
 
@@ -339,7 +390,7 @@ def _plot_classification(
     else:
         class_order = list(range(n_classes))
     for slot_idx, class_index in enumerate(class_order):
-        color = _palette._leaf_color(slot_idx, n_classes)
+        color = _palette._leaf_color(slot_idx, n_classes, leaf_palette)
         for leaf in leaves:
             leaf_id = _leaf_id(leaf)
             x = leaf_id + 1
@@ -381,7 +432,7 @@ def _plot_classification(
     axes.grid(axis="y", linestyle=":", alpha=0.4)
     handles = [
         matplotlib.patches.Patch(
-            color=_palette._leaf_color(slot_idx, n_classes),
+            color=_palette._leaf_color(slot_idx, n_classes, leaf_palette),
             label=labels[class_index],
         )
         for slot_idx, class_index in enumerate(class_order)
@@ -399,6 +450,7 @@ def _plot_survival(
     axes: matplotlib.axes.Axes,
     tree: _tree_survival.SurvivalTree,
     response_name: None | str,
+    leaf_palette: tuple[str, str, str] = _palette._DEFAULT_LEAF_PALETTE,
 ) -> None:
     """Draw one Kaplan-Meier step curve per leaf for a survival tree.
 
@@ -411,7 +463,7 @@ def _plot_survival(
     for leaf in leaves:
         leaf_id = _leaf_id(leaf)
         badge_number = leaf_id + 1
-        color = _palette._leaf_color(leaf_id, n_leaves)
+        color = _palette._leaf_color(leaf_id, n_leaves, leaf_palette)
         times, surv = leaf.survival_function
         times_with_origin = numpy.concatenate(
             [[0.0], numpy.asarray(times, dtype=float)]
@@ -478,13 +530,14 @@ def _plot_ranking(
     axes: matplotlib.axes.Axes,
     tree: _tree_ranking.RankingTree,
     displayed_indices: list[int],
+    leaf_palette: tuple[str, str, str] = _palette._DEFAULT_LEAF_PALETTE,
 ) -> None:
-    """Draw per (leaf, item) expected-rank dots with CI boxes.
+    """Draw per (leaf, item) expected-rank marker dots.
 
-    Per (leaf, item): a translucent CI box, a horizontal tick at the
-    expected rank, and a marker dot, all in the per-item palette color.
-    All items of a leaf share the same x position; a per-item line
-    connects the expected-rank dots across leaves.
+    Per (leaf, item): a marker dot at the expected rank and a horizontal
+    tick at the same value, in the per-item palette color. All items of a
+    leaf share the same x position; a per-item line connects the
+    expected-rank dots across leaves.
     """
     import matplotlib.patches
 
@@ -500,7 +553,7 @@ def _plot_ranking(
         item_order = list(displayed_indices)
     displayed_count = len(item_order)
     for slot_idx, item_index in enumerate(item_order):
-        color = _palette._leaf_color(slot_idx, displayed_count)
+        color = _palette._leaf_color(slot_idx, displayed_count, leaf_palette)
         for leaf in leaves:
             leaf_id = _leaf_id(leaf)
             x = leaf_id + 1
@@ -508,22 +561,6 @@ def _plot_ranking(
             expected_rank = float(metric.value)
             if numpy.isnan(expected_rank):
                 continue
-            if metric.ci_low is not None and metric.ci_high is not None:
-                low = float(metric.ci_low)
-                high = float(metric.ci_high)
-                if not (numpy.isnan(low) or numpy.isnan(high)):
-                    height = high - low
-                    axes.bar(
-                        x,
-                        height=height,
-                        bottom=low,
-                        width=bar_width,
-                        color=color,
-                        alpha=0.4,
-                        edgecolor=color,
-                        linewidth=1.0,
-                        zorder=2,
-                    )
             axes.hlines(
                 expected_rank,
                 x - bar_width / 2.0,
@@ -544,11 +581,6 @@ def _plot_ranking(
             value = leaf.metrics[item_index].value
             if not numpy.isnan(value):
                 all_values.append(value)
-            metric = leaf.metrics[item_index]
-            if metric.ci_low is not None and not numpy.isnan(metric.ci_low):
-                all_values.append(float(metric.ci_low))
-            if metric.ci_high is not None and not numpy.isnan(metric.ci_high):
-                all_values.append(float(metric.ci_high))
     if all_values:
         lower = min(all_values)
         upper = max(all_values)
@@ -559,7 +591,7 @@ def _plot_ranking(
     axes.grid(axis="y", linestyle=":", alpha=0.4)
     handles = [
         matplotlib.patches.Patch(
-            color=_palette._leaf_color(slot_idx, displayed_count),
+            color=_palette._leaf_color(slot_idx, displayed_count, leaf_palette),
             label=_tree_text._capitalize_first_letter(item_names[item_index]),
         )
         for slot_idx, item_index in enumerate(item_order)

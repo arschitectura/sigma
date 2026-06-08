@@ -547,7 +547,8 @@ class TestTopDisplayedItems(unittest.TestCase):
             None,
             sigma._graphviz._DEFAULT_ROOT_COLORS,
             sigma._graphviz._DEFAULT_SPLIT_COLORS,
-            sigma._graphviz._DEFAULT_LEAF_COLORS,
+            sigma._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
             top_displayed_items=3,
         ).source
         self.assertIn("I0 rank", dot_source)
@@ -584,7 +585,8 @@ class TestTopDisplayedItems(unittest.TestCase):
             None,
             sigma._graphviz._DEFAULT_ROOT_COLORS,
             sigma._graphviz._DEFAULT_SPLIT_COLORS,
-            sigma._graphviz._DEFAULT_LEAF_COLORS,
+            sigma._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
             top_displayed_items=3,
         ).source
         self.assertIn("Apple rank", dot_source)
@@ -601,7 +603,8 @@ class TestTopDisplayedItems(unittest.TestCase):
             None,
             sigma._graphviz._DEFAULT_ROOT_COLORS,
             sigma._graphviz._DEFAULT_SPLIT_COLORS,
-            sigma._graphviz._DEFAULT_LEAF_COLORS,
+            sigma._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
             top_displayed_items=3,
         ).source
         self.assertNotIn("Rank of", dot_source)

@@ -16,7 +16,7 @@ from . import _tree_text
 
 _DEFAULT_ROOT_COLORS = ("white", "black", "black")
 _DEFAULT_SPLIT_COLORS = ("black", "lightgray", "black")
-_DEFAULT_LEAF_COLORS = ("white", "#0F62FE", "#0F62FE")
+_DEFAULT_LEAF_PALETTE = _palette._DEFAULT_LEAF_PALETTE
 
 
 def _per_node_displayed_indices(
@@ -118,7 +118,8 @@ def _build_digraph(
     class_names: None | list[str],
     root_colors: tuple[str, str, str],
     split_colors: tuple[str, str, str],
-    leaf_colors: tuple[str, str, str],
+    leaf_palette: tuple[str, str, str],
+    foreground_color: str,
     feature_names: None | numpy.typing.NDArray = None,
     response_name: None | str = None,
     prediction_formatter: None | typing.Callable[[float], str] = None,
@@ -138,7 +139,8 @@ def _build_digraph(
         class_names,
         root_colors,
         split_colors,
-        leaf_colors,
+        leaf_palette,
+        foreground_color,
         feature_names=feature_names,
         response_name=response_name,
         prediction_formatter=prediction_formatter,
@@ -161,7 +163,8 @@ def _build_digraph(
         class_names,
         root_colors,
         split_colors,
-        leaf_colors,
+        leaf_palette,
+        foreground_color,
         feature_names=feature_names,
         response_name=response_name,
         prediction_formatter=prediction_formatter,
@@ -184,7 +187,8 @@ def _emit_digraph(
     class_names: None | list[str],
     root_colors: tuple[str, str, str],
     split_colors: tuple[str, str, str],
-    leaf_colors: tuple[str, str, str],
+    leaf_palette: tuple[str, str, str],
+    foreground_color: str,
     feature_names: None | numpy.typing.NDArray = None,
     response_name: None | str = None,
     prediction_formatter: None | typing.Callable[[float], str] = None,
@@ -258,17 +262,12 @@ def _emit_digraph(
         if decoration is not None:
             label = f"{label}\n{str(decoration)}"
         node_id = str(id(node))
-        foreground, background, border = (
-            root_colors
-            if node is root
-            else leaf_colors
-            if is_leaf
-            else split_colors
-        )
         if isinstance(extension, _extension.Leaf):
             leaf_id = extension.leaf_id
             badge_number = leaf_id + 1
-            leaf_background = _palette._leaf_color(leaf_id, leaf_count)
+            leaf_background = _palette._leaf_color(
+                leaf_id, leaf_count, leaf_palette
+            )
             leaf_foreground = _palette._contrast_foreground(leaf_background)
             html_label = _make_leaf_html_label(
                 label,
@@ -282,10 +281,13 @@ def _emit_digraph(
                 label=html_label,
                 fontcolor=leaf_foreground,
                 fillcolor=leaf_background,
-                color="black",
+                color=foreground_color,
                 **uniform_attrs,
             )
         else:
+            foreground, background, border = (
+                root_colors if node is root else split_colors
+            )
             dot.node(
                 node_id,
                 label=_to_html_label(label),
@@ -297,8 +299,14 @@ def _emit_digraph(
         descend = not is_leaf and (max_depth is None or node.depth < max_depth)
         if max_depth is not None and not descend:
             placeholder_id = f"trunc_{node_id}"
-            dot.node(placeholder_id, label="...")
-            dot.edge(node_id, placeholder_id)
+            dot.node(
+                placeholder_id,
+                label="...",
+                fontcolor=split_colors[0],
+                fillcolor=split_colors[1],
+                color=split_colors[2],
+            )
+            dot.edge(node_id, placeholder_id, color=foreground_color)
         if descend:
             match extension:
                 case _partition.Partition() as descend_partition:
@@ -324,12 +332,16 @@ def _emit_digraph(
                 node_id,
                 str(id(left_child)),
                 label=f"  {left_label}",
+                color=foreground_color,
+                fontcolor=foreground_color,
             )
             stack.append(left_child)
             dot.edge(
                 node_id,
                 str(id(right_child)),
                 label=f"  {right_label}",
+                color=foreground_color,
+                fontcolor=foreground_color,
             )
             stack.append(right_child)
     return dot

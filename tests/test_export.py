@@ -1077,7 +1077,9 @@ class TestExportImageResponse(unittest.TestCase):
         n_leaves = len(survival_tree.leaves_)
         for index, line in enumerate(lines):
             expected = matplotlib.colors.to_hex(
-                _palette._leaf_color(index, n_leaves)
+                _palette._leaf_color(
+                    index, n_leaves, _palette._DEFAULT_LEAF_PALETTE
+                )
             )
             actual = matplotlib.colors.to_hex(line.get_color())
             self.assertEqual(actual.lower(), expected.lower())
@@ -1203,7 +1205,9 @@ class TestExportImageResponse(unittest.TestCase):
         for index, band in enumerate(bands):
             facecolor = numpy.asarray(band.get_facecolor(), dtype=float)[0]
             expected_rgb = matplotlib.colors.to_rgb(
-                _palette._leaf_color(index, n_leaves)
+                _palette._leaf_color(
+                    index, n_leaves, _palette._DEFAULT_LEAF_PALETTE
+                )
             )
             for axis in range(3):
                 self.assertAlmostEqual(
@@ -1326,7 +1330,9 @@ class TestExportImageResponse(unittest.TestCase):
         self.assertEqual(len(mean_dot_collections), n_leaves)
         for index, collection in enumerate(mean_dot_collections):
             expected = matplotlib.colors.to_hex(
-                _palette._leaf_color(index, n_leaves)
+                _palette._leaf_color(
+                    index, n_leaves, _palette._DEFAULT_LEAF_PALETTE
+                )
             )
             face = numpy.asarray(collection.get_facecolor(), dtype=float)
             actual = matplotlib.colors.to_hex(tuple(face[0].tolist()))
@@ -1428,7 +1434,9 @@ class TestExportImageResponse(unittest.TestCase):
         for slot_idx in range(n_classes):
             class_bars = bars[slot_idx * n_leaves : (slot_idx + 1) * n_leaves]
             expected = matplotlib.colors.to_hex(
-                _palette._leaf_color(slot_idx, n_classes)
+                _palette._leaf_color(
+                    slot_idx, n_classes, _palette._DEFAULT_LEAF_PALETTE
+                )
             )
             for bar in class_bars:
                 actual = matplotlib.colors.to_hex(bar.get_facecolor())
@@ -1458,7 +1466,9 @@ class TestExportImageResponse(unittest.TestCase):
         self.assertEqual(len(lines), n_classes)
         for slot_idx, line in enumerate(lines):
             expected = matplotlib.colors.to_hex(
-                _palette._leaf_color(slot_idx, n_classes)
+                _palette._leaf_color(
+                    slot_idx, n_classes, _palette._DEFAULT_LEAF_PALETTE
+                )
             )
             actual = matplotlib.colors.to_hex(line.get_color())
             self.assertEqual(actual.lower(), expected.lower())
@@ -1656,6 +1666,104 @@ class TestExportImageResponse(unittest.TestCase):
         )
         self.assertAlmostEqual(tree_ratio, response_ratio, delta=0.5)
 
+    def test_apply_axes_colors_paints_title_and_spines(self):
+        """_apply_axes_colors paints the title, spines, and tick marks."""
+        if not _HAS_MATPLOTLIB:
+            self.skipTest("matplotlib not installed")
+        import matplotlib.colors
+        import matplotlib.figure
+
+        from sigma import _response_plot
+
+        figure = matplotlib.figure.Figure()
+        axes = figure.add_subplot(111)
+        axes.set_title("hello")
+        axes.set_xlabel("x")
+        axes.set_ylabel("y")
+        _response_plot._apply_axes_colors(axes, "#112233", "white")
+        title_color = matplotlib.colors.to_hex(axes.title.get_color())
+        self.assertEqual(title_color.lower(), "#112233")
+        xlabel_color = matplotlib.colors.to_hex(axes.xaxis.label.get_color())
+        self.assertEqual(xlabel_color.lower(), "#112233")
+        for spine in axes.spines.values():
+            edge = matplotlib.colors.to_hex(spine.get_edgecolor())
+            self.assertEqual(edge.lower(), "#112233")
+
+    def test_apply_axes_colors_grid_uses_perceptual_midpoint(self):
+        """Grid color falls on the OKLab midpoint of foreground and background."""
+        if not _HAS_MATPLOTLIB:
+            self.skipTest("matplotlib not installed")
+        import matplotlib.colors
+        import matplotlib.figure
+
+        from sigma import _palette
+        from sigma import _response_plot
+
+        figure = matplotlib.figure.Figure()
+        axes = figure.add_subplot(111)
+        axes.grid(axis="y", linestyle=":")
+        _response_plot._apply_axes_colors(axes, "black", "white")
+        expected = _palette._perceptual_midpoint("#000000", "#FFFFFF").lower()
+        for gridline in axes.get_ygridlines():
+            actual = matplotlib.colors.to_hex(gridline.get_color()).lower()
+            self.assertEqual(actual, expected)
+
+    def test_response_regression_box_uses_background_color(self):
+        """At least one regression quartile box has facecolor=background_color."""
+        if not _HAS_MATPLOTLIB:
+            self.skipTest("matplotlib not installed")
+        import matplotlib.colors
+        import matplotlib.figure
+        import matplotlib.patches
+
+        from sigma import _response_plot
+
+        regression_tree = _fit_step_regression_tree()
+        figure = matplotlib.figure.Figure()
+        axes = figure.add_subplot(111)
+        _response_plot._plot_regression(
+            axes, regression_tree, None, background_color="#1F2937"
+        )
+        rectangle_facecolors = {
+            matplotlib.colors.to_hex(patch.get_facecolor()).lower()
+            for patch in axes.patches
+            if isinstance(patch, matplotlib.patches.Rectangle)
+        }
+        self.assertIn("#1f2937", rectangle_facecolors)
+
+    def test_response_ranking_emits_no_ci_box_patches(self):
+        """The ranking response plot draws no CI-box rectangles around items."""
+        if not _HAS_MATPLOTLIB:
+            self.skipTest("matplotlib not installed")
+        import matplotlib.figure
+        import matplotlib.patches
+
+        from sigma import _response_plot
+
+        rng = numpy.random.default_rng(0)
+        n_samples = 60
+        n_items = 3
+        X = rng.normal(size=(n_samples, 1))
+        y = numpy.empty((n_samples, n_items), dtype=float)
+        for i in range(n_samples):
+            if X[i, 0] > 0:
+                y[i] = [1.0, 2.0, 3.0]
+            else:
+                y[i] = [3.0, 2.0, 1.0]
+        ranking_tree = sigma.RankingTree(
+            item_names=["A", "B", "C"], random_state=0
+        )
+        ranking_tree.fit(X, y)
+        figure = matplotlib.figure.Figure()
+        axes = figure.add_subplot(111)
+        _response_plot._plot_ranking(axes, ranking_tree, [0, 1, 2])
+        rectangles = [
+            patch
+            for patch in axes.patches
+            if isinstance(patch, matplotlib.patches.Rectangle)
+        ]
+        self.assertEqual(rectangles, [])
+
 
 class TestPublicApiArgumentOrdering(unittest.TestCase):
     """Lock the argument order of every public render entrypoint."""
@@ -1714,8 +1822,9 @@ class TestPublicApiArgumentOrdering(unittest.TestCase):
             "dpi",
             "root_colors",
             "split_colors",
-            "leaf_colors",
+            "leaf_palette",
             "background_color",
+            "foreground_color",
         ]
         self.assertEqual(self._params(sigma.export_graphviz), expected)
 
@@ -1738,8 +1847,9 @@ class TestPublicApiArgumentOrdering(unittest.TestCase):
             "dpi",
             "root_colors",
             "split_colors",
-            "leaf_colors",
+            "leaf_palette",
             "background_color",
+            "foreground_color",
             "top_displayed_items",
         ]
         self.assertEqual(self._params(sigma.export_image), expected)
@@ -1763,8 +1873,9 @@ class TestPublicApiArgumentOrdering(unittest.TestCase):
             "dpi",
             "root_colors",
             "split_colors",
-            "leaf_colors",
+            "leaf_palette",
             "background_color",
+            "foreground_color",
             "top_displayed_items",
         ]
         self.assertEqual(self._params(sigma._tree.Tree.to_image), expected)

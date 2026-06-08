@@ -121,7 +121,8 @@ class TestBuildDigraph(unittest.TestCase):
                 class_names,
                 _graphviz._DEFAULT_ROOT_COLORS,
                 _graphviz._DEFAULT_SPLIT_COLORS,
-                _graphviz._DEFAULT_LEAF_COLORS,
+                _graphviz._DEFAULT_LEAF_PALETTE,
+                "black",
                 feature_names=feature_names,
                 orientation=orientation,
                 reverse_order=reverse_order,
@@ -221,10 +222,97 @@ class TestBuildDigraph(unittest.TestCase):
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_COLORS,
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            "black",
             background_color="transparent",
         )
         self.assertIn("bgcolor=transparent", dot.source)
+
+    def test_edges_take_foreground_color(self):
+        """Non-truncation edges carry foreground_color as color and fontcolor."""
+        dot = self._graphviz._build_digraph(
+            self.regression_tree.content_,
+            None,
+            None,
+            self._graphviz._DEFAULT_ROOT_COLORS,
+            ("magenta", "lightgray", "darkblue"),
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            "deeppink",
+        )
+        edge_lines = [
+            line
+            for line in dot.source.splitlines()
+            if " -> " in line and "trunc_" not in line
+        ]
+        self.assertGreater(len(edge_lines), 0)
+        for line in edge_lines:
+            self.assertIn("color=deeppink", line)
+            self.assertIn("fontcolor=deeppink", line)
+            self.assertNotIn("color=magenta", line)
+
+    def test_leaf_border_takes_foreground_color(self):
+        """Leaf-node borders take foreground_color, not split_colors[0]."""
+        import re
+
+        dot = self._graphviz._build_digraph(
+            self.regression_tree.content_,
+            None,
+            None,
+            self._graphviz._DEFAULT_ROOT_COLORS,
+            ("magenta", "lightgray", "darkblue"),
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            "deeppink",
+        )
+        leaf_node_lines = re.findall(
+            r"^\t\d+ \[label=<<table.*$", dot.source, flags=re.MULTILINE
+        )
+        self.assertGreater(len(leaf_node_lines), 0)
+        for line in leaf_node_lines:
+            self.assertIn("color=deeppink", line)
+            self.assertNotIn("color=magenta", line)
+
+    def test_truncation_node_keeps_split_colors(self):
+        """Truncation '...' nodes still take font/fill/border from split_colors."""
+        dot = self._graphviz._build_digraph(
+            self.regression_tree.content_,
+            None,
+            None,
+            self._graphviz._DEFAULT_ROOT_COLORS,
+            ("navy", "lavender", "darkblue"),
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            "deeppink",
+            max_depth=0,
+        )
+        trunc_node_lines = [
+            line
+            for line in dot.source.splitlines()
+            if "trunc_" in line and "label" in line and " -> " not in line
+        ]
+        self.assertGreater(len(trunc_node_lines), 0)
+        for line in trunc_node_lines:
+            self.assertIn("fontcolor=navy", line)
+            self.assertIn("fillcolor=lavender", line)
+            self.assertIn("color=darkblue", line)
+
+    def test_truncation_edges_take_foreground_color(self):
+        """Truncation edges take foreground_color, not split_colors[0]."""
+        dot = self._graphviz._build_digraph(
+            self.regression_tree.content_,
+            None,
+            None,
+            self._graphviz._DEFAULT_ROOT_COLORS,
+            ("navy", "lavender", "darkblue"),
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            "deeppink",
+            max_depth=0,
+        )
+        trunc_edge_lines = [
+            line for line in dot.source.splitlines() if " -> trunc_" in line
+        ]
+        self.assertGreater(len(trunc_edge_lines), 0)
+        for line in trunc_edge_lines:
+            self.assertIn("color=deeppink", line)
+            self.assertNotIn("color=navy", line)
 
     def test_default_orientation_is_top_down(self):
         """Default digraph source sets graphviz rankdir to TB (top-down)."""
@@ -589,7 +677,8 @@ class TestLeafBadges(unittest.TestCase):
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_COLORS,
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
         ).source
         for leaf in reversed_leaves:
             leaf_extension = leaf.extension
@@ -618,7 +707,8 @@ class TestLeafBadges(unittest.TestCase):
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_COLORS,
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
         ).source
         for leaf in reversed_tree.leaves_:
             leaf_extension = leaf.extension
@@ -690,7 +780,8 @@ class TestBuildDigraphMaxDepth(unittest.TestCase):
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_COLORS,
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
             max_depth=max_depth,
         )
         return digraph
@@ -753,7 +844,8 @@ class TestBuildDigraphPrecision(unittest.TestCase):
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_COLORS,
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
             precision=precision,
         )
         return digraph
@@ -778,7 +870,8 @@ class TestBuildDigraphPrecision(unittest.TestCase):
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_COLORS,
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
             precision=5,
         )
         self.assertIn("20.75000", digraph.source)
@@ -847,7 +940,8 @@ class TestBuildDigraphMaxBranchLength(unittest.TestCase):
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_COLORS,
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
             feature_names=numpy.array([self.long_feature_name]),
             max_branch_length=max_branch_length,
         )
@@ -861,7 +955,8 @@ class TestBuildDigraphMaxBranchLength(unittest.TestCase):
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_COLORS,
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
             feature_names=numpy.array([self.long_feature_name]),
         )
         self.assertIn("...", digraph.source)
@@ -933,7 +1028,8 @@ class TestUniformNodeWidths(unittest.TestCase):
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_COLORS,
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            foreground_color="black",
             **kwargs,
         )
         return digraph
@@ -994,7 +1090,8 @@ class TestUniformNodeWidths(unittest.TestCase):
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
             self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_COLORS,
+            self._graphviz._DEFAULT_LEAF_PALETTE,
+            "black",
         )
         plain_natural = natural_dot.pipe(format="plain").decode("utf-8")
         natural_widths = _content_node_widths(plain_natural)
@@ -1045,7 +1142,8 @@ class TestBoldPredictionValues(unittest.TestCase):
             None,
             _graphviz._DEFAULT_ROOT_COLORS,
             _graphviz._DEFAULT_SPLIT_COLORS,
-            _graphviz._DEFAULT_LEAF_COLORS,
+            _graphviz._DEFAULT_LEAF_PALETTE,
+            "black",
         )
         return digraph
 
