@@ -668,6 +668,7 @@ def _collect_text_rows(
         rows,
         displayed_indices,
     )
+    prediction_column_count = len(rows[0].prediction_cells)
     _append_child_text_rows(
         root,
         category_labels,
@@ -679,6 +680,7 @@ def _collect_text_rows(
         "",
         rows,
         displayed_indices,
+        prediction_column_count,
     )
     return rows
 
@@ -725,6 +727,7 @@ def _append_child_text_rows(
     indent: str,
     rows: list[_TextRow],
     displayed_indices: None | list[int],
+    prediction_column_count: int,
 ) -> None:
     """Recursively append text rows for each child of node."""
     match node.extension:
@@ -733,7 +736,16 @@ def _append_child_text_rows(
         case _:
             return
     if max_depth is not None and node.depth >= max_depth:
-        rows.append(_TextRow(f"{indent}└── ...", None, [], None, None))
+        empty_prediction_cells = [""] * prediction_column_count
+        rows.append(
+            _TextRow(
+                f"{indent}└── ...",
+                None,
+                empty_prediction_cells,
+                None,
+                None,
+            )
+        )
         return
     left_label, right_label = _format_branch_labels(
         partition, category_labels, feature_names, precision=precision
@@ -768,6 +780,7 @@ def _append_child_text_rows(
             indent + indent_extension,
             rows,
             displayed_indices,
+            prediction_column_count,
         )
 
 

@@ -184,12 +184,7 @@ def export_text(
     rendered_rows: list[list[str]] = []
     for row in text_rows:
         cells = [row.prefix]
-        prediction_cells = row.prediction_cells
-        if prediction_cells:
-            cells.extend(prediction_cells)
-        else:
-            # TODO XXX make it useless for the table utility function
-            cells.extend([""] * len(prediction_headers))
+        cells.extend(row.prediction_cells)
         if has_split:
             cells.append(row.p_value_cell or "")
         if has_decoration:
