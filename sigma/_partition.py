@@ -65,8 +65,6 @@ class Partition(
         "Sigma",
         "left",
         "right",
-        "__weakref__",
-        "__dict__",
     )
 
     def __init__(

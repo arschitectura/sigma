@@ -24,7 +24,7 @@ _SurvivalMetricSpec: typing.TypeAlias = str | tuple[str, float | int, str]
 class _Metric:
     """Internal normalized form of a survival metric specification."""
 
-    __slots__ = ("kind", "value", "unit", "__weakref__", "__dict__")
+    __slots__ = ("kind", "value", "unit")
 
     def __init__(
         self,

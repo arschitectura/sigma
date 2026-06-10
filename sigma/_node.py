@@ -39,8 +39,6 @@ class Node(abc.ABC):
         "decoration",
         "extension",
         "node_id",
-        "__weakref__",
-        "__dict__",
     )
 
     extension: _extension.Extension[typing_extensions.Self]
@@ -218,8 +216,6 @@ class SurvivalMetric:
         "ci_high",
         "style",
         "better_is",
-        "__weakref__",
-        "__dict__",
     )
 
     def __init__(
@@ -321,8 +317,6 @@ class RankingMetric:
         "ci_high",
         "style",
         "better_is",
-        "__weakref__",
-        "__dict__",
     )
 
     def __init__(

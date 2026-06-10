@@ -35,8 +35,7 @@ class Leaf(Extension[N], typing.Generic[N]):
             leaf that has not yet been incorporated into a fitted tree.
     """
 
-    # TODO XXX why do we attach these here
-    __slots__ = ("leaf_id", "__weakref__", "__dict__")
+    __slots__ = ("leaf_id",)
 
     def __init__(self, leaf_id: int = 0) -> None:
         """Initialize the leaf with a pre-assigned leaf_id.
