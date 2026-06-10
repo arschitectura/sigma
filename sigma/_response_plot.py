@@ -42,17 +42,6 @@ if typing.TYPE_CHECKING:
     import matplotlib.figure
 
 
-_LeafT = typing.TypeVar("_LeafT", bound=_node.Node)
-
-
-# TODO XXX awkward, improve
-def _leaf_id(leaf: _LeafT) -> int:
-    """Read leaf_id from a Node whose extension is known to be a Leaf."""
-    leaf_extension = typing.cast(_extension.Leaf, leaf.extension)
-    value = leaf_extension.leaf_id
-    return value
-
-
 def _render_response_image(
     tree: _tree.Tree,
     format: typing.Literal["gif", "pdf", "png", "svg"],
@@ -446,6 +435,20 @@ def _plot_classification(
     )
 
 
+def _resolve_class_labels(
+    tree: _tree_classification.ClassificationTree, class_names: None | list[str]
+) -> list[str]:
+    """Return display labels per class, falling back to tree.classes_."""
+    if class_names is None:
+        raw_labels = [str(c) for c in tree.classes_]
+    else:
+        raw_labels = list(class_names)
+    labels = [
+        _tree_text._capitalize_first_letter(label) for label in raw_labels
+    ]
+    return labels
+
+
 def _plot_survival(
     axes: matplotlib.axes.Axes,
     tree: _tree_survival.SurvivalTree,
@@ -614,15 +617,12 @@ def _configure_leaf_x_axis(axes: matplotlib.axes.Axes, n_leaves: int) -> None:
     axes.set_xlabel("Leaf number")
 
 
-def _resolve_class_labels(
-    tree: _tree_classification.ClassificationTree, class_names: None | list[str]
-) -> list[str]:
-    """Return display labels per class, falling back to tree.classes_."""
-    if class_names is None:
-        raw_labels = [str(c) for c in tree.classes_]
-    else:
-        raw_labels = list(class_names)
-    labels = [
-        _tree_text._capitalize_first_letter(label) for label in raw_labels
-    ]
-    return labels
+_LeafT = typing.TypeVar("_LeafT", bound=_node.Node)
+
+
+# TODO XXX awkward, improve
+def _leaf_id(leaf: _LeafT) -> int:
+    """Read leaf_id from a Node whose extension is known to be a Leaf."""
+    leaf_extension = typing.cast(_extension.Leaf, leaf.extension)
+    value = leaf_extension.leaf_id
+    return value
