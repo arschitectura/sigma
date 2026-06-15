@@ -204,7 +204,8 @@ def _emit_digraph(
 ) -> graphviz.Digraph:
     """Emit a graphviz Digraph in a single pass, optionally forcing a width."""
     display_reverse = reverse_order ^ (orientation == "left-to-right")
-    leaf_count = len(root.leaves())
+    leaves = root.leaves()
+    leaf_count = len(leaves)
     background_color = background_color or "white"
     match orientation:
         case "top-down":
@@ -250,54 +251,94 @@ def _emit_digraph(
             bold_value=True,
             displayed_indices=node_displayed,
         )
-        # TODO XXX review these
-        extension = node.extension
-        is_leaf = isinstance(extension, _extension.Leaf)
-        match extension:
-            case _partition.Partition() as partition_for_label:
-                label = f"{label}\n{_tree_text._format_p_value(partition_for_label)}"
-            case _:
-                pass
+        node_object_id = id(node)
+        node_id = str(node_object_id)
         decoration = node.decoration
-        if decoration is not None:
-            label = f"{label}\n{str(decoration)}"
-        node_id = str(id(node))
-        if isinstance(extension, _extension.Leaf):
-            leaf_id = extension.leaf_id
-            badge_number = leaf_id + 1
-            leaf_background = _palette._leaf_color(
-                leaf_id, leaf_count, leaf_palette
-            )
-            leaf_foreground = _palette._contrast_foreground(leaf_background)
-            html_label = _make_leaf_html_label(
-                label,
-                badge_number,
-                leaf_foreground,
-                leaf_background,
-                leaf_width_pt,
-            )
-            dot.node(
-                node_id,
-                label=html_label,
-                fontcolor=leaf_foreground,
-                fillcolor=leaf_background,
-                color=foreground_color,
-                **uniform_attrs,
-            )
+        if decoration is None:
+            decoration_suffix = ""
         else:
-            foreground, background, border = (
-                root_colors if node is root else split_colors
-            )
-            dot.node(
-                node_id,
-                label=_to_html_label(label),
-                fontcolor=foreground,
-                fillcolor=background,
-                color=border,
-                **uniform_attrs,
-            )
-        descend = not is_leaf and (max_depth is None or node.depth < max_depth)
-        if max_depth is not None and not descend:
+            decoration_text = str(decoration)
+            decoration_suffix = f"\n{decoration_text}"
+        # TODO XXX review these
+        match node.extension:
+            case _partition.Partition() as partition:
+                p_value_line = _tree_text._format_p_value(partition)
+                label = f"{label}\n{p_value_line}{decoration_suffix}"
+                foreground, background, border = (
+                    root_colors if node is root else split_colors
+                )
+                split_html_label = _to_html_label(label)
+                dot.node(
+                    node_id,
+                    label=split_html_label,
+                    fontcolor=foreground,
+                    fillcolor=background,
+                    color=border,
+                    **uniform_attrs,
+                )
+                if max_depth is None or node.depth < max_depth:
+                    left_label, right_label = _tree_text._format_branch_labels(
+                        partition,
+                        category_labels,
+                        feature_names,
+                        precision=precision,
+                    )
+                    left_label = _tree_text._ellipsize(
+                        left_label, max_branch_length
+                    )
+                    right_label = _tree_text._ellipsize(
+                        right_label, max_branch_length
+                    )
+                    left_child, right_child = partition.left, partition.right
+                    should_swap = _node._should_swap_display_children(node)
+                    if should_swap ^ display_reverse:
+                        left_label, right_label = right_label, left_label
+                        left_child, right_child = right_child, left_child
+                    left_child_object_id = id(left_child)
+                    left_child_id = str(left_child_object_id)
+                    dot.edge(
+                        node_id,
+                        left_child_id,
+                        label=f"  {left_label}",
+                        color=foreground_color,
+                        fontcolor=foreground_color,
+                    )
+                    stack.append(left_child)
+                    right_child_object_id = id(right_child)
+                    right_child_id = str(right_child_object_id)
+                    dot.edge(
+                        node_id,
+                        right_child_id,
+                        label=f"  {right_label}",
+                        color=foreground_color,
+                        fontcolor=foreground_color,
+                    )
+                    stack.append(right_child)
+                    continue
+            case _extension.Leaf() as leaf:
+                label = f"{label}{decoration_suffix}"
+                leaf_id = leaf.leaf_id
+                badge_number = leaf_id + 1
+                leaf_background = _palette._leaf_color(
+                    leaf_id, leaf_count, leaf_palette
+                )
+                leaf_foreground = _palette._contrast_foreground(leaf_background)
+                html_label = _make_leaf_html_label(
+                    label,
+                    badge_number,
+                    leaf_foreground,
+                    leaf_background,
+                    leaf_width_pt,
+                )
+                dot.node(
+                    node_id,
+                    label=html_label,
+                    fontcolor=leaf_foreground,
+                    fillcolor=leaf_background,
+                    color=foreground_color,
+                    **uniform_attrs,
+                )
+        if max_depth is not None:
             placeholder_id = f"trunc_{node_id}"
             dot.node(
                 placeholder_id,
@@ -307,43 +348,6 @@ def _emit_digraph(
                 color=split_colors[2],
             )
             dot.edge(node_id, placeholder_id, color=foreground_color)
-        if descend:
-            match extension:
-                case _partition.Partition() as descend_partition:
-                    pass
-                case _:
-                    continue
-            left_label, right_label = _tree_text._format_branch_labels(
-                descend_partition,
-                category_labels,
-                feature_names,
-                precision=precision,
-            )
-            left_label = _tree_text._ellipsize(left_label, max_branch_length)
-            right_label = _tree_text._ellipsize(right_label, max_branch_length)
-            left_child, right_child = (
-                descend_partition.left,
-                descend_partition.right,
-            )
-            if _node._should_swap_display_children(node) ^ display_reverse:
-                left_label, right_label = right_label, left_label
-                left_child, right_child = right_child, left_child
-            dot.edge(
-                node_id,
-                str(id(left_child)),
-                label=f"  {left_label}",
-                color=foreground_color,
-                fontcolor=foreground_color,
-            )
-            stack.append(left_child)
-            dot.edge(
-                node_id,
-                str(id(right_child)),
-                label=f"  {right_label}",
-                color=foreground_color,
-                fontcolor=foreground_color,
-            )
-            stack.append(right_child)
     return dot
 
 
