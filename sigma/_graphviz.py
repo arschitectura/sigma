@@ -259,7 +259,6 @@ def _emit_digraph(
         else:
             decoration_text = str(decoration)
             decoration_suffix = f"\n{decoration_text}"
-        # TODO XXX review these
         match node.extension:
             case _partition.Partition() as partition:
                 p_value_line = _tree_text._format_p_value(partition)
