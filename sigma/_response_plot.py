@@ -26,8 +26,6 @@ import numpy
 import numpy.typing
 import scipy.stats
 
-from . import _extension
-from . import _node
 from . import _palette
 from . import _survival
 from . import _tree
@@ -195,8 +193,7 @@ def _plot_regression(
     leaves = tree.leaves_
     n_leaves = len(leaves)
     width = 0.6
-    for leaf in leaves:
-        leaf_id = _leaf_id(leaf)
+    for leaf_id, leaf in enumerate(leaves):
         x = leaf_id + 1
         color = _palette._leaf_color(leaf_id, n_leaves, leaf_palette)
         _draw_response_raincloud(
@@ -372,16 +369,14 @@ def _plot_classification(
     n_classes = int(tree.n_classes_)
     labels = _resolve_class_labels(tree, class_names)
     bar_width = 0.6
-    sorted_leaves = sorted(leaves, key=_leaf_id)
-    line_xs = [_leaf_id(leaf) + 1 for leaf in sorted_leaves]
+    line_xs = list(range(1, n_leaves + 1))
     if tree.reverse_order:
         class_order = list(range(n_classes - 1, -1, -1))
     else:
         class_order = list(range(n_classes))
     for slot_idx, class_index in enumerate(class_order):
         color = _palette._leaf_color(slot_idx, n_classes, leaf_palette)
-        for leaf in leaves:
-            leaf_id = _leaf_id(leaf)
+        for leaf_id, leaf in enumerate(leaves):
             x = leaf_id + 1
             proportion = float(leaf.class_distribution[class_index]) * 100.0
             ci_low = leaf.ci_low
@@ -412,7 +407,7 @@ def _plot_classification(
             axes.scatter([x], [proportion], color=color, s=12, zorder=4)
         line_ys = [
             float(leaf.class_distribution[class_index]) * 100.0
-            for leaf in sorted_leaves
+            for leaf in leaves
         ]
         axes.plot(line_xs, line_ys, color=color, linewidth=1.5, zorder=3)
     _configure_leaf_x_axis(axes, n_leaves)
@@ -463,8 +458,7 @@ def _plot_survival(
     """
     leaves = tree.leaves_
     n_leaves = len(leaves)
-    for leaf in leaves:
-        leaf_id = _leaf_id(leaf)
+    for leaf_id, leaf in enumerate(leaves):
         badge_number = leaf_id + 1
         color = _palette._leaf_color(leaf_id, n_leaves, leaf_palette)
         times, surv = leaf.survival_function
@@ -548,8 +542,7 @@ def _plot_ranking(
     n_leaves = len(leaves)
     item_names = [str(name) for name in tree.item_names_]
     bar_width = 0.6
-    sorted_leaves = sorted(leaves, key=_leaf_id)
-    line_xs = [_leaf_id(leaf) + 1 for leaf in sorted_leaves]
+    line_xs = list(range(1, n_leaves + 1))
     if tree.reverse_order:
         item_order = list(reversed(displayed_indices))
     else:
@@ -557,8 +550,7 @@ def _plot_ranking(
     displayed_count = len(item_order)
     for slot_idx, item_index in enumerate(item_order):
         color = _palette._leaf_color(slot_idx, displayed_count, leaf_palette)
-        for leaf in leaves:
-            leaf_id = _leaf_id(leaf)
+        for leaf_id, leaf in enumerate(leaves):
             x = leaf_id + 1
             metric = leaf.metrics[item_index]
             expected_rank = float(metric.value)
@@ -573,9 +565,7 @@ def _plot_ranking(
                 zorder=3,
             )
             axes.scatter([x], [expected_rank], color=color, s=12, zorder=4)
-        line_ys = [
-            float(leaf.metrics[item_index].value) for leaf in sorted_leaves
-        ]
+        line_ys = [float(leaf.metrics[item_index].value) for leaf in leaves]
         axes.plot(line_xs, line_ys, color=color, linewidth=1.5, zorder=3)
     _configure_leaf_x_axis(axes, n_leaves)
     all_values: list[float] = []
@@ -615,14 +605,3 @@ def _configure_leaf_x_axis(axes: matplotlib.axes.Axes, n_leaves: int) -> None:
     axes.set_xticklabels([str(t) for t in ticks])
     axes.set_xlim(0.5, n_leaves + 0.5)
     axes.set_xlabel("Leaf number")
-
-
-_LeafT = typing.TypeVar("_LeafT", bound=_node.Node)
-
-
-# TODO XXX awkward, improve
-def _leaf_id(leaf: _LeafT) -> int:
-    """Read leaf_id from a Node whose extension is known to be a Leaf."""
-    leaf_extension = typing.cast(_extension.Leaf, leaf.extension)
-    value = leaf_extension.leaf_id
-    return value
