@@ -75,7 +75,6 @@ class Node(abc.ABC):
             match node.extension:
                 case _partition.Partition() as partition:
                     value = x[partition.feature_index]
-                    # TODO: better distinguish this from new, unseen, categorical levels
                     child = partition.route(value)
                     if child is None:
                         break
