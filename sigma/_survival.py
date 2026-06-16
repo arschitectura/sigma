@@ -40,12 +40,6 @@ def compute_logrank_scores(
     n_unique = len(unique_times)
     d_per_time = numpy.bincount(group_id, weights=e_sorted, minlength=n_unique)
     r_per_time = (n - first_idx).astype(float)
-    # TODO: ties use the Breslow/Nelson-Aalen convention (shared risk
-    # set, d / r per unique time). The Efron (1977) correction is more
-    # accurate under tied event times and is what
-    # _ranking.compute_pl_null_scores already uses, so the two modules
-    # diverge on tied responses; aligning survival to Efron is deferred
-    # and would need re-checking partykit/coin equivalence first.
     increment = numpy.where(r_per_time > 0, d_per_time / r_per_time, 0.0)
     cum_haz_per_time = numpy.cumsum(increment)
     cum_haz_sorted = cum_haz_per_time[group_id]
