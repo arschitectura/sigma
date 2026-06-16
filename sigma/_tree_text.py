@@ -17,9 +17,8 @@ from . import _node
 from . import _partition
 
 
-def _format_p_value(partition: _partition.Partition) -> str:
-    """Format 'Split p-value = ...' for a split node ('<1e-300' on underflow)."""
-    value = partition.p_value
+def _format_p_value_number(value: float) -> str:
+    """Format a p-value as '<1e-300', a percentage, or scientific notation."""
     match value:
         case 0.0:
             formatted = "<1e-300"
@@ -27,6 +26,13 @@ def _format_p_value(partition: _partition.Partition) -> str:
             formatted = f"{v * 100:.2f}%"
         case _:
             formatted = f"{value:.2e}"
+    return formatted
+
+
+def _format_p_value(partition: _partition.Partition) -> str:
+    """Format 'Split p-value = ...' for a split node ('<1e-300' on underflow)."""
+    value = partition.p_value
+    formatted = _format_p_value_number(value)
     result = f"Split p-value = {formatted}"
     return result
 
@@ -603,13 +609,7 @@ def _table_ranking_prediction_cells(
 def _table_p_value_cell(partition: _partition.Partition) -> str:
     """Cell string for Split p-value, e.g. '0.01%' or '<1e-300'."""
     value = partition.p_value
-    match value:
-        case 0.0:
-            formatted = "<1e-300"
-        case v if v >= 0.0001:
-            formatted = f"{v * 100:.2f}%"
-        case _:
-            formatted = f"{value:.2e}"
+    formatted = _format_p_value_number(value)
     return formatted
 
 
@@ -750,10 +750,13 @@ def _append_child_text_rows(
     left_label, right_label = _format_branch_labels(
         partition, category_labels, feature_names, precision=precision
     )
-    left_child, right_child = partition.left, partition.right
-    if _node._should_swap_display_children(node) ^ best_first:
+    ordered_children = node.display_children(best_first)
+    left_child, right_child = ordered_children or (
+        partition.left,
+        partition.right,
+    )
+    if left_child is not partition.left:
         left_label, right_label = right_label, left_label
-        left_child, right_child = right_child, left_child
     for branch_label, child, is_last in [
         (left_label, left_child, False),
         (right_label, right_child, True),

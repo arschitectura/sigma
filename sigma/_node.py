@@ -70,8 +70,26 @@ class Node(abc.ABC):
             internal node holding the categorical partition whose route
             did not match the sample's value.
         """
+        path = self.traverse_path(x)
+        node = path[-1]
+        return node
+
+    def traverse_path(self: _NodeT, x: numpy.typing.NDArray) -> list[_NodeT]:
+        """Walk a single sample down the tree, listing the nodes it visits.
+
+        Args:
+            x: Feature vector for a single sample, shape (m,).
+
+        Returns:
+            The visited nodes ordered from the root to the deepest reached
+            node. The final entry is the leaf reached when traversal
+            completes, or the internal node holding the categorical
+            partition whose route did not match the sample's value.
+        """
+        path: list[_NodeT] = []
         node = self
         while True:
+            path.append(node)
             match node.extension:
                 case _partition.Partition() as partition:
                     value = x[partition.feature_index]
@@ -81,7 +99,7 @@ class Node(abc.ABC):
                     node = child
                 case _:
                     break
-        return node
+        return path
 
     def leaves(self: _NodeT) -> list[_NodeT]:
         """Return all leaf nodes in this subtree, in left-to-right order."""
@@ -93,6 +111,31 @@ class Node(abc.ABC):
             case _:
                 result = [self]
         return result
+
+    def display_children(
+        self: _NodeT, best_first: bool
+    ) -> None | tuple[_NodeT, _NodeT]:
+        """Return this node's two children in display order, or None for a leaf.
+
+        Args:
+            best_first: When True, reverse the default left-to-right
+                ordering of the returned children.
+
+        Returns:
+            The pair of child nodes in display order, or None when this
+            node is a leaf.
+        """
+        match self.extension:
+            case _partition.Partition() as partition:
+                left = partition.left
+                right = partition.right
+                if _should_swap_display_children(self) ^ best_first:
+                    ordered = (right, left)
+                else:
+                    ordered = (left, right)
+                return ordered
+            case _:
+                return None
 
     @abc.abstractmethod
     def leaf_sort_key(self) -> tuple[float, ...]:

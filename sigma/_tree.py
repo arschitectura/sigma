@@ -476,17 +476,7 @@ class Tree(
             is not routable at an internal node, the id is that of the
             holding node.
         """
-        sklearn.utils.validation.check_is_fitted(self, "content_")
-        X = _apply_categorical_encoding(X, self.category_labels_in_)
-        X_validated = sklearn.utils.validation.validate_data(
-            self, X, reset=False, dtype="float64"
-        )
-        X_array = typing.cast(numpy.typing.NDArray[numpy.floating], X_validated)
-        n_samples = X_array.shape[0]
-        ids = numpy.empty(n_samples, dtype=numpy.intp)
-        for i in range(n_samples):
-            node = self.content_.traverse(X_array[i])
-            ids[i] = node.node_id
+        ids = self.predict_index(X)
         return ids
 
     def decision_path(
@@ -515,20 +505,9 @@ class Tree(
         indptr[0] = 0
         indices: list[int] = []
         for i in range(n_samples):
-            x = X_array[i]
-            node: _node.Node = self.content_
-            while True:
+            visited = self.content_.traverse_path(X_array[i])
+            for node in visited:
                 indices.append(node.node_id)
-                match node.extension:
-                    case _partition.Partition() as partition:
-                        value = x[partition.feature_index]
-                        # TODO: better distinguish this from new, unseen, categorical levels
-                        child = partition.route(value)
-                        if child is None:
-                            break
-                        node = child
-                    case _:
-                        break
             indptr[i + 1] = len(indices)
         indices_array = numpy.asarray(indices, dtype=numpy.intp)
         data = numpy.ones(indices_array.shape[0], dtype=numpy.intp)

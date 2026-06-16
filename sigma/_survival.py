@@ -73,29 +73,12 @@ def compute_kaplan_meier(
         the survival probabilities at those times. Both arrays have shape
         (n_unique,) and may be empty when no sample is active.
     """
-    active = weights > 0
-    if not numpy.any(active):
+    grouped = _grouped_weighted_risk(time, event, weights)
+    if grouped is None:
         empty_t = numpy.empty(0, dtype=float)
         empty_s = numpy.empty(0, dtype=float)
         return empty_t, empty_s
-    t = time[active].astype(float)
-    e = event[active].astype(float)
-    w = weights[active].astype(float)
-    order = numpy.argsort(t, kind="stable")
-    t_sorted = t[order]
-    e_sorted = e[order]
-    w_sorted = w[order]
-    unique_times, first_idx, group_id = numpy.unique(
-        t_sorted, return_index=True, return_inverse=True
-    )
-    n_unique = len(unique_times)
-    d_w = numpy.bincount(
-        group_id, weights=w_sorted * e_sorted, minlength=n_unique
-    )
-    cumw = numpy.cumsum(w_sorted)
-    total_w = cumw[-1]
-    cumw_before = numpy.concatenate([[0.0], cumw[:-1]])[first_idx]
-    r_w = total_w - cumw_before
+    unique_times, d_w, r_w = grouped
     safe_factor = numpy.where(r_w > 0, 1.0 - d_w / r_w, 1.0)
     surv = numpy.cumprod(safe_factor)
     return unique_times, surv
@@ -185,28 +168,11 @@ def compute_kaplan_meier_with_variance(
         event counts, and the weighted at-risk counts. All arrays have
         shape (n_unique,) and may be empty when no sample is active.
     """
-    active = weights > 0
-    if not numpy.any(active):
+    grouped = _grouped_weighted_risk(time, event, weights)
+    if grouped is None:
         empty = numpy.empty(0, dtype=float)
         return empty, empty, empty, empty, empty
-    t = time[active].astype(float)
-    e = event[active].astype(float)
-    w = weights[active].astype(float)
-    order = numpy.argsort(t, kind="stable")
-    t_sorted = t[order]
-    e_sorted = e[order]
-    w_sorted = w[order]
-    unique_times, first_idx, group_id = numpy.unique(
-        t_sorted, return_index=True, return_inverse=True
-    )
-    n_unique = len(unique_times)
-    d_w = numpy.bincount(
-        group_id, weights=w_sorted * e_sorted, minlength=n_unique
-    )
-    cumw = numpy.cumsum(w_sorted)
-    total_w = cumw[-1]
-    cumw_before = numpy.concatenate([[0.0], cumw[:-1]])[first_idx]
-    r_w = total_w - cumw_before
+    unique_times, d_w, r_w = grouped
     safe_factor = numpy.where(r_w > 0, 1.0 - d_w / r_w, 1.0)
     surv = numpy.cumprod(safe_factor)
     denom = r_w * (r_w - d_w)
@@ -463,28 +429,11 @@ def compute_nelson_aalen(
         Tuple (times, cum_haz) of strictly-increasing unique active times
         and the cumulative hazard estimate at those times.
     """
-    active = weights > 0
-    if not numpy.any(active):
+    grouped = _grouped_weighted_risk(time, event, weights)
+    if grouped is None:
         empty = numpy.empty(0, dtype=float)
         return empty, empty
-    t = time[active].astype(float)
-    e = event[active].astype(float)
-    w = weights[active].astype(float)
-    order = numpy.argsort(t, kind="stable")
-    t_sorted = t[order]
-    e_sorted = e[order]
-    w_sorted = w[order]
-    unique_times, first_idx, group_id = numpy.unique(
-        t_sorted, return_index=True, return_inverse=True
-    )
-    n_unique = len(unique_times)
-    d_w = numpy.bincount(
-        group_id, weights=w_sorted * e_sorted, minlength=n_unique
-    )
-    cumw = numpy.cumsum(w_sorted)
-    total_w = cumw[-1]
-    cumw_before = numpy.concatenate([[0.0], cumw[:-1]])[first_idx]
-    r_w = total_w - cumw_before
+    unique_times, d_w, r_w = grouped
     increment = numpy.where(r_w > 0, d_w / r_w, 0.0)
     cum_haz = numpy.cumsum(increment)
     return unique_times, cum_haz
@@ -523,6 +472,49 @@ def compute_risk_score(
     )
     score = float(contributions.sum())
     return score
+
+
+def _grouped_weighted_risk(
+    time: numpy.typing.NDArray[numpy.floating],
+    event: numpy.typing.NDArray[numpy.floating],
+    weights: numpy.typing.NDArray[numpy.floating],
+) -> (
+    None
+    | tuple[
+        numpy.typing.NDArray[numpy.floating],
+        numpy.typing.NDArray[numpy.floating],
+        numpy.typing.NDArray[numpy.floating],
+    ]
+):
+    """Group active samples by unique time into (unique_times, weighted event
+    counts, weighted at-risk counts), or None when no sample is active."""
+    active = weights > 0
+    if not numpy.any(active):
+        return None
+    t = time[active].astype(float)
+    e = event[active].astype(float)
+    w = weights[active].astype(float)
+    order = numpy.argsort(t, kind="stable")
+    t_sorted = t[order]
+    e_sorted = e[order]
+    w_sorted = w[order]
+    unique_times, first_idx, group_id = numpy.unique(
+        t_sorted, return_index=True, return_inverse=True
+    )
+    n_unique = len(unique_times)
+    d_w = numpy.bincount(
+        group_id, weights=w_sorted * e_sorted, minlength=n_unique
+    )
+    cumw = numpy.cumsum(w_sorted)
+    total_w = cumw[-1]
+    cumw_before = numpy.concatenate([[0.0], cumw[:-1]])[first_idx]
+    r_w = total_w - cumw_before
+    result = (
+        unique_times.astype(float),
+        d_w.astype(float),
+        r_w.astype(float),
+    )
+    return result
 
 
 def _first_time_at_or_below(

@@ -11,34 +11,9 @@ import sigma._tree_classification
 import sigma._tree_regression
 import sigma._tree_survival
 
+import _helpers
+
 _HAS_GRAPHVIZ = importlib.util.find_spec("graphviz") is not None
-
-
-def _make_regression_tree(reverse_order: bool = False):
-    """Fit a simple regression tree on a step function."""
-    X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
-    y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
-    regression_tree = sigma._tree_regression.RegressionTree(
-        correlation="normal",
-        min_splits=2,
-        min_buckets=1,
-        reverse_order=reverse_order,
-    )
-    regression_tree.fit(X, y)
-    return regression_tree, X, y
-
-
-def _make_three_step_regression_tree():
-    """Fit a regression tree on a 3-step response, yielding a depth >= 2 tree."""
-    X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
-    y = numpy.where(X.ravel() < 20, 0.0, numpy.where(X.ravel() < 60, 5.0, 10.0))
-    regression_tree = sigma._tree_regression.RegressionTree(
-        correlation="normal",
-        min_splits=2,
-        min_buckets=1,
-    )
-    regression_tree.fit(X, y)
-    return regression_tree
 
 
 def _make_classification_tree():
@@ -53,24 +28,6 @@ def _make_classification_tree():
     )
     classification_tree.fit(X, y)
     return classification_tree, X, y
-
-
-def _make_categorical_regression_tree():
-    """Fit a regression tree with a categorical split."""
-    rng = numpy.random.default_rng(42)
-    n = 40
-    categorical_column = numpy.repeat([0.0, 1.0], n // 2)
-    noise = rng.standard_normal(n)
-    X = numpy.column_stack([categorical_column, noise])
-    y = numpy.where(categorical_column == 0.0, 0.0, 10.0)
-    regression_tree = sigma._tree_regression.RegressionTree(
-        correlation="normal",
-        categorical_features=[0],
-        min_splits=2,
-        min_buckets=1,
-    )
-    regression_tree.fit(X, y)
-    return regression_tree, X, y
 
 
 def _make_survival_tree():
@@ -130,10 +87,10 @@ class TestBuildDigraph(unittest.TestCase):
             return digraph
 
         self._build_digraph = build_digraph
-        self.regression_tree, _, _ = _make_regression_tree()
+        self.regression_tree = _helpers._fit_step_regression_tree()
         self.classification_tree, _, _ = _make_classification_tree()
-        self.categorical_regression_tree, _, _ = (
-            _make_categorical_regression_tree()
+        self.categorical_regression_tree = (
+            _helpers._fit_categorical_regression_tree()
         )
 
     def test_node_labels_contain_prediction_and_count(self):
@@ -157,7 +114,7 @@ class TestBuildDigraph(unittest.TestCase):
 
     def test_edge_labels_numeric_split(self):
         """Numeric split edges contain <= and > conditions."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         dot = self._build_digraph(
             regression_tree.content_, None, feature_names=numpy.asarray(["x0"])
         )
@@ -167,7 +124,9 @@ class TestBuildDigraph(unittest.TestCase):
 
     def test_edge_labels_categorical_split(self):
         """Categorical split edges contain 'is' conditions."""
-        categorical_regression_tree, _, _ = _make_categorical_regression_tree()
+        categorical_regression_tree = (
+            _helpers._fit_categorical_regression_tree()
+        )
         dot = self._build_digraph(
             categorical_regression_tree.content_,
             None,
@@ -178,7 +137,7 @@ class TestBuildDigraph(unittest.TestCase):
 
     def test_feature_names_appear_in_edges(self):
         """Display-time feature_names appear in edge labels."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         dot = self._build_digraph(
             regression_tree.content_,
             None,
@@ -189,7 +148,9 @@ class TestBuildDigraph(unittest.TestCase):
 
     def test_category_labels_appear_in_edges(self):
         """Display-time category_labels appear in edge labels."""
-        categorical_regression_tree, _, _ = _make_categorical_regression_tree()
+        categorical_regression_tree = (
+            _helpers._fit_categorical_regression_tree()
+        )
         labels = {0: {0.0: "red", 1.0: "blue"}}
         dot = self._build_digraph(
             categorical_regression_tree.content_,
@@ -404,8 +365,8 @@ class TestBuildDigraph(unittest.TestCase):
         """A reverse-ordered tree swaps the badge fill colors of low/high leaves."""
         import re
 
-        natural_tree, _, _ = _make_regression_tree()
-        reversed_tree, _, _ = _make_regression_tree(reverse_order=True)
+        natural_tree = _helpers._fit_step_regression_tree()
+        reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         natural_leaves = natural_tree.content_.leaves()
         reversed_leaves = reversed_tree.content_.leaves()
         natural_lowest = min(natural_leaves, key=lambda node: node.prediction)
@@ -446,7 +407,7 @@ class TestToImage(unittest.TestCase):
 
     def test_regression_tree_svg_returns_bytes(self):
         """RegressionTree to_image returns valid SVG bytes."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("svg")
         self.assertIsInstance(result, bytes)
         self.assertTrue(
@@ -455,14 +416,14 @@ class TestToImage(unittest.TestCase):
 
     def test_regression_tree_png_returns_bytes(self):
         """RegressionTree to_image returns valid PNG bytes."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("png")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"\x89PNG"))
 
     def test_regression_tree_pdf_returns_bytes(self):
         """RegressionTree to_image returns valid PDF bytes."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("pdf")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"%PDF-"))
@@ -492,7 +453,7 @@ class TestToImage(unittest.TestCase):
 
     def test_regression_tree_gif_returns_bytes(self):
         """RegressionTree to_image returns valid GIF bytes."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("gif")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"GIF8"))
@@ -506,14 +467,14 @@ class TestToImage(unittest.TestCase):
 
     def test_higher_dpi_produces_larger_png(self):
         """Higher dpi produces a larger PNG output."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low_dpi = regression_tree.to_image("png", dpi=72)
         high_dpi = regression_tree.to_image("png", dpi=216)
         self.assertGreater(len(high_dpi), len(low_dpi))
 
     def test_higher_dpi_produces_larger_gif(self):
         """Higher dpi produces a larger GIF output."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low_dpi = regression_tree.to_image("gif", dpi=72)
         high_dpi = regression_tree.to_image("gif", dpi=216)
         self.assertGreater(len(high_dpi), len(low_dpi))
@@ -530,13 +491,13 @@ class TestToImage(unittest.TestCase):
 
     def test_feature_names_in_svg(self):
         """Display-time feature_names appear in the SVG output."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("svg", feature_names=["spread"])
         self.assertIn(b"spread", result)
 
     def test_category_labels_in_svg(self):
         """Display-time category_labels appear in the SVG output."""
-        regression_tree, _, _ = _make_categorical_regression_tree()
+        regression_tree = _helpers._fit_categorical_regression_tree()
         result = regression_tree.to_image(
             "svg",
             feature_names=["color", "noise"],
@@ -547,7 +508,7 @@ class TestToImage(unittest.TestCase):
 
     def test_background_color_svg_returns_bytes(self):
         """to_image with a background_color returns valid SVG bytes."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("svg", background_color="transparent")
         self.assertIsInstance(result, bytes)
         self.assertTrue(
@@ -556,21 +517,21 @@ class TestToImage(unittest.TestCase):
 
     def test_background_color_png_returns_bytes(self):
         """to_image with a background_color returns valid PNG bytes."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("png", background_color="transparent")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"\x89PNG"))
 
     def test_background_color_pdf_returns_bytes(self):
         """to_image with a background_color returns valid PDF bytes."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("pdf", background_color="transparent")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"%PDF-"))
 
     def test_default_orientation_svg_has_rankdir_tb(self):
         """Default to_image('svg') output reflects rankdir=TB layout."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         dot_source = sigma.export_graphviz(regression_tree)
         self.assertIn("rankdir=TB", dot_source)
         result = regression_tree.to_image("svg")
@@ -578,7 +539,7 @@ class TestToImage(unittest.TestCase):
 
     def test_left_to_right_orientation_emits_rankdir_lr_in_dot(self):
         """to_image with orientation='left-to-right' emits rankdir=LR in DOT."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         dot_source = sigma.export_graphviz(
             regression_tree, orientation="left-to-right"
         )
@@ -600,7 +561,7 @@ class TestLeafBadges(unittest.TestCase):
 
         self._graphviz = _graphviz
         self._node = _node
-        self.regression_tree, _, _ = _make_regression_tree()
+        self.regression_tree = _helpers._fit_step_regression_tree()
         self.classification_tree, _, _ = _make_classification_tree()
 
     def test_leaf_badges_present_regression(self):
@@ -662,8 +623,8 @@ class TestLeafBadges(unittest.TestCase):
 
     def test_badge_order_regression_reversed(self):
         """A reverse-ordered regression tree displays the flipped badge per leaf."""
-        natural_tree, _, _ = _make_regression_tree()
-        reversed_tree, _, _ = _make_regression_tree(reverse_order=True)
+        natural_tree = _helpers._fit_step_regression_tree()
+        reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         natural_leaves = natural_tree.leaves_
         reversed_leaves = reversed_tree.leaves_
         natural_predictions = [leaf.prediction for leaf in natural_leaves]
@@ -770,7 +731,7 @@ class TestBuildDigraphMaxDepth(unittest.TestCase):
 
         self._graphviz = _graphviz
         self._node = _node
-        self.regression_tree = _make_three_step_regression_tree()
+        self.regression_tree = _helpers._fit_three_step_regression_tree()
 
     def _build(self, max_depth):
         """Invoke _build_digraph with a max_depth and default colors."""
@@ -834,7 +795,7 @@ class TestBuildDigraphPrecision(unittest.TestCase):
         from sigma import _graphviz
 
         self._graphviz = _graphviz
-        self.regression_tree, _, _ = _make_regression_tree()
+        self.regression_tree = _helpers._fit_step_regression_tree()
 
     def _build(self, precision):
         """Invoke _build_digraph with a precision and default colors."""
@@ -927,7 +888,7 @@ class TestBuildDigraphMaxBranchLength(unittest.TestCase):
         from sigma import _graphviz
 
         self._graphviz = _graphviz
-        self.regression_tree, _, _ = _make_regression_tree()
+        self.regression_tree = _helpers._fit_step_regression_tree()
         self.long_feature_name = (
             "AVeryLongFeatureNameThatExceedsTheDefaultBranchLengthOfFifty"
         )
@@ -1017,7 +978,7 @@ class TestUniformNodeWidths(unittest.TestCase):
         from sigma import _graphviz
 
         self._graphviz = _graphviz
-        self.three_step = _make_three_step_regression_tree()
+        self.three_step = _helpers._fit_three_step_regression_tree()
         self.classification_tree, _, _ = _make_classification_tree()
 
     def _build(self, root, **kwargs):
@@ -1149,14 +1110,14 @@ class TestBoldPredictionValues(unittest.TestCase):
 
     def test_regression_value_is_wrapped_in_bold(self):
         """The regression prediction value appears wrapped in <b>...</b>."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         source = self._build(regression_tree.content_).source
         self.assertIn("Predicted mean = <b>", source)
         self.assertIn("</b> (", source)
 
     def test_regression_ci_bounds_are_not_bold(self):
         """CI bounds in the regression label are not wrapped in <b>...</b>."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         source = self._build(regression_tree.content_).source
         self.assertNotIn(" to <b>", source)
 
@@ -1178,13 +1139,13 @@ class TestBoldPredictionValues(unittest.TestCase):
 
     def test_split_p_value_is_not_bold(self):
         """The split p-value text is not wrapped in <b>...</b>."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         source = self._build(regression_tree.content_).source
         self.assertNotIn("Split p-value = <b>", source)
 
     def test_obs_count_is_not_bold(self):
         """The observation count line is not wrapped in <b>...</b>."""
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         source = self._build(regression_tree.content_).source
         self.assertNotIn("Obs. count = <b>", source)
 
@@ -1193,7 +1154,7 @@ class TestBoldPredictionValues(unittest.TestCase):
         import sigma
         from sigma import _tree_text
 
-        regression_tree, _, _ = _make_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         text = sigma.export_text(regression_tree)
         self.assertNotIn("<b>", text)
         self.assertNotIn("</b>", text)

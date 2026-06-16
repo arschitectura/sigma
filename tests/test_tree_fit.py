@@ -428,16 +428,6 @@ class TestToTextPrecision(unittest.TestCase):
         output = estimator.to_text(**kwargs)
         return output
 
-    def _fit_step_classification_tree(self):
-        """Fit a binary classification tree on a perfectly separable step function."""
-        X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
-        y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
-        classification_tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        classification_tree.fit(X, y)
-        return classification_tree
-
     def _fit_noisy_classification_tree(self):
         """Fit a binary classification tree with leaves that are not pure."""
         rng = numpy.random.default_rng(42)
@@ -503,7 +493,7 @@ class TestToTextPrecision(unittest.TestCase):
 
     def test_precision_preserves_zero_and_one_probability_short_circuits(self):
         """Probabilities exactly 0.0 and 1.0 still render as '0%' and '100%'."""
-        classification_tree = self._fit_step_classification_tree()
+        classification_tree = _helpers._fit_step_classification_tree()
         output = self._capture(classification_tree, precision=5)
         self.assertNotIn(" 0.00000%", output)
         self.assertNotIn(" 100.00000%", output)

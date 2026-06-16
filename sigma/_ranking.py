@@ -176,10 +176,7 @@ def _extract_orderings_cache(
         row_sizes_list.append(int(ordering.size))
     flat_idx = numpy.concatenate(orderings).astype(numpy.intp, copy=False)
     row_sizes = numpy.asarray(row_sizes_list, dtype=numpy.intp)
-    row_starts = numpy.empty(row_sizes.size, dtype=numpy.intp)
-    row_starts[0] = 0
-    if row_sizes.size > 1:
-        numpy.cumsum(row_sizes[:-1], out=row_starts[1:])
+    row_starts = _row_starts(row_sizes)
     row_ends_inclusive = row_starts + row_sizes - 1
     ordering_weights = weights_arr[kept_indices].astype(float, copy=False)
     cache = _OrderingsCache(
@@ -217,10 +214,7 @@ def _subset_cache(
     if indices_arr.size == 0:
         return _empty_cache()
     new_row_sizes = cache.row_sizes[indices_arr]
-    new_row_starts = numpy.empty(new_row_sizes.size, dtype=numpy.intp)
-    new_row_starts[0] = 0
-    if new_row_sizes.size > 1:
-        numpy.cumsum(new_row_sizes[:-1], out=new_row_starts[1:])
+    new_row_starts = _row_starts(new_row_sizes)
     new_row_ends_inclusive = new_row_starts + new_row_sizes - 1
     parts = [
         cache.flat_idx[
@@ -305,19 +299,11 @@ def _compute_at_risk_aux(
     alpha_flat = alpha[cache.flat_idx]
     full_sum = float(alpha.sum())
     at_risk_floor = max(full_sum, 1.0) * 1.0e-300
-    flat_cumsum_alpha = numpy.cumsum(alpha_flat)
-    prev_cumsum_alpha = numpy.zeros(row_sizes.size, dtype=float)
-    prev_cumsum_alpha[1:] = flat_cumsum_alpha[row_starts[1:] - 1]
-    prev_cumsum_alpha_flat = numpy.repeat(prev_cumsum_alpha, row_sizes)
-    prefix_flat = flat_cumsum_alpha - prev_cumsum_alpha_flat
+    prefix_flat = _segment_prefix(alpha_flat, row_sizes, row_starts)
     at_risk_flat = full_sum - prefix_flat + alpha_flat
     numpy.maximum(at_risk_flat, at_risk_floor, out=at_risk_flat)
     inv_risk_flat = 1.0 / at_risk_flat
-    flat_cumsum_inv = numpy.cumsum(inv_risk_flat)
-    prev_cumsum_inv = numpy.zeros(row_sizes.size, dtype=float)
-    prev_cumsum_inv[1:] = flat_cumsum_inv[row_starts[1:] - 1]
-    prev_cumsum_inv_flat = numpy.repeat(prev_cumsum_inv, row_sizes)
-    cum_recip_flat = flat_cumsum_inv - prev_cumsum_inv_flat
+    cum_recip_flat = _segment_prefix(inv_risk_flat, row_sizes, row_starts)
     full_cum_per_row = cum_recip_flat[row_ends_inclusive]
     aux = _AtRiskAux(
         at_risk_flat=at_risk_flat,
@@ -364,9 +350,7 @@ def _compute_pl_score_per_row(
         return empty
     aux = _compute_at_risk_aux(cache, alpha)
     score = -numpy.outer(aux.full_cum_per_row, alpha)
-    row_of_flat = numpy.repeat(
-        numpy.arange(n_orderings, dtype=numpy.intp), cache.row_sizes
-    )
+    row_of_flat = _row_of_flat(cache.row_sizes)
     full_cum_repeat = aux.full_cum_per_row[row_of_flat]
     tail_recip_flat = full_cum_repeat - aux.cum_recip_flat
     alpha_flat = alpha[cache.flat_idx]
@@ -400,10 +384,7 @@ def _compute_pl_fisher_info(
     diag_part = alpha * (w_total_full_cum - tail_contrib)
     h = numpy.diag(diag_part)
     n_total = int(cache.flat_idx.size)
-    n_orderings = int(cache.row_sizes.size)
-    row_of_flat = numpy.repeat(
-        numpy.arange(n_orderings, dtype=numpy.intp), cache.row_sizes
-    )
+    row_of_flat = _row_of_flat(cache.row_sizes)
     step_in_row_flat = (
         numpy.arange(n_total, dtype=numpy.intp) - cache.row_starts[row_of_flat]
     )
@@ -455,3 +436,38 @@ def _compute_pl_expected_rank_jacobian(
     diag_correction = g.sum(axis=1) - numpy.diag(g)
     numpy.fill_diagonal(g, -diag_correction)
     return g
+
+
+def _row_starts(
+    row_sizes: numpy.typing.NDArray[numpy.intp],
+) -> numpy.typing.NDArray[numpy.intp]:
+    """Exclusive prefix offsets where each row begins in the flat layout."""
+    starts = numpy.zeros(row_sizes.size, dtype=numpy.intp)
+    if row_sizes.size > 1:
+        numpy.cumsum(row_sizes[:-1], out=starts[1:])
+    return starts
+
+
+def _segment_prefix(
+    values_flat: numpy.typing.NDArray[numpy.floating],
+    row_sizes: numpy.typing.NDArray[numpy.intp],
+    row_starts: numpy.typing.NDArray[numpy.intp],
+) -> numpy.typing.NDArray[numpy.floating]:
+    """Within-row cumulative sum of a row-segmented flat array."""
+    flat_cumsum = numpy.cumsum(values_flat)
+    prev_cumsum = numpy.zeros(row_sizes.size, dtype=float)
+    prev_cumsum[1:] = flat_cumsum[row_starts[1:] - 1]
+    prev_cumsum_flat = numpy.repeat(prev_cumsum, row_sizes)
+    prefix_flat = flat_cumsum - prev_cumsum_flat
+    return prefix_flat
+
+
+def _row_of_flat(
+    row_sizes: numpy.typing.NDArray[numpy.intp],
+) -> numpy.typing.NDArray[numpy.intp]:
+    """Row index for each element of the row-segmented flat layout."""
+    n_orderings = row_sizes.size
+    indices = numpy.repeat(
+        numpy.arange(n_orderings, dtype=numpy.intp), row_sizes
+    )
+    return indices

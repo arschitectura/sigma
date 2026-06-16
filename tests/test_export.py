@@ -12,6 +12,7 @@ import unittest
 import numpy
 import sklearn.exceptions
 
+import _helpers
 import sigma
 import sigma._tree
 import sigma._tree_classification
@@ -20,49 +21,6 @@ import sigma._tree_survival
 
 _HAS_GRAPHVIZ = importlib.util.find_spec("graphviz") is not None
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
-
-
-def _fit_step_regression_tree(reverse_order: bool = False):
-    """Fit a simple step-function regression tree used across export tests."""
-    X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
-    y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
-    regression_tree = sigma._tree_regression.RegressionTree(
-        correlation="normal",
-        min_splits=2,
-        min_buckets=1,
-        reverse_order=reverse_order,
-    )
-    regression_tree.fit(X, y)
-    return regression_tree
-
-
-def _fit_three_step_regression_tree():
-    """Fit a regression tree on a 3-step response, yielding a depth >= 2 tree."""
-    X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
-    y = numpy.where(X.ravel() < 20, 0.0, numpy.where(X.ravel() < 60, 5.0, 10.0))
-    regression_tree = sigma._tree_regression.RegressionTree(
-        correlation="normal", min_splits=2, min_buckets=1
-    )
-    regression_tree.fit(X, y)
-    return regression_tree
-
-
-def _fit_categorical_regression_tree():
-    """Fit a regression tree with a binary categorical signal."""
-    rng = numpy.random.default_rng(42)
-    n = 40
-    categorical_column = numpy.repeat([0.0, 1.0], n // 2)
-    noise = rng.standard_normal(n)
-    y = numpy.where(categorical_column == 0.0, 0.0, 10.0)
-    X = numpy.column_stack([categorical_column, noise])
-    regression_tree = sigma._tree_regression.RegressionTree(
-        correlation="normal",
-        categorical_features=[0],
-        min_splits=2,
-        min_buckets=1,
-    )
-    regression_tree.fit(X, y)
-    return regression_tree
 
 
 def _fit_multi_value_categorical_regression_tree():
@@ -127,34 +85,34 @@ class TestExportText(unittest.TestCase):
 
     def test_export_text_returns_string(self):
         """Returns a non-empty Python str matching the to_text output."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_text(regression_tree)
         self.assertIsInstance(result, str)
         self.assertGreater(len(result), 0)
 
     def test_export_text_matches_to_text_output(self):
         """Returned string equals the result of Tree.to_text."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         from_method = regression_tree.to_text()
         result = sigma.export_text(regression_tree)
         self.assertEqual(result, from_method)
 
     def test_export_text_forwards_feature_names(self):
         """Display-time feature_names are forwarded to to_text."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_text(regression_tree, feature_names=["spread"])
         self.assertIn("spread", result)
 
     def test_export_text_forwards_response_name(self):
         """response_name keyword is forwarded and rendered in the output."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_text(regression_tree, response_name="Price")
         self.assertIn("Price mean", result)
         self.assertNotIn("Predicted mean", result)
 
     def test_export_text_forwards_max_depth(self):
         """max_depth=0 truncates everything below the root with a marker."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_text(regression_tree, max_depth=0)
         self.assertIn("All records", result)
         self.assertIn("└── ...", result)
@@ -162,7 +120,7 @@ class TestExportText(unittest.TestCase):
 
     def test_export_text_forwards_precision(self):
         """precision=0 suppresses the decimal point in formatted predictions."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_text(regression_tree, precision=0)
         self.assertNotIn("0.000", result)
         self.assertNotIn("10.000", result)
@@ -177,8 +135,8 @@ class TestExportText(unittest.TestCase):
 
     def test_export_text_reverse_order_inverts_branch_order(self):
         """A reverse-ordered tree swaps the two branch lines under the root."""
-        natural_tree = _fit_step_regression_tree()
-        reversed_tree = _fit_step_regression_tree(reverse_order=True)
+        natural_tree = _helpers._fit_step_regression_tree()
+        reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         natural = sigma.export_text(natural_tree)
         reversed_text = sigma.export_text(reversed_tree)
         natural_lines = [
@@ -199,7 +157,7 @@ class TestExportText(unittest.TestCase):
 
     def test_export_text_renders_best_leaf_before_worst_by_default(self):
         """Without reverse_order, the higher-prediction branch appears first."""
-        natural_tree = _fit_step_regression_tree()
+        natural_tree = _helpers._fit_step_regression_tree()
         text = sigma.export_text(natural_tree)
         branch_lines = [
             line for line in text.splitlines() if "├──" in line or "└──" in line
@@ -212,7 +170,7 @@ class TestExportText(unittest.TestCase):
 
     def test_export_text_renders_worst_leaf_before_best_when_reversed(self):
         """With reverse_order=True, the lower-prediction branch appears first."""
-        reversed_tree = _fit_step_regression_tree(reverse_order=True)
+        reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         text = sigma.export_text(reversed_tree)
         branch_lines = [
             line for line in text.splitlines() if "├──" in line or "└──" in line
@@ -225,14 +183,14 @@ class TestExportText(unittest.TestCase):
 
     def test_to_text_matches_export_text_for_reversed_tree(self):
         """Tree.to_text() on a reverse-ordered tree matches export_text output."""
-        regression_tree = _fit_step_regression_tree(reverse_order=True)
+        regression_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         from_method = regression_tree.to_text()
         result = sigma.export_text(regression_tree)
         self.assertEqual(result, from_method)
 
     def test_export_text_table_header_column_order(self):
         """Header row lists prediction, count, share, p-value, leaf-index in order."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_text(regression_tree)
         header_line = result.splitlines()[0]
         predicted_index = header_line.index("Predicted mean")
@@ -249,7 +207,7 @@ class TestExportText(unittest.TestCase):
         self,
     ) -> None:
         """Each leaf row shows leaf_id + 1 in the Leaf index column."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_text(regression_tree)
         lines = result.splitlines()
         header_line = lines[0]
@@ -268,7 +226,7 @@ class TestExportText(unittest.TestCase):
 
     def test_export_text_split_rows_have_empty_leaf_index_cell(self):
         """Root and split-node rows leave the Leaf index column whitespace."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_text(regression_tree)
         lines = result.splitlines()
         header_line = lines[0]
@@ -280,7 +238,7 @@ class TestExportText(unittest.TestCase):
 
     def test_export_text_truncated_row_has_empty_leaf_index_cell(self):
         """A max_depth-truncated '...' row leaves the Leaf index column blank."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_text(regression_tree, max_depth=0)
         lines = result.splitlines()
         header_line = lines[0]
@@ -292,7 +250,7 @@ class TestExportText(unittest.TestCase):
 
     def test_export_text_dashed_separator_line(self):
         """The second output line carries dashed underlines for named headers."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_text(regression_tree)
         lines = result.splitlines()
         header_line = lines[0]
@@ -306,7 +264,7 @@ class TestExportText(unittest.TestCase):
 
     def test_export_text_column_alignment_between_header_and_data(self):
         """Header column starts and corresponding data cells share a column."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_text(regression_tree)
         lines = result.splitlines()
         header_line = lines[0]
@@ -322,7 +280,7 @@ class TestExportText(unittest.TestCase):
 
     def test_export_text_leaf_has_empty_split_p_value_cell(self):
         """Leaf rows have whitespace at the Split p-value column position."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_text(regression_tree)
         lines = result.splitlines()
         header_line = lines[0]
@@ -405,14 +363,14 @@ class TestExportGraphviz(unittest.TestCase):
 
     def test_export_graphviz_returns_dot_string_when_out_file_none(self):
         """Returns the DOT source as a Python str when out_file is None."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_graphviz(regression_tree)
         self.assertIsInstance(result, str)
         self.assertTrue(result.startswith("digraph"))
 
     def test_export_graphviz_writes_to_file_path(self):
         """Writes the DOT source to disk when out_file is a string path."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "tree.dot")
             result = sigma.export_graphviz(regression_tree, path)
@@ -423,7 +381,7 @@ class TestExportGraphviz(unittest.TestCase):
 
     def test_export_graphviz_writes_to_file_handle(self):
         """Writes the DOT source to a file-like out_file and returns None."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         buffer = io.StringIO()
         result = sigma.export_graphviz(regression_tree, buffer)
         self.assertIsNone(result)
@@ -431,7 +389,7 @@ class TestExportGraphviz(unittest.TestCase):
 
     def test_export_graphviz_forwards_feature_names(self):
         """Display-time feature_names appear in the DOT source."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_graphviz(
             regression_tree, feature_names=["spread"]
         )
@@ -439,7 +397,7 @@ class TestExportGraphviz(unittest.TestCase):
 
     def test_export_graphviz_forwards_category_labels(self):
         """Display-time category_labels are forwarded into the DOT source."""
-        regression_tree = _fit_categorical_regression_tree()
+        regression_tree = _helpers._fit_categorical_regression_tree()
         result = sigma.export_graphviz(
             regression_tree,
             feature_names=["color", "noise"],
@@ -450,32 +408,32 @@ class TestExportGraphviz(unittest.TestCase):
 
     def test_export_graphviz_forwards_max_depth(self):
         """A truncation placeholder appears in the DOT source under max_depth."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_graphviz(regression_tree, max_depth=0)
         self.assertIn("...", result)
 
     def test_export_graphviz_forwards_precision(self):
         """precision=0 suppresses the decimal point in the formatted threshold."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_graphviz(regression_tree, precision=0)
         self.assertIn("<= 20", result)
         self.assertNotIn("<= 20.5", result)
 
     def test_export_graphviz_raises_on_invalid_max_depth(self):
         """Raises ValueError for negative or non-integer max_depth."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with self.assertRaises(ValueError):
             sigma.export_graphviz(regression_tree, max_depth=-1)
 
     def test_export_graphviz_raises_on_invalid_precision(self):
         """Raises ValueError for negative or non-integer precision."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with self.assertRaises(ValueError):
             sigma.export_graphviz(regression_tree, precision=-1)
 
     def test_export_graphviz_raises_on_invalid_out_file_type(self):
         """Raises TypeError for an out_file that is neither None, str, nor file-like."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bad_out_file = typing.cast(typing.IO[str], 123)
         with self.assertRaises(TypeError):
             sigma.export_graphviz(regression_tree, out_file=bad_out_file)
@@ -490,13 +448,13 @@ class TestExportGraphviz(unittest.TestCase):
 
     def test_export_graphviz_default_orientation_is_top_down(self):
         """Default DOT source sets rankdir=TB (top-down layout)."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_graphviz(regression_tree)
         self.assertIn("rankdir=TB", result)
 
     def test_export_graphviz_orientation_left_to_right(self):
         """orientation='left-to-right' sets rankdir=LR in the DOT source."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_graphviz(
             regression_tree, orientation="left-to-right"
         )
@@ -504,8 +462,8 @@ class TestExportGraphviz(unittest.TestCase):
 
     def test_export_graphviz_reverse_order_inverts_child_emission(self):
         """A reverse-ordered tree flips the order of the two child edges."""
-        natural_tree = _fit_step_regression_tree()
-        reversed_tree = _fit_step_regression_tree(reverse_order=True)
+        natural_tree = _helpers._fit_step_regression_tree()
+        reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         natural_root = natural_tree.content_
         natural_partition = natural_root.extension
         assert isinstance(natural_partition, sigma.Partition)
@@ -552,53 +510,23 @@ class TestExportGraphviz(unittest.TestCase):
 
     def test_export_graphviz_default_dpi_appears_in_dot_graph_attr(self):
         """The default dpi=192 is baked into the DOT graph attribute."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_graphviz(regression_tree)
         self.assertIn("dpi=192", result)
 
     def test_export_graphviz_custom_dpi_appears_in_dot_graph_attr(self):
         """A custom dpi value is baked into the returned DOT graph attribute."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_graphviz(regression_tree, dpi=72)
         self.assertIn("dpi=72", result)
 
     def test_export_graphviz_raises_on_invalid_dpi(self):
         """Raises ValueError when dpi is zero, negative, or not an integer."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with self.assertRaises(ValueError):
             sigma.export_graphviz(regression_tree, dpi=0)
         with self.assertRaises(ValueError):
             sigma.export_graphviz(regression_tree, dpi=-50)
-
-
-def _fit_step_classification_tree(reverse_order: bool = False):
-    """Fit a binary classification tree on a perfectly separable step function."""
-    X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
-    y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
-    classification_tree = sigma._tree_classification.ClassificationTree(
-        correlation="normal",
-        min_splits=2,
-        min_buckets=1,
-        reverse_order=reverse_order,
-    )
-    classification_tree.fit(X, y)
-    return classification_tree
-
-
-def _fit_step_survival_tree(reverse_order: bool = False):
-    """Fit a survival tree on a binary categorical signal with median metric."""
-    times = numpy.linspace(1.0, 10.0, 60)
-    events = numpy.tile([1.0, 0.0], 30)
-    y = numpy.column_stack([times, events])
-    X = numpy.column_stack([numpy.repeat([0.0, 1.0], 30)])
-    survival_tree = sigma._tree_survival.SurvivalTree(
-        categorical_features=[0],
-        min_splits=2,
-        min_buckets=1,
-        reverse_order=reverse_order,
-    )
-    survival_tree.fit(X, y)
-    return survival_tree
 
 
 def _fit_regression_tree_no_ci():
@@ -667,14 +595,14 @@ class TestExportImage(unittest.TestCase):
 
     def test_export_image_png_returns_bytes(self):
         """PNG format returns bytes that begin with the PNG magic prefix."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(regression_tree, "png")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"\x89PNG"))
 
     def test_export_image_svg_returns_bytes(self):
         """SVG format returns bytes that begin with the SVG/XML header."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(regression_tree, "svg")
         self.assertIsInstance(result, bytes)
         self.assertTrue(
@@ -683,49 +611,49 @@ class TestExportImage(unittest.TestCase):
 
     def test_export_image_pdf_returns_bytes(self):
         """PDF format returns bytes that begin with the PDF magic prefix."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(regression_tree, "pdf")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"%PDF-"))
 
     def test_export_image_gif_returns_bytes(self):
         """GIF format returns bytes that begin with the GIF magic prefix."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(regression_tree, "gif")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"GIF8"))
 
     def test_export_image_custom_dpi_propagates_to_png(self):
         """A higher dpi produces a strictly larger PNG byte payload."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low = sigma.export_image(regression_tree, "png", dpi=72)
         high = sigma.export_image(regression_tree, "png", dpi=600)
         self.assertGreater(len(high), len(low))
 
     def test_export_image_custom_dpi_propagates_to_gif(self):
         """A higher dpi produces a strictly larger GIF byte payload."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low = sigma.export_image(regression_tree, "gif", dpi=72)
         high = sigma.export_image(regression_tree, "gif", dpi=600)
         self.assertGreater(len(high), len(low))
 
     def test_export_image_custom_dpi_propagates_to_svg(self):
         """A higher dpi proportionally enlarges the SVG width attribute."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low = sigma.export_image(regression_tree, "svg", dpi=72)
         high = sigma.export_image(regression_tree, "svg", dpi=600)
         self.assertGreater(_svg_root_width(high), _svg_root_width(low))
 
     def test_export_image_custom_dpi_propagates_to_pdf(self):
         """A higher dpi produces a strictly larger PDF byte payload."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low = sigma.export_image(regression_tree, "pdf", dpi=72)
         high = sigma.export_image(regression_tree, "pdf", dpi=600)
         self.assertGreater(len(high), len(low))
 
     def test_export_image_writes_to_file_path(self):
         """A string out_file writes the bytes to disk and returns None."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "tree.png")
             result = sigma.export_image(regression_tree, "png", path)
@@ -736,7 +664,7 @@ class TestExportImage(unittest.TestCase):
 
     def test_export_image_writes_to_file_handle(self):
         """A binary file-like out_file is written to and returns None."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         buffer = io.BytesIO()
         result = sigma.export_image(regression_tree, "png", buffer)
         self.assertIsNone(result)
@@ -744,14 +672,14 @@ class TestExportImage(unittest.TestCase):
 
     def test_export_image_raises_on_invalid_format(self):
         """Raises ValueError for an unsupported format string."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bad_format = typing.cast(typing.Any, "jpeg")
         with self.assertRaises(ValueError):
             sigma.export_image(regression_tree, bad_format)
 
     def test_export_image_raises_on_invalid_dpi(self):
         """Raises ValueError when dpi is zero, negative, or not an integer."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with self.assertRaises(ValueError):
             sigma.export_image(regression_tree, "png", dpi=0)
         with self.assertRaises(ValueError):
@@ -759,7 +687,7 @@ class TestExportImage(unittest.TestCase):
 
     def test_export_image_raises_on_invalid_out_file_type(self):
         """Raises TypeError for an out_file that is neither None, str, nor file-like."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bad_out_file = typing.cast(typing.IO[bytes], 123)
         with self.assertRaises(TypeError):
             sigma.export_image(regression_tree, "png", bad_out_file)
@@ -774,7 +702,7 @@ class TestExportImage(unittest.TestCase):
 
     def test_export_image_forwards_feature_names(self):
         """Display-time feature_names appear inside the rendered SVG."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(
             regression_tree, "svg", feature_names=["spread"]
         )
@@ -782,7 +710,7 @@ class TestExportImage(unittest.TestCase):
 
     def test_export_image_forwards_category_labels(self):
         """Display-time category_labels appear inside the rendered SVG."""
-        regression_tree = _fit_categorical_regression_tree()
+        regression_tree = _helpers._fit_categorical_regression_tree()
         result = sigma.export_image(
             regression_tree,
             "svg",
@@ -794,7 +722,7 @@ class TestExportImage(unittest.TestCase):
 
     def test_export_image_forwards_max_depth_and_precision(self):
         """max_depth and precision threading affect the SVG output."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         truncated = sigma.export_image(regression_tree, "svg", max_depth=0)
         full = sigma.export_image(regression_tree, "svg")
         self.assertNotEqual(truncated, full)
@@ -804,8 +732,8 @@ class TestExportImage(unittest.TestCase):
 
     def test_export_image_reverse_order(self):
         """A reverse-ordered tree changes the rendered SVG output."""
-        natural_tree = _fit_step_regression_tree()
-        reversed_tree = _fit_step_regression_tree(reverse_order=True)
+        natural_tree = _helpers._fit_step_regression_tree()
+        reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         natural = sigma.export_image(natural_tree, "svg")
         reversed_svg = sigma.export_image(reversed_tree, "svg")
         self.assertNotEqual(natural, reversed_svg)
@@ -819,14 +747,14 @@ class TestToText(unittest.TestCase):
 
     def test_to_text_returns_string_by_default(self):
         """With no out_file, returns the rendered text as a Python str."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_text()
         self.assertIsInstance(result, str)
         self.assertGreater(len(result), 0)
 
     def test_to_text_writes_to_file_path(self):
         """A string out_file writes the text to disk and returns None."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "tree.txt")
             result = regression_tree.to_text(path)
@@ -838,7 +766,7 @@ class TestToText(unittest.TestCase):
 
     def test_to_text_writes_to_file_handle(self):
         """A text file-like out_file is written to and returns None."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         buffer = io.StringIO()
         result = regression_tree.to_text(buffer)
         self.assertIsNone(result)
@@ -847,7 +775,7 @@ class TestToText(unittest.TestCase):
 
     def test_to_text_raises_on_invalid_out_file_type(self):
         """Raises TypeError for an out_file that is neither None, str, nor file-like."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bad_out_file = typing.cast(typing.IO[str], 123)
         with self.assertRaises(TypeError):
             regression_tree.to_text(bad_out_file)
@@ -861,14 +789,14 @@ class TestToImage(unittest.TestCase):
 
     def test_to_image_returns_bytes_by_default(self):
         """With no out_file, returns the rendered bytes."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("png")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"\x89PNG"))
 
     def test_to_image_writes_png_to_file_path(self):
         """A string out_file writes the PNG to disk and returns None."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "tree.png")
             result = regression_tree.to_image("png", path)
@@ -879,7 +807,7 @@ class TestToImage(unittest.TestCase):
 
     def test_to_image_writes_png_to_file_handle(self):
         """A binary file-like out_file is written to and returns None."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         buffer = io.BytesIO()
         result = regression_tree.to_image("png", buffer)
         self.assertIsNone(result)
@@ -887,42 +815,42 @@ class TestToImage(unittest.TestCase):
 
     def test_to_image_custom_dpi_propagates_to_png(self):
         """A higher dpi via the shortcut method produces a larger PNG."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low = regression_tree.to_image("png", dpi=72)
         high = regression_tree.to_image("png", dpi=600)
         self.assertGreater(len(high), len(low))
 
     def test_to_image_custom_dpi_propagates_to_gif(self):
         """A higher dpi via the shortcut method produces a larger GIF."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low = regression_tree.to_image("gif", dpi=72)
         high = regression_tree.to_image("gif", dpi=600)
         self.assertGreater(len(high), len(low))
 
     def test_to_image_custom_dpi_propagates_to_svg(self):
         """A higher dpi via the shortcut method enlarges the SVG width."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low = regression_tree.to_image("svg", dpi=72)
         high = regression_tree.to_image("svg", dpi=600)
         self.assertGreater(_svg_root_width(high), _svg_root_width(low))
 
     def test_to_image_custom_dpi_propagates_to_pdf(self):
         """A higher dpi via the shortcut method produces a larger PDF."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low = regression_tree.to_image("pdf", dpi=72)
         high = regression_tree.to_image("pdf", dpi=600)
         self.assertGreater(len(high), len(low))
 
     def test_to_image_raises_on_invalid_format(self):
         """Raises ValueError for an unsupported format string (including 'dot')."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bad_format = typing.cast(typing.Any, "dot")
         with self.assertRaises(ValueError):
             regression_tree.to_image(bad_format)
 
     def test_to_image_raises_on_invalid_out_file_type(self):
         """Raises TypeError for an out_file that is neither None, str, nor file-like."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bad_out_file = typing.cast(typing.IO[bytes], 123)
         with self.assertRaises(TypeError):
             regression_tree.to_image("png", bad_out_file)
@@ -935,28 +863,28 @@ class TestReprMimebundle(unittest.TestCase):
 
     def test_fitted_tree_returns_svg_in_bundle(self):
         """A fitted tree's mime bundle exposes image/svg+xml as a string."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bundle = regression_tree._repr_mimebundle_()
         self.assertIn("image/svg+xml", bundle)
         self.assertIsInstance(bundle["image/svg+xml"], str)
 
     def test_fitted_tree_svg_is_well_formed(self):
         """The bundled SVG payload contains an <svg ...> root element."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bundle = regression_tree._repr_mimebundle_()
         svg = bundle["image/svg+xml"]
         self.assertIn("<svg", svg)
 
     def test_fitted_tree_bundle_includes_text_plain(self):
         """The fitted-tree bundle still carries a text/plain fallback."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bundle = regression_tree._repr_mimebundle_()
         self.assertIn("text/plain", bundle)
         self.assertIsInstance(bundle["text/plain"], str)
 
     def test_fitted_tree_bundle_excludes_estimator_widget(self):
         """The fitted-tree bundle does not carry sklearn's text/html widget."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bundle = regression_tree._repr_mimebundle_()
         self.assertNotIn("text/html", bundle)
 
@@ -976,7 +904,7 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_default_kind_is_tree_when_omitted(self):
         """Omitting kind reproduces the same bytes as kind='tree'."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         if not _HAS_GRAPHVIZ:
             self.skipTest("graphviz not installed")
         default_bytes = sigma.export_image(regression_tree, "svg")
@@ -985,7 +913,7 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_regression_png_returns_bytes(self):
         """Regression response PNG begins with the PNG magic prefix."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(
             regression_tree, "png", kind="response", response_name="Y"
         )
@@ -994,7 +922,7 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_regression_svg_carries_response_name(self):
         """Regression response SVG embeds response_name in its y-axis label."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(
             regression_tree,
             "svg",
@@ -1005,13 +933,13 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_regression_svg_includes_leaf_axis_label(self):
         """Regression response SVG carries the 'Leaf number' x-axis label."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(regression_tree, "svg", kind="response")
         self.assertIn(b"Leaf number", result)
 
     def test_response_classification_svg_contains_class_names(self):
         """Classification response SVG renders class names with leading caps."""
-        classification_tree = _fit_step_classification_tree()
+        classification_tree = _helpers._fit_step_classification_tree()
         result = sigma.export_image(
             classification_tree,
             "svg",
@@ -1023,7 +951,7 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_survival_svg_contains_legend_and_axis(self):
         """Survival response SVG carries the 'Leaf number' legend and time x-axis."""
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         result = sigma.export_image(
             survival_tree, "svg", kind="response", response_name="time"
         )
@@ -1039,7 +967,7 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_survival(
@@ -1065,7 +993,7 @@ class TestExportImageResponse(unittest.TestCase):
         from sigma import _palette
         from sigma import _response_plot
 
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_survival(
@@ -1093,7 +1021,7 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_survival(
@@ -1128,7 +1056,7 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_survival(
@@ -1188,7 +1116,7 @@ class TestExportImageResponse(unittest.TestCase):
         from sigma import _palette
         from sigma import _response_plot
 
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_survival(
@@ -1225,7 +1153,7 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_survival(
@@ -1251,7 +1179,7 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        classification_tree = _fit_step_classification_tree()
+        classification_tree = _helpers._fit_step_classification_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_classification(
@@ -1278,7 +1206,7 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_regression(
@@ -1296,7 +1224,7 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_survival(
@@ -1316,7 +1244,7 @@ class TestExportImageResponse(unittest.TestCase):
         from sigma import _palette
         from sigma import _response_plot
 
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_regression(
@@ -1346,8 +1274,8 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        natural_tree = _fit_step_regression_tree()
-        reversed_tree = _fit_step_regression_tree(reverse_order=True)
+        natural_tree = _helpers._fit_step_regression_tree()
+        reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         natural_figure = matplotlib.figure.Figure()
         natural_axes = natural_figure.add_subplot(111)
         _response_plot._plot_regression(
@@ -1380,8 +1308,10 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        natural_tree = _fit_step_classification_tree()
-        reversed_tree = _fit_step_classification_tree(reverse_order=True)
+        natural_tree = _helpers._fit_step_classification_tree()
+        reversed_tree = _helpers._fit_step_classification_tree(
+            reverse_order=True
+        )
         figure_default = matplotlib.figure.Figure()
         axes_default = figure_default.add_subplot(111)
         _response_plot._plot_classification(
@@ -1419,7 +1349,7 @@ class TestExportImageResponse(unittest.TestCase):
         from sigma import _palette
         from sigma import _response_plot
 
-        classification_tree = _fit_step_classification_tree()
+        classification_tree = _helpers._fit_step_classification_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_classification(
@@ -1452,7 +1382,7 @@ class TestExportImageResponse(unittest.TestCase):
         from sigma import _palette
         from sigma import _response_plot
 
-        classification_tree = _fit_step_classification_tree()
+        classification_tree = _helpers._fit_step_classification_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_classification(
@@ -1482,7 +1412,7 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        classification_tree = _fit_step_classification_tree()
+        classification_tree = _helpers._fit_step_classification_tree()
         figure_with_ci = matplotlib.figure.Figure()
         axes_with_ci = figure_with_ci.add_subplot(111)
         _response_plot._plot_classification(
@@ -1522,8 +1452,8 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        natural_tree = _fit_step_survival_tree()
-        reversed_tree = _fit_step_survival_tree(reverse_order=True)
+        natural_tree = _helpers._fit_step_survival_tree()
+        reversed_tree = _helpers._fit_step_survival_tree(reverse_order=True)
         natural_figure = matplotlib.figure.Figure()
         natural_axes = natural_figure.add_subplot(111)
         _response_plot._plot_survival(
@@ -1563,21 +1493,21 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_gif_returns_gif_bytes(self):
         """Response GIF output begins with the GIF magic prefix."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(regression_tree, "gif", kind="response")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"GIF8"))
 
     def test_response_pdf_returns_pdf_bytes(self):
         """Response PDF output begins with the PDF magic prefix."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(regression_tree, "pdf", kind="response")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"%PDF-"))
 
     def test_response_writes_to_file_path(self):
         """A string out_file writes the response bytes to disk and returns None."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "tree_response.png")
             result = sigma.export_image(
@@ -1590,7 +1520,7 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_writes_to_file_handle(self):
         """A binary file-like out_file is written to and returns None."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         buffer = io.BytesIO()
         result = sigma.export_image(
             regression_tree, "png", buffer, kind="response"
@@ -1600,14 +1530,14 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_invalid_kind_raises(self):
         """An unsupported kind value raises ValueError."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bad_kind = typing.cast(typing.Any, "anything")
         with self.assertRaises(ValueError):
             sigma.export_image(regression_tree, "png", kind=bad_kind)
 
     def test_to_image_response_matches_export_image_response(self):
         """Tree.to_image(kind='response') equals sigma.export_image(kind='response')."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         from_method = regression_tree.to_image(
             "png", kind="response", response_name="Y"
         )
@@ -1618,7 +1548,7 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_custom_dpi_propagates_to_regression_svg(self):
         """A higher dpi proportionally enlarges the regression response SVG width."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         low = sigma.export_image(
             regression_tree, "svg", kind="response", dpi=72
         )
@@ -1629,7 +1559,7 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_custom_dpi_propagates_to_classification_svg(self):
         """A higher dpi proportionally enlarges the classification response SVG width."""
-        classification_tree = _fit_step_classification_tree()
+        classification_tree = _helpers._fit_step_classification_tree()
         low = sigma.export_image(
             classification_tree, "svg", kind="response", dpi=72
         )
@@ -1640,7 +1570,7 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_custom_dpi_propagates_to_survival_svg(self):
         """A higher dpi proportionally enlarges the survival response SVG width."""
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         low = sigma.export_image(survival_tree, "svg", kind="response", dpi=72)
         high = sigma.export_image(
             survival_tree, "svg", kind="response", dpi=600
@@ -1651,7 +1581,7 @@ class TestExportImageResponse(unittest.TestCase):
         """Tree and response SVG widths scale by the same dpi/72 factor."""
         if not _HAS_GRAPHVIZ:
             self.skipTest("graphviz not installed")
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         tree_low = sigma.export_image(regression_tree, "svg", dpi=72)
         tree_high = sigma.export_image(regression_tree, "svg", dpi=600)
         response_low = sigma.export_image(
@@ -1718,7 +1648,7 @@ class TestExportImageResponse(unittest.TestCase):
 
         from sigma import _response_plot
 
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         _response_plot._plot_regression(
@@ -1912,21 +1842,21 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_returns_string(self):
         """Returns a non-empty Python str matching the to_sql output."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_sql(regression_tree)
         self.assertIsInstance(result, str)
         self.assertGreater(len(result), 0)
 
     def test_export_sql_matches_to_sql_output(self):
         """Returned string equals the result of Tree.to_sql."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         from_method = regression_tree.to_sql()
         result = sigma.export_sql(regression_tree)
         self.assertEqual(result, from_method)
 
     def test_export_sql_writes_to_string_path(self):
         """Writing to a filesystem path returns None and produces the file."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         expected = sigma.export_sql(regression_tree)
         with tempfile.TemporaryDirectory() as directory:
             file_path = os.path.join(directory, "tree.sql")
@@ -1938,7 +1868,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_writes_to_file_like(self):
         """Writing to an io.StringIO returns None and writes the same content."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         expected = sigma.export_sql(regression_tree)
         buffer = io.StringIO()
         result = sigma.export_sql(regression_tree, buffer)
@@ -1947,7 +1877,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_emits_case_not_if(self):
         """The emitted expression uses CASE/WHEN/END and never the IF function."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_sql(regression_tree)
         self.assertIn("CASE", result)
         self.assertIn("WHEN ", result)
@@ -1957,7 +1887,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_numerical_tree_every_level_has_else_null(self):
         """A numerical-only tree carries ELSE NULL on every internal CASE."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_sql(regression_tree)
         case_count = result.count("CASE")
         else_null_count = result.count("ELSE NULL")
@@ -1968,7 +1898,7 @@ class TestExportSql(unittest.TestCase):
         self,
     ):
         """A categorical split's ELSE emits the internal node's prediction."""
-        regression_tree = _fit_categorical_regression_tree()
+        regression_tree = _helpers._fit_categorical_regression_tree()
         result = sigma.export_sql(regression_tree)
         root_prediction = regression_tree.content_.prediction
         expected_literal = repr(float(root_prediction))
@@ -1977,14 +1907,14 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_numerical_split_emits_both_branches(self):
         """A numerical split renders both <= and > as explicit WHEN clauses."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_sql(regression_tree, feature_names=["spread"])
         self.assertIn('WHEN "spread" <= 20 THEN', result)
         self.assertIn('WHEN "spread" > 20 THEN', result)
 
     def test_export_sql_integer_threshold_has_no_trailing_dot_zero(self):
         """Integer-valued numerical thresholds render as bare ints."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_sql(regression_tree)
         self.assertNotIn(" <= 20.0 THEN", result)
         self.assertNotIn(" > 20.0 THEN", result)
@@ -2002,7 +1932,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_single_value_categorical_split_emits_equality(self):
         """A categorical split routing one value per side emits = v, not IN (v)."""
-        regression_tree = _fit_categorical_regression_tree()
+        regression_tree = _helpers._fit_categorical_regression_tree()
         result = sigma.export_sql(regression_tree)
         self.assertNotIn(" IN (", result)
         self.assertRegex(result, r'WHEN "X\[0\]" = 0\.0 THEN')
@@ -2024,14 +1954,14 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_feature_names_double_quoted(self):
         """User-supplied feature_names are emitted as double-quoted identifiers."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_sql(regression_tree, feature_names=["spread"])
         self.assertIn('"spread"', result)
         self.assertNotIn("'spread'", result)
 
     def test_export_sql_feature_name_with_spaces_quoted(self):
         """A feature name with a space survives via double-quoting."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_sql(
             regression_tree, feature_names=["Spread (bps)"]
         )
@@ -2039,19 +1969,19 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_reserved_keyword_feature_name(self):
         """A reserved SQL keyword as a feature name is safe via quoting."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_sql(regression_tree, feature_names=["select"])
         self.assertIn('"select"', result)
 
     def test_export_sql_feature_name_with_embedded_double_quote(self):
         """An embedded double quote in a feature name is doubled per SQL-92."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_sql(regression_tree, feature_names=['a"b'])
         self.assertIn('"a""b"', result)
 
     def test_export_sql_categorical_label_single_quoted_with_escape(self):
         """String category labels render single-quoted with ' doubled."""
-        regression_tree = _fit_categorical_regression_tree()
+        regression_tree = _helpers._fit_categorical_regression_tree()
         category_labels = {0: {0.0: "O'Brien", 1.0: "Smith"}}
         result = sigma.export_sql(
             regression_tree, category_labels=category_labels
@@ -2061,7 +1991,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_category_labels_render_as_equality(self):
         """When category_labels are provided, singleton sides render = 'label'."""
-        regression_tree = _fit_categorical_regression_tree()
+        regression_tree = _helpers._fit_categorical_regression_tree()
         category_labels = {0: {0.0: "low", 1.0: "high"}}
         result = sigma.export_sql(
             regression_tree, category_labels=category_labels
@@ -2072,7 +2002,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_leaf_comments_numbered_one_indexed(self):
         """Each leaf carries a 1-indexed -- Leaf N comment."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_sql(regression_tree)
         leaf_count = len(regression_tree.leaves_)
         for leaf_index in range(leaf_count):
@@ -2082,7 +2012,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_each_leaf_on_distinct_line(self):
         """One -- Leaf N comment per non-blank leaf-rendering line."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_sql(regression_tree)
         leaf_lines = [
             line for line in result.splitlines() if "-- Leaf " in line
@@ -2091,7 +2021,9 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_branch_order_matches_text_export_default(self):
         """With reverse_order=False, the first WHEN matches the higher branch."""
-        regression_tree = _fit_step_regression_tree(reverse_order=False)
+        regression_tree = _helpers._fit_step_regression_tree(
+            reverse_order=False
+        )
         sql = sigma.export_sql(regression_tree)
         case_body = sql.split("\n")
         when_lines = [
@@ -2103,7 +2035,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_branch_order_inverts_when_reverse_order_true(self):
         """A reverse-ordered tree flips the SQL branch ordering."""
-        regression_tree = _fit_step_regression_tree(reverse_order=True)
+        regression_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         sql = sigma.export_sql(regression_tree)
         case_body = sql.split("\n")
         when_lines = [
@@ -2115,7 +2047,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_max_depth_zero_truncates_to_root(self):
         """max_depth=0 collapses the entire tree to a single root leaf line."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_sql(regression_tree, max_depth=0)
         self.assertNotIn("CASE", result)
         self.assertNotIn("WHEN ", result)
@@ -2123,7 +2055,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_max_depth_one_collapses_descendants(self):
         """max_depth=1 keeps the root split and collapses each child to a leaf."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_sql(regression_tree, max_depth=1)
         self.assertEqual(result.count("CASE"), 1)
         self.assertIn("-- Truncated at depth 1", result)
@@ -2138,20 +2070,20 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_rejects_negative_max_depth(self):
         """Negative max_depth raises ValueError, matching export_text."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with self.assertRaises(ValueError):
             sigma.export_sql(regression_tree, max_depth=-1)
 
     def test_export_sql_rejects_invalid_out_file(self):
         """A non-path non-file-like out_file raises TypeError."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         bad_out_file = typing.cast(typing.IO[str], 123)
         with self.assertRaises(TypeError):
             sigma.export_sql(regression_tree, bad_out_file)
 
     def test_export_sql_classification_default_target_class_last(self):
         """Default target_class=None emits class_distribution[-1] per leaf."""
-        classification_tree = _fit_step_classification_tree()
+        classification_tree = _helpers._fit_step_classification_tree()
         result = classification_tree.to_sql()
         last_class_index = len(classification_tree.classes_) - 1
         for leaf in classification_tree.leaves_:
@@ -2160,7 +2092,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_classification_explicit_target_class(self):
         """target_class=<first class> emits class_distribution[0] per leaf."""
-        classification_tree = _fit_step_classification_tree()
+        classification_tree = _helpers._fit_step_classification_tree()
         first_class = classification_tree.classes_[0]
         result = classification_tree.to_sql(target_class=first_class)
         for leaf in classification_tree.leaves_:
@@ -2183,19 +2115,19 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_target_class_for_regression_raises(self):
         """target_class on a regression tree raises ValueError."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         with self.assertRaises(ValueError):
             regression_tree.to_sql(target_class="anything")
 
     def test_export_sql_target_class_for_survival_raises(self):
         """target_class on a survival tree raises ValueError."""
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         with self.assertRaises(ValueError):
             survival_tree.to_sql(target_class="anything")
 
     def test_export_sql_target_class_not_in_classes_raises(self):
         """target_class not in tree.classes_ raises ValueError."""
-        classification_tree = _fit_step_classification_tree()
+        classification_tree = _helpers._fit_step_classification_tree()
         with self.assertRaises(ValueError):
             classification_tree.to_sql(target_class=42.0)
 
@@ -2214,7 +2146,7 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_survival_renders_first_metric_value(self):
         """A SurvivalTree emits node.prediction (first metric) at each leaf."""
-        survival_tree = _fit_step_survival_tree()
+        survival_tree = _helpers._fit_step_survival_tree()
         result = survival_tree.to_sql()
         for leaf in survival_tree.leaves_:
             expected = _format_sql_numeric(leaf.prediction)
@@ -2222,13 +2154,13 @@ class TestExportSql(unittest.TestCase):
 
     def test_export_sql_no_trailing_newline(self):
         """The emitted SQL does not end with a trailing newline."""
-        regression_tree = _fit_three_step_regression_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_sql(regression_tree)
         self.assertFalse(result.endswith("\n"))
 
     def test_export_sql_non_finite_leaf_emits_null(self):
         """A non-finite leaf prediction renders as the bare NULL keyword."""
-        regression_tree = _fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         first_leaf = regression_tree.leaves_[0]
         first_leaf.prediction = float("nan")
         result = regression_tree.to_sql()

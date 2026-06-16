@@ -1,4 +1,4 @@
-"""Shared fixtures and helpers used across the split test_tree_*.py files."""
+"""Shared fixtures and helpers used across the test suite."""
 
 import typing
 
@@ -7,7 +7,9 @@ import pandas
 
 import sigma._node
 import sigma._partition
+import sigma._tree_classification
 import sigma._tree_regression
+import sigma._tree_survival
 
 
 _NodeT = typing.TypeVar("_NodeT", bound=sigma._node.Node)
@@ -127,6 +129,36 @@ def _fit_categorical_regression_tree(X_is_dataframe=False, **kwargs):
     )
     regression_tree.fit(X, y)
     return regression_tree
+
+
+def _fit_step_classification_tree(**kwargs):
+    """Fit a binary classification tree on a perfectly separable step function."""
+    X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
+    y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
+    classification_tree = sigma._tree_classification.ClassificationTree(
+        correlation="normal",
+        min_splits=2,
+        min_buckets=1,
+        **kwargs,
+    )
+    classification_tree.fit(X, y)
+    return classification_tree
+
+
+def _fit_step_survival_tree(**kwargs):
+    """Fit a survival tree on a binary categorical signal with median metric."""
+    times = numpy.linspace(1.0, 10.0, 60)
+    events = numpy.tile([1.0, 0.0], 30)
+    y = numpy.column_stack([times, events])
+    X = numpy.column_stack([numpy.repeat([0.0, 1.0], 30)])
+    survival_tree = sigma._tree_survival.SurvivalTree(
+        categorical_features=[0],
+        min_splits=2,
+        min_buckets=1,
+        **kwargs,
+    )
+    survival_tree.fit(X, y)
+    return survival_tree
 
 
 def _collect_nodes(node: _NodeT) -> list[_NodeT]:

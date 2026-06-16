@@ -56,11 +56,7 @@ def find_best_split_numeric(
         right_weight = weights[~left_mask].sum()
         if left_weight < min_buckets or right_weight < min_buckets:
             continue
-        g_j = left_mask.astype(float).reshape(-1, 1)
-        T = _statistics.compute_linear_statistic(g_j, h, weights)
-        mu = _statistics.compute_conditional_expectation(g_j, h, weights)
-        Sigma = _statistics.compute_conditional_covariance(g_j, h, weights)
-        statistic = _statistics.compute_test_statistic(T, mu, Sigma, test_stat)
+        statistic = _score_split(left_mask, h, weights, test_stat)
         if statistic > best_statistic:
             best_statistic = statistic
             best_threshold = threshold
@@ -103,11 +99,7 @@ def find_best_split_boolean(
     right_weight = weights[~left_mask].sum()
     if left_weight < min_buckets or right_weight < min_buckets:
         return None
-    g_j = left_mask.astype(float).reshape(-1, 1)
-    T = _statistics.compute_linear_statistic(g_j, h, weights)
-    mu = _statistics.compute_conditional_expectation(g_j, h, weights)
-    Sigma = _statistics.compute_conditional_covariance(g_j, h, weights)
-    statistic = _statistics.compute_test_statistic(T, mu, Sigma, test_stat)
+    statistic = _score_split(left_mask, h, weights, test_stat)
     result = (True, float(statistic))
     return result
 
@@ -152,11 +144,7 @@ def find_best_split_categorical(
         right_weight = weights[~left_mask].sum()
         if left_weight < min_buckets or right_weight < min_buckets:
             continue
-        g_j = left_mask.astype(float).reshape(-1, 1)
-        T = _statistics.compute_linear_statistic(g_j, h, weights)
-        mu = _statistics.compute_conditional_expectation(g_j, h, weights)
-        Sigma = _statistics.compute_conditional_covariance(g_j, h, weights)
-        statistic = _statistics.compute_test_statistic(T, mu, Sigma, test_stat)
+        statistic = _score_split(left_mask, h, weights, test_stat)
         if statistic > best_statistic:
             best_statistic = statistic
             best_left = frozenset(left_set)
@@ -239,6 +227,21 @@ def _maybe_rank_h(
     if is_rank and is_regression:
         h = _statistics._rank_transform(h, weights)
     return h
+
+
+def _score_split(
+    left_mask: numpy.typing.NDArray[numpy.bool_],
+    h: numpy.typing.NDArray[numpy.floating],
+    weights: numpy.typing.NDArray[numpy.floating],
+    test_stat: _types.TestStat,
+) -> float:
+    """Test statistic for the binary split routing left_mask records left."""
+    g_j = left_mask.astype(float).reshape(-1, 1)
+    T = _statistics.compute_linear_statistic(g_j, h, weights)
+    mu = _statistics.compute_conditional_expectation(g_j, h, weights)
+    Sigma = _statistics.compute_conditional_covariance(g_j, h, weights)
+    statistic = _statistics.compute_test_statistic(T, mu, Sigma, test_stat)
+    return statistic
 
 
 def _exhaustive_partitions(

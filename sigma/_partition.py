@@ -205,4 +205,5 @@ class CategoricalPartition(
             return self.left
         if value in self.right_categories:
             return self.right
+        # TODO: better distinguish this from new, unseen, categorical levels
         return None

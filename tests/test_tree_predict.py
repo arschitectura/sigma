@@ -675,46 +675,34 @@ class TestNodeId(unittest.TestCase):
 
     __slots__ = ()
 
-    def _fit_three_step_tree(self) -> sigma._tree_regression.RegressionTree:
-        """Fit a regression tree on a three-step response with splits."""
-        X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
-        y = numpy.where(
-            X.ravel() < 20, 0.0, numpy.where(X.ravel() < 60, 5.0, 10.0)
-        )
-        regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        regression_tree.fit(X, y)
-        return regression_tree
-
     def test_root_has_node_id_zero(self):
         """The fitted root has node_id 0 and is the first element of nodes_."""
-        regression_tree = self._fit_three_step_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         self.assertEqual(regression_tree.content_.node_id, 0)
         self.assertIs(regression_tree.nodes_[0], regression_tree.content_)
 
     def test_nodes_round_trip(self):
         """nodes_[x].node_id == x for every x in [0, len(nodes_))."""
-        regression_tree = self._fit_three_step_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         for x in range(len(regression_tree.nodes_)):
             self.assertEqual(regression_tree.nodes_[x].node_id, x)
 
     def test_node_ids_are_unique(self):
         """Every node carries a distinct node_id."""
-        regression_tree = self._fit_three_step_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         ids = [node.node_id for node in regression_tree.nodes_]
         self.assertEqual(len(set(ids)), len(ids))
         self.assertEqual(len(ids), len(regression_tree.nodes_))
 
     def test_node_ids_cover_full_range(self):
         """Node ids form a contiguous 0..M-1 range."""
-        regression_tree = self._fit_three_step_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         ids = sorted(node.node_id for node in regression_tree.nodes_)
         self.assertEqual(ids, list(range(len(regression_tree.nodes_))))
 
     def test_node_ids_are_pre_order(self):
         """Each parent's node_id is smaller than either child's."""
-        regression_tree = self._fit_three_step_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         for node in regression_tree.nodes_:
             extension = node.extension
             if not isinstance(extension, sigma._partition.Partition):
@@ -730,7 +718,7 @@ class TestNodeId(unittest.TestCase):
 
     def test_node_ids_unchanged_by_reverse_order(self):
         """node_ids are assigned identically regardless of reverse_order."""
-        natural_tree = self._fit_three_step_tree()
+        natural_tree = _helpers._fit_three_step_regression_tree()
         X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
         y = numpy.where(
             X.ravel() < 20, 0.0, numpy.where(X.ravel() < 60, 5.0, 10.0)
@@ -748,7 +736,7 @@ class TestNodeId(unittest.TestCase):
 
     def test_internal_nodes_have_node_id(self):
         """Internal (non-leaf) nodes have a non-None node_id after fit."""
-        regression_tree = self._fit_three_step_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         for node in regression_tree.nodes_:
             if isinstance(node.extension, sigma._partition.Partition):
                 self.assertIsNotNone(node.node_id)
@@ -759,21 +747,9 @@ class TestApply(unittest.TestCase):
 
     __slots__ = ()
 
-    def _fit_step_regression_tree(
-        self,
-    ) -> sigma._tree_regression.RegressionTree:
-        """Fit a regression tree on a step function response."""
-        X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
-        y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
-        regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        regression_tree.fit(X, y)
-        return regression_tree
-
     def test_output_shape_and_dtype(self):
         """apply returns an integer array with shape (n_samples,)."""
-        regression_tree = self._fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         ids = regression_tree.apply(X)
         self.assertEqual(ids.shape, (40,))
@@ -781,7 +757,7 @@ class TestApply(unittest.TestCase):
 
     def test_apply_returns_leaf_node_ids(self):
         """Every returned id points to a leaf in nodes_."""
-        regression_tree = self._fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         ids = regression_tree.apply(X)
         for value in ids:
@@ -790,7 +766,7 @@ class TestApply(unittest.TestCase):
 
     def test_apply_consistent_with_manual_traversal(self):
         """apply(X)[i] equals content_.traverse(X[i]).node_id for every i."""
-        regression_tree = self._fit_step_regression_tree()
+        regression_tree = _helpers._fit_step_regression_tree()
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         ids = regression_tree.apply(X)
         for i in range(X.shape[0]):
@@ -823,21 +799,9 @@ class TestDecisionPath(unittest.TestCase):
 
     __slots__ = ()
 
-    def _fit_three_step_tree(self) -> sigma._tree_regression.RegressionTree:
-        """Fit a regression tree with several splits."""
-        X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
-        y = numpy.where(
-            X.ravel() < 20, 0.0, numpy.where(X.ravel() < 60, 5.0, 10.0)
-        )
-        regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        regression_tree.fit(X, y)
-        return regression_tree
-
     def test_output_type_and_shape(self):
         """decision_path returns CSR of shape (n_samples, len(nodes_))."""
-        regression_tree = self._fit_three_step_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
         path = regression_tree.decision_path(X)
         self.assertIsInstance(path, scipy.sparse.csr_matrix)
@@ -846,7 +810,7 @@ class TestDecisionPath(unittest.TestCase):
 
     def test_root_column_always_one(self):
         """Every sample's path contains the root node (column 0)."""
-        regression_tree = self._fit_three_step_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
         path = regression_tree.decision_path(X)
         root_column = path[:, 0].toarray().ravel()
@@ -854,7 +818,7 @@ class TestDecisionPath(unittest.TestCase):
 
     def test_last_visited_equals_apply(self):
         """The highest-numbered visited node in each row matches apply(X)."""
-        regression_tree = self._fit_three_step_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
         path = regression_tree.decision_path(X).toarray()
         ids = regression_tree.apply(X)
@@ -864,7 +828,7 @@ class TestDecisionPath(unittest.TestCase):
 
     def test_row_sums_equal_path_length(self):
         """Each row sum equals the depth of the routed leaf plus 1."""
-        regression_tree = self._fit_three_step_tree()
+        regression_tree = _helpers._fit_three_step_regression_tree()
         X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
         path = regression_tree.decision_path(X)
         row_sums = path.sum(axis=1).A1

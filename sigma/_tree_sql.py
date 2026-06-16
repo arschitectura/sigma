@@ -57,11 +57,13 @@ def _build_sql_case(
     left_condition, right_condition = _format_sql_split_conditions(
         partition, feature_names, category_labels
     )
-    left_child = partition.left
-    right_child = partition.right
-    if _node._should_swap_display_children(node) ^ best_first:
+    ordered_children = node.display_children(best_first)
+    left_child, right_child = ordered_children or (
+        partition.left,
+        partition.right,
+    )
+    if left_child is not partition.left:
         left_condition, right_condition = right_condition, left_condition
-        left_child, right_child = right_child, left_child
     left_subexpression = _build_sql_case(
         left_child,
         feature_names,
