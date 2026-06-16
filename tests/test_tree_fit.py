@@ -28,12 +28,7 @@ class TestRegressionTreeFit(unittest.TestCase):
 
     def test_step_function_splits_correctly(self):
         """Finds the correct split on a clear step function."""
-        X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
-        y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
-        regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        regression_tree.fit(X, y)
+        regression_tree = _helpers._fit_step_regression_tree()
         partition = regression_tree.content_.extension
         assert isinstance(partition, sigma._partition.NumericalPartition)
         self.assertEqual(partition.feature_index, 0)

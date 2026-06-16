@@ -30,6 +30,40 @@ _DUMMY_MU = numpy.zeros(1)
 _DUMMY_SIGMA = numpy.zeros((1, 1))
 
 
+def _numeric_partition(left, right) -> sigma._partition.NumericalPartition:
+    """Build a NumericalPartition on x[0] <= 5.0 around the given children."""
+    partition = sigma._partition.NumericalPartition(
+        feature_index=0,
+        feature_name="x",
+        p_value=0.01,
+        T=_DUMMY_T,
+        mu=_DUMMY_MU,
+        Sigma=_DUMMY_SIGMA,
+        left=left,
+        right=right,
+        threshold=5.0,
+    )
+    return partition
+
+
+def _regression_root(
+    extension, prediction, n_samples, share=1.0
+) -> sigma._node.RegressionNode:
+    """Build a depth-0 regression root carrying the given extension."""
+    root = sigma._node.RegressionNode(
+        depth=0,
+        n_samples=n_samples,
+        share=share,
+        decoration=None,
+        extension=extension,
+        prediction=prediction,
+        ci_low=None,
+        ci_high=None,
+        response_samples=numpy.empty(0, dtype=float),
+    )
+    return root
+
+
 class TestRegressionNode(unittest.TestCase):
     """Tests for the RegressionNode subclass."""
 
@@ -227,28 +261,8 @@ class TestTraverse(unittest.TestCase):
         """Build a tree: root partitions on x[0] <= 5, two regression leaves."""
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
-        partition = sigma._partition.NumericalPartition(
-            feature_index=0,
-            feature_name="x",
-            p_value=0.01,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=left,
-            right=right,
-            threshold=5.0,
-        )
-        root = sigma._node.RegressionNode(
-            depth=0,
-            n_samples=20,
-            share=1.0,
-            decoration=None,
-            extension=partition,
-            prediction=5.0,
-            ci_low=None,
-            ci_high=None,
-            response_samples=numpy.empty(0, dtype=float),
-        )
+        partition = _numeric_partition(left, right)
+        root = _regression_root(partition, 5.0, 20)
         return root
 
     def test_leaf_returns_itself(self):
@@ -285,17 +299,7 @@ class TestTraverse(unittest.TestCase):
             left_categories=frozenset({0.0, 1.0}),
             right_categories=frozenset({2.0}),
         )
-        root = sigma._node.RegressionNode(
-            depth=0,
-            n_samples=10,
-            share=1.0,
-            decoration=None,
-            extension=partition,
-            prediction=5.0,
-            ci_low=None,
-            ci_high=None,
-            response_samples=numpy.empty(0, dtype=float),
-        )
+        root = _regression_root(partition, 5.0, 10)
         self.assertIs(root.traverse(numpy.array([0.0])), left)
         self.assertIs(root.traverse(numpy.array([1.0])), left)
         self.assertIs(root.traverse(numpy.array([2.0])), right)
@@ -316,17 +320,7 @@ class TestTraverse(unittest.TestCase):
             left_categories=frozenset({0.0}),
             right_categories=frozenset({1.0}),
         )
-        root = sigma._node.RegressionNode(
-            depth=0,
-            n_samples=10,
-            share=1.0,
-            decoration=None,
-            extension=partition,
-            prediction=5.0,
-            ci_low=None,
-            ci_high=None,
-            response_samples=numpy.empty(0, dtype=float),
-        )
+        root = _regression_root(partition, 5.0, 10)
         result = root.traverse(numpy.array([2.0]))
         self.assertIs(result, root)
 
@@ -360,28 +354,8 @@ class TestLeavesAndShare(unittest.TestCase):
             ci_high=None,
             response_samples=numpy.empty(0, dtype=float),
         )
-        partition = sigma._partition.NumericalPartition(
-            feature_index=0,
-            feature_name="x",
-            p_value=0.01,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=left,
-            right=right,
-            threshold=5.0,
-        )
-        root = sigma._node.RegressionNode(
-            depth=0,
-            n_samples=20,
-            share=0.0,
-            decoration=None,
-            extension=partition,
-            prediction=3.0,
-            ci_low=None,
-            ci_high=None,
-            response_samples=numpy.empty(0, dtype=float),
-        )
+        partition = _numeric_partition(left, right)
+        root = _regression_root(partition, 3.0, 20, share=0.0)
         return root
 
     def test_leaves_returns_left_then_right(self):
@@ -414,17 +388,7 @@ class TestPartitionTypes(unittest.TestCase):
         """NumericalPartition.route returns left for value <= threshold, right otherwise."""
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
-        partition = sigma._partition.NumericalPartition(
-            feature_index=0,
-            feature_name="x",
-            p_value=0.01,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=left,
-            right=right,
-            threshold=5.0,
-        )
+        partition = _numeric_partition(left, right)
         self.assertIs(partition.route(5.0), left)
         self.assertIs(partition.route(5.0001), right)
 
@@ -513,28 +477,8 @@ class TestLeafIdDefault(unittest.TestCase):
         """A freshly built internal node carries a Partition without a leaf_id field."""
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
-        partition = sigma._partition.NumericalPartition(
-            feature_index=0,
-            feature_name="x",
-            p_value=0.01,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=left,
-            right=right,
-            threshold=5.0,
-        )
-        root = sigma._node.RegressionNode(
-            depth=0,
-            n_samples=20,
-            share=1.0,
-            decoration=None,
-            extension=partition,
-            prediction=5.0,
-            ci_low=None,
-            ci_high=None,
-            response_samples=numpy.empty(0, dtype=float),
-        )
+        partition = _numeric_partition(left, right)
+        root = _regression_root(partition, 5.0, 20)
         extension = root.extension
         self.assertIsInstance(extension, sigma._partition.Partition)
         self.assertFalse(hasattr(extension, "leaf_id"))
@@ -554,28 +498,8 @@ class TestNodeIdDefault(unittest.TestCase):
         """A newly built internal node has node_id equal to the sentinel 0."""
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
-        partition = sigma._partition.NumericalPartition(
-            feature_index=0,
-            feature_name="x",
-            p_value=0.01,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=left,
-            right=right,
-            threshold=5.0,
-        )
-        root = sigma._node.RegressionNode(
-            depth=0,
-            n_samples=20,
-            share=1.0,
-            decoration=None,
-            extension=partition,
-            prediction=5.0,
-            ci_low=None,
-            ci_high=None,
-            response_samples=numpy.empty(0, dtype=float),
-        )
+        partition = _numeric_partition(left, right)
+        root = _regression_root(partition, 5.0, 20)
         self.assertEqual(root.node_id, 0)
 
 

@@ -288,12 +288,12 @@ def _emit_digraph(
                     right_label = _tree_text._ellipsize(
                         right_label, max_branch_length
                     )
-                    ordered_children = node.display_children(display_reverse)
-                    left_child, right_child = ordered_children or (
-                        partition.left,
-                        partition.right,
+                    left_child, right_child, swapped = (
+                        _node.ordered_display_children(
+                            node, partition, display_reverse
+                        )
                     )
-                    if left_child is not partition.left:
+                    if swapped:
                         left_label, right_label = right_label, left_label
                     left_child_object_id = id(left_child)
                     left_child_id = str(left_child_object_id)

@@ -227,23 +227,15 @@ def select_variable(
     Sigma_list: list[None | numpy.typing.NDArray[numpy.floating]] = []
     for j in range(m):
         if feature_types[j] == _types.CovariateType.CATEGORICAL:
-            active = weights > 0
-            categories = numpy.unique(X[active, j])
+            categories = _active_unique_levels(X, weights, j)
             if len(categories) < 2:
-                g_list.append(None)
-                T_list.append(None)
-                mu_list.append(None)
-                Sigma_list.append(None)
+                _append_skipped_feature(g_list, T_list, mu_list, Sigma_list)
                 continue
             g_j = (X[:, j : j + 1] == categories).astype(float)
         elif feature_types[j] == _types.CovariateType.BOOLEAN:
-            active = weights > 0
-            unique_values = numpy.unique(X[active, j])
+            unique_values = _active_unique_levels(X, weights, j)
             if len(unique_values) < 2:
-                g_list.append(None)
-                T_list.append(None)
-                mu_list.append(None)
-                Sigma_list.append(None)
+                _append_skipped_feature(g_list, T_list, mu_list, Sigma_list)
                 continue
             g_j = X[:, j : j + 1]
         else:
@@ -300,6 +292,30 @@ def select_variable(
         Sigma=typing.cast(array_type, Sigma_list[j_star]),
     )
     return result
+
+
+def _active_unique_levels(
+    X: numpy.typing.NDArray[numpy.floating],
+    weights: numpy.typing.NDArray[numpy.floating],
+    j: int,
+) -> numpy.typing.NDArray[numpy.floating]:
+    """Return the distinct values of column j over positive-weight rows."""
+    active = weights > 0
+    levels = numpy.unique(X[active, j])
+    return levels
+
+
+def _append_skipped_feature(
+    g_list: list[None | numpy.typing.NDArray[numpy.floating]],
+    T_list: list[None | numpy.typing.NDArray[numpy.floating]],
+    mu_list: list[None | numpy.typing.NDArray[numpy.floating]],
+    Sigma_list: list[None | numpy.typing.NDArray[numpy.floating]],
+) -> None:
+    """Append None placeholders for a skipped feature to the result lists."""
+    g_list.append(None)
+    T_list.append(None)
+    mu_list.append(None)
+    Sigma_list.append(None)
 
 
 def _adjust_p_values(

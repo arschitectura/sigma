@@ -28,6 +28,18 @@ except ImportError:
     _HAS_LIFELINES = False
 
 
+def _build_survival_dataset(n=200, seed=0):
+    """Return (X, time, event) for a two-arm right-censored survival dataset."""
+    rng = numpy.random.RandomState(seed)
+    arm = (numpy.arange(n) % 2).astype(float)
+    scales = numpy.where(arm == 0, 10.0, 2.0)
+    survival = rng.exponential(scale=scales)
+    time = numpy.minimum(survival, 8.0)
+    event = (survival <= 8.0).astype(float)
+    X = numpy.column_stack([arm, rng.randn(n)])
+    return X, time, event
+
+
 class TestSurvivalTreeFit(unittest.TestCase):
     """Tests for the fit method of SurvivalTree."""
 
@@ -180,14 +192,8 @@ class TestSurvivalTreeYEncodings(unittest.TestCase):
 
     def _build_dataset(self, n=200, seed=0):
         """Return (X, time, event) for a two-arm right-censored survival dataset."""
-        rng = numpy.random.RandomState(seed)
-        arm = (numpy.arange(n) % 2).astype(float)
-        scales = numpy.where(arm == 0, 10.0, 2.0)
-        survival = rng.exponential(scale=scales)
-        time = numpy.minimum(survival, 8.0)
-        event = (survival <= 8.0).astype(float)
-        X = numpy.column_stack([arm, rng.randn(n)])
-        return X, time, event
+        dataset = _build_survival_dataset(n=n, seed=seed)
+        return dataset
 
     def test_fit_accepts_structured_y(self):
         """Fits on the scikit-survival structured (time, event) array."""
@@ -261,14 +267,7 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
 
     def _build_dataset(self):
         """Return (X, y) for a simple two-arm survival dataset."""
-        rng = numpy.random.RandomState(0)
-        n = 200
-        arm = (numpy.arange(n) % 2).astype(float)
-        scales = numpy.where(arm == 0, 10.0, 2.0)
-        survival = rng.exponential(scale=scales)
-        time = numpy.minimum(survival, 8.0)
-        event = (survival <= 8.0).astype(float)
-        X = numpy.column_stack([arm, rng.randn(n)])
+        X, time, event = _build_survival_dataset()
         y = numpy.column_stack([time, event])
         return X, y
 
@@ -535,13 +534,7 @@ class TestSurvivalTreeScore(unittest.TestCase):
 
     def _build_dataset(self, n=200, seed=0):
         """Return (X, y) for a two-arm right-censored survival dataset."""
-        rng = numpy.random.RandomState(seed)
-        arm = (numpy.arange(n) % 2).astype(float)
-        scales = numpy.where(arm == 0, 10.0, 2.0)
-        survival = rng.exponential(scale=scales)
-        time = numpy.minimum(survival, 8.0)
-        event = (survival <= 8.0).astype(float)
-        X = numpy.column_stack([arm, rng.randn(n)])
+        X, time, event = _build_survival_dataset(n=n, seed=seed)
         y = numpy.column_stack([time, event])
         return X, y
 

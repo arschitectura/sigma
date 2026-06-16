@@ -529,18 +529,17 @@ class TestExportGraphviz(unittest.TestCase):
             sigma.export_graphviz(regression_tree, dpi=-50)
 
 
-def _fit_regression_tree_no_ci():
-    """Fit a regression tree with confidence intervals disabled."""
-    X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
-    y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
-    regression_tree = sigma._tree_regression.RegressionTree(
-        correlation="normal",
-        min_splits=2,
-        min_buckets=1,
-        ci_coverage=None,
-    )
-    regression_tree.fit(X, y)
-    return regression_tree
+def _plot_step_survival_tree():
+    """Plot a fitted step survival tree and return (tree, axes)."""
+    import matplotlib.figure
+
+    from sigma import _response_plot
+
+    survival_tree = _helpers._fit_step_survival_tree()
+    figure = matplotlib.figure.Figure()
+    axes = figure.add_subplot(111)
+    _response_plot._plot_survival(axes, survival_tree, response_name="time")
+    return survival_tree, axes
 
 
 def _svg_root_width(svg_bytes: bytes) -> float:
@@ -963,18 +962,7 @@ class TestExportImageResponse(unittest.TestCase):
         """Each leaf survival curve begins at time 0 with survival 100%."""
         if not _HAS_MATPLOTLIB:
             self.skipTest("matplotlib not installed")
-        import matplotlib.figure
-
-        from sigma import _response_plot
-
-        survival_tree = _helpers._fit_step_survival_tree()
-        figure = matplotlib.figure.Figure()
-        axes = figure.add_subplot(111)
-        _response_plot._plot_survival(
-            axes,
-            survival_tree,
-            response_name="time",
-        )
+        survival_tree, axes = _plot_step_survival_tree()
         lines = axes.get_lines()
         self.assertEqual(len(lines), len(survival_tree.leaves_))
         for line in lines:
@@ -988,19 +976,10 @@ class TestExportImageResponse(unittest.TestCase):
         if not _HAS_MATPLOTLIB:
             self.skipTest("matplotlib not installed")
         import matplotlib.colors
-        import matplotlib.figure
 
         from sigma import _palette
-        from sigma import _response_plot
 
-        survival_tree = _helpers._fit_step_survival_tree()
-        figure = matplotlib.figure.Figure()
-        axes = figure.add_subplot(111)
-        _response_plot._plot_survival(
-            axes,
-            survival_tree,
-            response_name="time",
-        )
+        survival_tree, axes = _plot_step_survival_tree()
         lines = axes.get_lines()
         n_leaves = len(survival_tree.leaves_)
         for index, line in enumerate(lines):
@@ -1017,18 +996,8 @@ class TestExportImageResponse(unittest.TestCase):
         if not _HAS_MATPLOTLIB:
             self.skipTest("matplotlib not installed")
         import matplotlib.collections
-        import matplotlib.figure
 
-        from sigma import _response_plot
-
-        survival_tree = _helpers._fit_step_survival_tree()
-        figure = matplotlib.figure.Figure()
-        axes = figure.add_subplot(111)
-        _response_plot._plot_survival(
-            axes,
-            survival_tree,
-            response_name="time",
-        )
+        survival_tree, axes = _plot_step_survival_tree()
         lines = axes.get_lines()
         scatter_collections = [
             collection
@@ -1052,18 +1021,8 @@ class TestExportImageResponse(unittest.TestCase):
         if not _HAS_MATPLOTLIB:
             self.skipTest("matplotlib not installed")
         import matplotlib.collections
-        import matplotlib.figure
 
-        from sigma import _response_plot
-
-        survival_tree = _helpers._fit_step_survival_tree()
-        figure = matplotlib.figure.Figure()
-        axes = figure.add_subplot(111)
-        _response_plot._plot_survival(
-            axes,
-            survival_tree,
-            response_name="time",
-        )
+        survival_tree, axes = _plot_step_survival_tree()
         bands = [
             collection
             for collection in axes.collections
@@ -1111,19 +1070,10 @@ class TestExportImageResponse(unittest.TestCase):
             self.skipTest("matplotlib not installed")
         import matplotlib.collections
         import matplotlib.colors
-        import matplotlib.figure
 
         from sigma import _palette
-        from sigma import _response_plot
 
-        survival_tree = _helpers._fit_step_survival_tree()
-        figure = matplotlib.figure.Figure()
-        axes = figure.add_subplot(111)
-        _response_plot._plot_survival(
-            axes,
-            survival_tree,
-            response_name="time",
-        )
+        survival_tree, axes = _plot_step_survival_tree()
         bands = [
             collection
             for collection in axes.collections
@@ -1486,7 +1436,7 @@ class TestExportImageResponse(unittest.TestCase):
 
     def test_response_no_ci_renders_without_error(self):
         """A regression tree fitted without CI still renders a response plot."""
-        regression_tree = _fit_regression_tree_no_ci()
+        regression_tree = _helpers._fit_step_regression_tree(ci_coverage=None)
         result = sigma.export_image(regression_tree, "png", kind="response")
         self.assertIsInstance(result, bytes)
         self.assertTrue(result.startswith(b"\x89PNG"))

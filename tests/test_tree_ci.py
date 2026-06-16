@@ -28,12 +28,7 @@ class TestRegressionTreeCI(unittest.TestCase):
 
     def test_all_nodes_have_ci(self):
         """Verify every node has ci_low and ci_high after fitting."""
-        X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
-        y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
-        regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        regression_tree.fit(X, y)
+        regression_tree = _helpers._fit_step_regression_tree()
         nodes = _helpers._collect_nodes(regression_tree.content_)
         for index, node in enumerate(nodes):
             self.assertIsNotNone(node.ci_low, f"node {index} ci_low")

@@ -21,12 +21,11 @@ Covers, in order:
 import math
 import os
 import unittest
-import zipfile
 
 import numpy
 import numpy.testing
-import pandas
 
+import _helpers
 import sigma
 import sigma._ranking
 import sigma._types
@@ -42,18 +41,6 @@ def _quiet_fisher_info(*args, **kwargs):
     """
     with numpy.errstate(divide="ignore", over="ignore", invalid="ignore"):
         return sigma._ranking._compute_pl_fisher_info(*args, **kwargs)
-
-
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-_DEMO_DATA_DIR = os.path.join(_REPO_ROOT, ".demo_data")
-
-
-def _random_alpha(n_items, rng):
-    """Sample a worth vector with geometric mean approximately 1."""
-    log_alpha = rng.normal(size=n_items) * 0.5
-    log_alpha -= log_alpha.mean()
-    alpha = numpy.exp(log_alpha)
-    return alpha
 
 
 def _draw_pl_order(alpha, rng):
@@ -93,7 +80,7 @@ class TestJacobianInvariants(unittest.TestCase):
         rng = numpy.random.default_rng(0)
         for n_items in (2, 5, 20, 257):
             with self.subTest(n_items=n_items):
-                alpha = _random_alpha(n_items, rng)
+                alpha = _helpers._random_alpha(n_items, rng)
                 g = sigma._ranking._compute_pl_expected_rank_jacobian(alpha)
                 row_sums = g.sum(axis=1)
                 numpy.testing.assert_allclose(
@@ -126,7 +113,7 @@ class TestFisherInfoInvariants(unittest.TestCase):
     def test_kernel_contains_constant_vector(self):
         """H · ones is zero (PL is invariant under a constant log-alpha shift)."""
         rng = numpy.random.default_rng(1)
-        alpha = _random_alpha(6, rng)
+        alpha = _helpers._random_alpha(6, rng)
         rankings = _simulate_full_rankings(alpha, 40, rng)
         weights = numpy.ones(rankings.shape[0])
         cache = sigma._ranking._extract_orderings_cache(rankings, weights)
@@ -139,7 +126,7 @@ class TestFisherInfoInvariants(unittest.TestCase):
     def test_symmetric_and_psd(self):
         """H is symmetric and positive semi-definite."""
         rng = numpy.random.default_rng(2)
-        alpha = _random_alpha(8, rng)
+        alpha = _helpers._random_alpha(8, rng)
         rankings = _simulate_full_rankings(alpha, 60, rng)
         weights = numpy.ones(rankings.shape[0])
         cache = sigma._ranking._extract_orderings_cache(rankings, weights)
@@ -194,7 +181,7 @@ class TestFiniteDifferenceCrossChecks(unittest.TestCase):
         """g[k, j] equals central difference of E[R_k] in log-α direction j."""
         rng = numpy.random.default_rng(4)
         n_items = 6
-        alpha = _random_alpha(n_items, rng)
+        alpha = _helpers._random_alpha(n_items, rng)
         g_analytic = sigma._ranking._compute_pl_expected_rank_jacobian(alpha)
         epsilon = 1e-5
         log_alpha = numpy.log(alpha)
@@ -221,7 +208,7 @@ class TestFiniteDifferenceCrossChecks(unittest.TestCase):
         """
         rng = numpy.random.default_rng(5)
         n_items = 5
-        alpha = _random_alpha(n_items, rng)
+        alpha = _helpers._random_alpha(n_items, rng)
         rankings = _simulate_full_rankings(alpha, 40, rng)
         weights = numpy.ones(rankings.shape[0])
         cache = sigma._ranking._extract_orderings_cache(rankings, weights)
@@ -279,7 +266,7 @@ class TestScorePerRowSumsToAggregateScore(unittest.TestCase):
     def test_aggregate_score_near_zero_at_mle(self):
         """U.sum(axis=0) is small at α̂ (sums to zero at the unregularised MLE)."""
         rng = numpy.random.default_rng(6)
-        alpha_true = _random_alpha(8, rng)
+        alpha_true = _helpers._random_alpha(8, rng)
         rankings = _simulate_full_rankings(alpha_true, 200, rng)
         weights = numpy.ones(rankings.shape[0])
         cache = sigma._ranking._extract_orderings_cache(rankings, weights)
@@ -328,69 +315,6 @@ class TestCiMethodDispatch(unittest.TestCase):
             )
 
 
-def _load_sushi3a_subset(n_users):
-    """Load the first n_users rows of the SUSHI3A demo dataset."""
-    zip_path = os.path.join(_DEMO_DATA_DIR, "sushi3-2016.zip")
-    with zipfile.ZipFile(zip_path) as archive:
-        with archive.open("sushi3-2016/sushi3a.5000.10.order") as order_file:
-            order_lines = order_file.read().decode("utf-8").splitlines()
-        with archive.open("sushi3-2016/sushi3.udata") as udata_file:
-            udata_lines = udata_file.read().decode("utf-8").splitlines()
-        with archive.open("sushi3-2016/sushi3.idata") as idata_file:
-            idata_lines = idata_file.read().decode("utf-8").splitlines()
-    item_count = 10
-    item_names = [line.split("\t")[1] for line in idata_lines if line.strip()][
-        :item_count
-    ]
-    n_kept_rows = sum(1 for line in order_lines[1:] if line.strip())
-    ranks_in_cell = numpy.full(
-        (n_kept_rows, item_count), numpy.nan, dtype=float
-    )
-    row_index = 0
-    for line in order_lines[1:]:
-        if not line.strip():
-            continue
-        tokens = line.split()
-        for position in range(item_count):
-            item_id = int(tokens[2 + position])
-            ranks_in_cell[row_index, item_id] = float(position + 1)
-        row_index += 1
-    rankings = pandas.DataFrame(ranks_in_cell, columns=item_names)
-    demographic_rows = [
-        line.split("\t") for line in udata_lines if line.strip()
-    ]
-    demographic_frame = pandas.DataFrame(
-        demographic_rows,
-        columns=[
-            "user_id",
-            "gender",
-            "age_group",
-            "completion_seconds",
-            "childhood_prefecture",
-            "childhood_region",
-            "childhood_east_west",
-            "current_prefecture",
-            "current_region",
-            "current_east_west",
-            "migrated",
-        ],
-    )
-    X = pandas.DataFrame(
-        {
-            "Gender": pandas.Categorical(
-                demographic_frame["gender"].map({"0": "male", "1": "female"}),
-                categories=["female", "male"],
-            ),
-            "Childhood region": pandas.Categorical(
-                demographic_frame["childhood_region"]
-            ),
-        }
-    )
-    X_sub = X.iloc[:n_users].reset_index(drop=True)
-    rankings_sub = rankings.iloc[:n_users].reset_index(drop=True)
-    return X_sub, rankings_sub
-
-
 class TestAllFourMethodsOnSushiSubset(unittest.TestCase):
     """Each ci_method produces finite, monotone, bracketing CIs on Sushi."""
 
@@ -399,7 +323,7 @@ class TestAllFourMethodsOnSushiSubset(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Load 800 rows of SUSHI3A once for the whole class."""
-        cls.X, cls.rankings = _load_sushi3a_subset(800)
+        cls.X, cls.rankings = _helpers._load_sushi3a_subset(800)
 
     def _check_metrics(self, tree):
         """Each metric satisfies low ≤ value ≤ high and is finite per item."""
@@ -449,7 +373,7 @@ class TestCiMethodDoesNotAffectTreeShape(unittest.TestCase):
 
     def test_tree_shape_constant_across_methods(self):
         """At fixed random_state the split features and partitions match."""
-        X, rankings = _load_sushi3a_subset(500)
+        X, rankings = _helpers._load_sushi3a_subset(500)
 
         def shape_signature(tree):
             return [
@@ -502,7 +426,7 @@ class TestBootstrapAsymptoticAgreement(unittest.TestCase):
         rng = numpy.random.default_rng(7)
         n_items = 20
         n_rows = 2000
-        alpha_true = _random_alpha(n_items, rng)
+        alpha_true = _helpers._random_alpha(n_items, rng)
         rankings = _simulate_full_rankings(alpha_true, n_rows, rng)
         weights = numpy.ones(n_rows)
         cls.cache = sigma._ranking._extract_orderings_cache(rankings, weights)

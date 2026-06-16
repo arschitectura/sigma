@@ -22,6 +22,7 @@ import unittest
 import numpy
 import numpy.testing
 
+import _helpers
 import sigma._ranking
 
 _RTOL = 1e-9
@@ -182,11 +183,18 @@ def _mild_scenarios():
     cases = []
 
     y = _build_dense_y(5, 4, rng)
-    cases.append(("small_dense", y, numpy.ones(5), _random_alpha(4, rng)))
+    cases.append(
+        ("small_dense", y, numpy.ones(5), _helpers._random_alpha(4, rng))
+    )
 
     y = _build_dense_y(200, 50, rng)
     cases.append(
-        ("large_dense", y, _random_weights(200, rng), _random_alpha(50, rng))
+        (
+            "large_dense",
+            y,
+            _random_weights(200, rng),
+            _helpers._random_alpha(50, rng),
+        )
     )
 
     y = _build_sparse_y(300, 200, mean_d=10, rng=rng)
@@ -195,7 +203,7 @@ def _mild_scenarios():
             "sparse_partial",
             y,
             _random_weights(300, rng),
-            _random_alpha(200, rng),
+            _helpers._random_alpha(200, rng),
         )
     )
 
@@ -205,7 +213,9 @@ def _mild_scenarios():
         items = rng.choice(8, size=d, replace=False)
         for position, item in enumerate(items):
             y[i, item] = float(position + 1)
-    cases.append(("mixed_d2_or_full", y, numpy.ones(20), _random_alpha(8, rng)))
+    cases.append(
+        ("mixed_d2_or_full", y, numpy.ones(20), _helpers._random_alpha(8, rng))
+    )
 
     y = _build_dense_y(10, 4, rng)
     cases.append(
@@ -213,7 +223,7 @@ def _mild_scenarios():
             "tiny_weights",
             y,
             numpy.full(10, 1.0e-300),
-            _random_alpha(4, rng),
+            _helpers._random_alpha(4, rng),
         )
     )
 
@@ -236,7 +246,7 @@ def _mild_scenarios():
             mean_d = max(2, k // 4)
             y = _build_sparse_y(n, k, mean_d, rng)
         weights = _random_weights(n, rng)
-        alpha = _random_alpha(k, rng)
+        alpha = _helpers._random_alpha(k, rng)
         cases.append((f"fuzz_n{n}_k{k}", y, weights, alpha))
     return cases
 
@@ -259,14 +269,6 @@ def _stress_scenarios():
         )
     )
     return cases
-
-
-def _random_alpha(k, rng):
-    """Sample a worth vector with geometric mean 1 (matching MM normalisation)."""
-    log_alpha = rng.normal(size=k) * 0.5
-    log_alpha -= log_alpha.mean()
-    alpha = numpy.exp(log_alpha)
-    return alpha
 
 
 def _random_weights(n, rng):
@@ -360,7 +362,7 @@ class TestPlExpectedRankBitEquivalence(unittest.TestCase):
         rng = numpy.random.default_rng(1)
         for k in [2, 10, 256, 257, 1000, 3706]:
             with self.subTest(k=k):
-                alpha = _random_alpha(k, rng)
+                alpha = _helpers._random_alpha(k, rng)
                 expected = _legacy_pl_expected_rank(alpha)
                 actual = sigma._ranking.pl_expected_rank(alpha)
                 numpy.testing.assert_array_equal(actual, expected)

@@ -198,12 +198,12 @@ class ClassificationTree(
         n_samples: int,
     ) -> None | numpy.typing.NDArray[numpy.floating]:
         """Validate the classification offset (n_samples, n_classes)."""
+        if offset is None:
+            return None
         expected_shape = (n_samples, self.n_classes_)
         offset_array = self._validate_offset_shape_finite(
             offset, expected_shape
         )
-        if offset_array is None:
-            return None
         if numpy.any(offset_array < 0.0) or numpy.any(offset_array > 1.0):
             raise ValueError("offset values must lie in [0, 1]")
         row_sums = offset_array.sum(axis=1)
@@ -224,7 +224,9 @@ class ClassificationTree(
             )
         return y_out_shape[0]
 
-    def _make_node(self, payload):
+    def _make_node(
+        self, payload: _tree._NodePayload
+    ) -> _node.ClassificationNode:
         """Construct a ClassificationNode with the per-class CI payload."""
         node = _node.ClassificationNode(
             depth=payload.depth,
@@ -474,16 +476,10 @@ class ClassificationTree(
         n_samples: int,
     ) -> numpy.typing.NDArray[numpy.floating]:
         """Validate the predict-time offset for classification."""
-        offset_array = numpy.asarray(offset, dtype=float)
-        offset_shape = offset_array.shape
         expected_shape = (n_samples, self.n_classes_)
-        if offset_shape != expected_shape:
-            raise ValueError(
-                f"offset must have shape {expected_shape},"
-                f" got shape {offset_shape}"
-            )
-        if not numpy.all(numpy.isfinite(offset_array)):
-            raise ValueError("offset values must be finite")
+        offset_array = self._validate_offset_shape_finite(
+            offset, expected_shape
+        )
         if numpy.any(offset_array < 0.0) or numpy.any(offset_array > 1.0):
             raise ValueError("offset values must lie in [0, 1]")
         row_sums = offset_array.sum(axis=1)

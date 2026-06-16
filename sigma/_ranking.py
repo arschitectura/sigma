@@ -109,8 +109,7 @@ def pl_expected_rank(
     for start in range(0, n_valid, chunk):
         end = min(start + chunk, n_valid)
         a_col_chunk = a[start:end].reshape(-1, 1)
-        pair_sum_chunk = a_col_chunk + a_row
-        pairwise_chunk = a_row / pair_sum_chunk
+        pairwise_chunk = _pl_pairwise_ratio(a_col_chunk, a_row)
         row_sum[start:end] = pairwise_chunk.sum(axis=1)
     expected_valid = 0.5 + row_sum
     result[valid_indices] = expected_valid
@@ -430,12 +429,21 @@ def _compute_pl_expected_rank_jacobian(
     for start in range(0, n_items, chunk):
         end = min(start + chunk, n_items)
         a_col_chunk = alpha_arr[start:end].reshape(-1, 1)
-        pair_sum_chunk = a_col_chunk + a_row
-        s_chunk = a_row / pair_sum_chunk
+        s_chunk = _pl_pairwise_ratio(a_col_chunk, a_row)
         g[start:end] = s_chunk * (1.0 - s_chunk)
     diag_correction = g.sum(axis=1) - numpy.diag(g)
     numpy.fill_diagonal(g, -diag_correction)
     return g
+
+
+def _pl_pairwise_ratio(
+    a_col_chunk: numpy.typing.NDArray[numpy.floating],
+    a_row: numpy.typing.NDArray[numpy.floating],
+) -> numpy.typing.NDArray[numpy.floating]:
+    """Plackett-Luce pairwise win probabilities a_row / (a_col_chunk + a_row)."""
+    pair_sum_chunk = a_col_chunk + a_row
+    ratio = a_row / pair_sum_chunk
+    return ratio
 
 
 def _row_starts(

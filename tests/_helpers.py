@@ -1,6 +1,8 @@
 """Shared fixtures and helpers used across the test suite."""
 
+import os
 import typing
+import zipfile
 
 import numpy
 import pandas
@@ -10,6 +12,10 @@ import sigma._partition
 import sigma._tree_classification
 import sigma._tree_regression
 import sigma._tree_survival
+
+
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+_DEMO_DATA_DIR = os.path.join(_REPO_ROOT, ".demo_data")
 
 
 _NodeT = typing.TypeVar("_NodeT", bound=sigma._node.Node)
@@ -210,3 +216,81 @@ def _collect_split_features(node) -> set[int]:
     features |= _collect_split_features(extension.left)
     features |= _collect_split_features(extension.right)
     return features
+
+
+def _load_sushi3a():
+    """Load the full SUSHI3A demo dataset as (X, rankings)."""
+    zip_path = os.path.join(_DEMO_DATA_DIR, "sushi3-2016.zip")
+    with zipfile.ZipFile(zip_path) as archive:
+        with archive.open("sushi3-2016/sushi3a.5000.10.order") as order_file:
+            order_lines = order_file.read().decode("utf-8").splitlines()
+        with archive.open("sushi3-2016/sushi3.udata") as udata_file:
+            udata_lines = udata_file.read().decode("utf-8").splitlines()
+        with archive.open("sushi3-2016/sushi3.idata") as idata_file:
+            idata_lines = idata_file.read().decode("utf-8").splitlines()
+    item_count = 10
+    all_item_names = [
+        line.split("\t")[1] for line in idata_lines if line.strip()
+    ]
+    item_names = all_item_names[:item_count]
+    n_kept_rows = sum(1 for line in order_lines[1:] if line.strip())
+    ranks_in_cell = numpy.full(
+        (n_kept_rows, item_count), numpy.nan, dtype=float
+    )
+    row_index = 0
+    for line in order_lines[1:]:
+        if not line.strip():
+            continue
+        tokens = line.split()
+        for position in range(item_count):
+            item_id = int(tokens[2 + position])
+            ranks_in_cell[row_index, item_id] = float(position + 1)
+        row_index += 1
+    rankings = pandas.DataFrame(ranks_in_cell, columns=item_names)
+    demographic_rows = [
+        line.split("\t") for line in udata_lines if line.strip()
+    ]
+    demographic_frame = pandas.DataFrame(
+        demographic_rows,
+        columns=[
+            "user_id",
+            "gender",
+            "age_group",
+            "completion_seconds",
+            "childhood_prefecture",
+            "childhood_region",
+            "childhood_east_west",
+            "current_prefecture",
+            "current_region",
+            "current_east_west",
+            "migrated",
+        ],
+    )
+    gender_codes = demographic_frame["gender"].map({"0": "male", "1": "female"})
+    X = pandas.DataFrame(
+        {
+            "Gender": pandas.Categorical(
+                gender_codes, categories=["female", "male"]
+            ),
+            "Childhood region": pandas.Categorical(
+                demographic_frame["childhood_region"]
+            ),
+        }
+    )
+    return X, rankings
+
+
+def _load_sushi3a_subset(n_users):
+    """Load the first n_users rows of the SUSHI3A demo dataset as (X, rankings)."""
+    X, rankings = _load_sushi3a()
+    X_sub = X.iloc[:n_users].reset_index(drop=True)
+    rankings_sub = rankings.iloc[:n_users].reset_index(drop=True)
+    return X_sub, rankings_sub
+
+
+def _random_alpha(n_items, rng):
+    """Sample a worth vector with geometric mean approximately 1."""
+    log_alpha = rng.normal(size=n_items) * 0.5
+    log_alpha -= log_alpha.mean()
+    alpha = numpy.exp(log_alpha)
+    return alpha

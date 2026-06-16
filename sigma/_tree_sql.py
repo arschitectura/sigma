@@ -10,6 +10,7 @@ import numpy.typing
 from . import _extension
 from . import _node
 from . import _partition
+from . import _tree_text
 
 if typing.TYPE_CHECKING:
     from . import _tree
@@ -57,12 +58,10 @@ def _build_sql_case(
     left_condition, right_condition = _format_sql_split_conditions(
         partition, feature_names, category_labels
     )
-    ordered_children = node.display_children(best_first)
-    left_child, right_child = ordered_children or (
-        partition.left,
-        partition.right,
+    left_child, right_child, swapped = _node.ordered_display_children(
+        node, partition, best_first
     )
-    if left_child is not partition.left:
+    if swapped:
         left_condition, right_condition = right_condition, left_condition
     left_subexpression = _build_sql_case(
         left_child,
@@ -157,13 +156,7 @@ def _format_sql_split_conditions(
 ) -> tuple[str, str]:
     """Return (left_condition, right_condition) SQL fragments for a partition."""
     feature_index = partition.feature_index
-    if feature_names is None:
-        if partition.feature_name is None:
-            raw_name = f"X[{feature_index}]"
-        else:
-            raw_name = partition.feature_name
-    else:
-        raw_name = str(feature_names[feature_index])
+    raw_name = _tree_text._resolve_feature_name(partition, feature_names)
     feature = _format_sql_identifier(raw_name)
     if isinstance(partition, _partition.BooleanPartition):
         return (f"NOT {feature}", f"{feature}")

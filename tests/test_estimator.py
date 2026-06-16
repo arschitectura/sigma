@@ -74,6 +74,20 @@ _RANKING_EXPECTED_FAILED_CHECKS = {
 }
 
 
+def _run_check_estimator(estimator, expected_failed_checks):
+    """Run the sklearn estimator checks while muffling a cast warning."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="invalid value encountered in cast",
+            category=RuntimeWarning,
+        )
+        sklearn.utils.estimator_checks.check_estimator(
+            estimator,
+            expected_failed_checks=expected_failed_checks,
+        )
+
+
 class TestSklearnCompliance(unittest.TestCase):
     """Tests for scikit-learn estimator contract compliance."""
 
@@ -81,55 +95,31 @@ class TestSklearnCompliance(unittest.TestCase):
 
     def test_check_regression_tree(self):
         """RegressionTree passes all scikit-learn estimator checks."""
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message="invalid value encountered in cast",
-                category=RuntimeWarning,
-            )
-            sklearn.utils.estimator_checks.check_estimator(
-                sigma._tree_regression.RegressionTree(),
-                expected_failed_checks=_EXPECTED_FAILED_CHECKS,
-            )
+        _run_check_estimator(
+            sigma._tree_regression.RegressionTree(),
+            _EXPECTED_FAILED_CHECKS,
+        )
 
     def test_check_classification_tree(self):
         """ClassificationTree passes all scikit-learn estimator checks."""
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message="invalid value encountered in cast",
-                category=RuntimeWarning,
-            )
-            sklearn.utils.estimator_checks.check_estimator(
-                sigma._tree_classification.ClassificationTree(),
-                expected_failed_checks=_EXPECTED_FAILED_CHECKS,
-            )
+        _run_check_estimator(
+            sigma._tree_classification.ClassificationTree(),
+            _EXPECTED_FAILED_CHECKS,
+        )
 
     def test_check_survival_tree(self):
         """SurvivalTree passes all scikit-learn estimator checks."""
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message="invalid value encountered in cast",
-                category=RuntimeWarning,
-            )
-            sklearn.utils.estimator_checks.check_estimator(
-                sigma._tree_survival.SurvivalTree(),
-                expected_failed_checks=_SURVIVAL_EXPECTED_FAILED_CHECKS,
-            )
+        _run_check_estimator(
+            sigma._tree_survival.SurvivalTree(),
+            _SURVIVAL_EXPECTED_FAILED_CHECKS,
+        )
 
     def test_check_ranking_tree(self):
         """RankingTree passes all scikit-learn estimator checks."""
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message="invalid value encountered in cast",
-                category=RuntimeWarning,
-            )
-            sklearn.utils.estimator_checks.check_estimator(
-                sigma._tree_ranking.RankingTree(),
-                expected_failed_checks=_RANKING_EXPECTED_FAILED_CHECKS,
-            )
+        _run_check_estimator(
+            sigma._tree_ranking.RankingTree(),
+            _RANKING_EXPECTED_FAILED_CHECKS,
+        )
 
 
 class TestPipelineIntegration(unittest.TestCase):

@@ -112,31 +112,6 @@ class Node(abc.ABC):
                 result = [self]
         return result
 
-    def display_children(
-        self: _NodeT, best_first: bool
-    ) -> None | tuple[_NodeT, _NodeT]:
-        """Return this node's two children in display order, or None for a leaf.
-
-        Args:
-            best_first: When True, reverse the default left-to-right
-                ordering of the returned children.
-
-        Returns:
-            The pair of child nodes in display order, or None when this
-            node is a leaf.
-        """
-        match self.extension:
-            case _partition.Partition() as partition:
-                left = partition.left
-                right = partition.right
-                if _should_swap_display_children(self) ^ best_first:
-                    ordered = (right, left)
-                else:
-                    ordered = (left, right)
-                return ordered
-            case _:
-                return None
-
     @abc.abstractmethod
     def leaf_sort_key(self) -> tuple[float, ...]:
         """Sort key for ordering leaves of this task type."""
@@ -462,6 +437,16 @@ def _assign_share(node: Node, total: int) -> None:
         case _partition.Partition() as partition:
             _assign_share(partition.left, total)
             _assign_share(partition.right, total)
+
+
+def ordered_display_children(
+    node: Node, partition: _partition.Partition, best_first: bool
+) -> tuple[Node, Node, bool]:
+    """Order a partition's children for display and report whether swapped."""
+    swap = _should_swap_display_children(node) ^ best_first
+    if swap:
+        return (partition.right, partition.left, True)
+    return (partition.left, partition.right, False)
 
 
 def _should_swap_display_children(node: Node) -> bool:

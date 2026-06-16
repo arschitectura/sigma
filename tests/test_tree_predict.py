@@ -31,12 +31,7 @@ class TestRegressionTreePredict(unittest.TestCase):
 
     def test_predict_output_shape(self):
         """Returns an array with shape (n_samples,)."""
-        X_train = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
-        y_train = numpy.where(X_train.ravel() <= 20, 0.0, 10.0)
-        regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        regression_tree.fit(X_train, y_train)
+        regression_tree = _helpers._fit_step_regression_tree()
         X_test = numpy.arange(1, 11, dtype=float).reshape(-1, 1)
         preds = regression_tree.predict(X_test)
         assert preds.shape == (10,)

@@ -24,6 +24,7 @@ import numpy
 import numpy.testing
 import pandas
 
+import _helpers
 import sigma
 import sigma._partition
 import sigma._ranking
@@ -163,76 +164,6 @@ def _assert_same_metrics(test_case, tree_a, tree_b):
             )
 
 
-def _load_sushi3a():
-    """Load the SUSHI3A demo dataset from the cached zip."""
-    zip_path = os.path.join(_DEMO_DATA_DIR, "sushi3-2016.zip")
-    with zipfile.ZipFile(zip_path) as archive:
-        with archive.open("sushi3-2016/sushi3a.5000.10.order") as order_file:
-            order_lines = order_file.read().decode("utf-8").splitlines()
-        with archive.open("sushi3-2016/sushi3.udata") as udata_file:
-            udata_lines = udata_file.read().decode("utf-8").splitlines()
-        with archive.open("sushi3-2016/sushi3.idata") as idata_file:
-            idata_lines = idata_file.read().decode("utf-8").splitlines()
-    sushi3a_item_count = 10
-    all_item_names = [
-        line.split("\t")[1] for line in idata_lines if line.strip()
-    ]
-    item_names = all_item_names[:sushi3a_item_count]
-    n_items = len(item_names)
-    n_users = sum(1 for line in order_lines[1:] if line.strip())
-    ranks_in_cell = numpy.full((n_users, n_items), numpy.nan, dtype=float)
-    row_index = 0
-    for line in order_lines[1:]:
-        if not line.strip():
-            continue
-        tokens = line.split()
-        for position in range(n_items):
-            item_id = int(tokens[2 + position])
-            ranks_in_cell[row_index, item_id] = float(position + 1)
-        row_index += 1
-    rankings = pandas.DataFrame(ranks_in_cell, columns=item_names)
-    demographic_rows = []
-    for line in udata_lines:
-        if not line.strip():
-            continue
-        demographic_rows.append(line.split("\t"))
-    demographic_frame = pandas.DataFrame(
-        demographic_rows,
-        columns=[
-            "user_id",
-            "gender",
-            "age_group",
-            "completion_seconds",
-            "childhood_prefecture",
-            "childhood_region",
-            "childhood_east_west",
-            "current_prefecture",
-            "current_region",
-            "current_east_west",
-            "migrated",
-        ],
-    )
-    X = pandas.DataFrame(
-        {
-            "Gender": pandas.Categorical(
-                demographic_frame["gender"].map({"0": "male", "1": "female"}),
-                categories=["female", "male"],
-            ),
-            "Childhood region": pandas.Categorical(
-                demographic_frame["childhood_region"]
-            ),
-        }
-    )
-    return X, rankings
-
-
-def _subset_for_speed(X, rankings, n_users):
-    """Take the first n_users rows of (X, rankings)."""
-    X_sub = X.iloc[:n_users].reset_index(drop=True)
-    rankings_sub = rankings.iloc[:n_users].reset_index(drop=True)
-    return X_sub, rankings_sub
-
-
 class TestSushiEndToEndEquivalence(unittest.TestCase):
     """Side-by-side equivalence on a 1000-user SUSHI3A subset, max_depth=2."""
 
@@ -241,8 +172,7 @@ class TestSushiEndToEndEquivalence(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Load SUSHI3A once for the whole class."""
-        X_full, rankings_full = _load_sushi3a()
-        cls.X, cls.rankings = _subset_for_speed(X_full, rankings_full, 1000)
+        cls.X, cls.rankings = _helpers._load_sushi3a_subset(1000)
 
     def test_tree_shape_and_metrics_match(self):
         """Production tree matches a tree fitted with the legacy PL primitives."""

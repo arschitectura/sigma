@@ -191,6 +191,8 @@ class RegressionTree(
         n_samples: int,
     ) -> None | numpy.typing.NDArray[numpy.floating]:
         """Validate the regression offset (1D, length n_samples, finite)."""
+        if offset is None:
+            return None
         offset_array = self._validate_offset_shape_finite(offset, (n_samples,))
         return offset_array
 
@@ -207,7 +209,7 @@ class RegressionTree(
             )
         return y_out_shape[0]
 
-    def _make_node(self, payload):
+    def _make_node(self, payload: _tree._NodePayload) -> _node.RegressionNode:
         """Construct a RegressionNode with the regression-relevant payload."""
         response_samples = payload.response_samples
         node = _node.RegressionNode(
@@ -485,14 +487,13 @@ class RegressionTree(
         """Exact chi-squared CI for the mean of a Gamma response."""
         if numpy.any(y_active < 0.0):
             raise ValueError("gamma CI requires all response values >= 0")
-        w_sum = w_active.sum()
-        p_hat = float(numpy.dot(w_active, y_active) / w_sum)
+        _, p_hat, variance, n_eff = RegressionTree._weighted_mean_variance_neff(
+            y_active, w_active
+        )
         if p_hat == 0.0:
             return 0.0, 0.0
-        variance = float(numpy.dot(w_active, (y_active - p_hat) ** 2) / w_sum)
         if variance == 0.0:
             return p_hat, p_hat
-        n_eff = float(w_sum**2 / numpy.dot(w_active, w_active))
         alpha_shape = p_hat**2 / variance
         df = 2.0 * n_eff * alpha_shape
         chi2_low = float(scipy.stats.chi2.ppf(alpha, df))
@@ -561,18 +562,29 @@ class RegressionTree(
         return ci_low, ci_high
 
     @staticmethod
+    def _weighted_mean_variance_neff(
+        y_active: numpy.typing.NDArray[numpy.floating],
+        w_active: numpy.typing.NDArray[numpy.floating],
+    ) -> tuple[float, float, float, float]:
+        """Weighted total, mean, variance, and Kish effective sample size."""
+        w_sum = float(w_active.sum())
+        p_hat = float(numpy.dot(w_active, y_active) / w_sum)
+        variance = float(numpy.dot(w_active, (y_active - p_hat) ** 2) / w_sum)
+        n_eff = float(w_sum**2 / numpy.dot(w_active, w_active))
+        return w_sum, p_hat, variance, n_eff
+
+    @staticmethod
     def _compute_ci_normal(
         y_active: numpy.typing.NDArray[numpy.floating],
         w_active: numpy.typing.NDArray[numpy.floating],
         alpha: float,
     ) -> tuple[float, float]:
         """Normal-approximation CI with Kish effective sample size."""
-        w_sum = w_active.sum()
-        p_hat = float(numpy.dot(w_active, y_active) / w_sum)
-        variance = float(numpy.dot(w_active, (y_active - p_hat) ** 2) / w_sum)
+        _, p_hat, variance, n_eff = RegressionTree._weighted_mean_variance_neff(
+            y_active, w_active
+        )
         if variance == 0.0:
             return p_hat, p_hat
-        n_eff = float(w_sum**2 / numpy.dot(w_active, w_active))
         se = float(numpy.sqrt(variance / n_eff))
         z = float(scipy.stats.norm.ppf(1.0 - alpha))
         ci_low = p_hat - z * se
@@ -624,12 +636,11 @@ class RegressionTree(
         alpha: float,
     ) -> tuple[float, float]:
         """Student-t CI with Kish effective sample size, df = n_eff - 1."""
-        w_sum = w_active.sum()
-        p_hat = float(numpy.dot(w_active, y_active) / w_sum)
-        variance = float(numpy.dot(w_active, (y_active - p_hat) ** 2) / w_sum)
+        _, p_hat, variance, n_eff = RegressionTree._weighted_mean_variance_neff(
+            y_active, w_active
+        )
         if variance == 0.0:
             return p_hat, p_hat
-        n_eff = float(w_sum**2 / numpy.dot(w_active, w_active))
         df = n_eff - 1.0
         if df <= 0.0:
             return p_hat, p_hat
@@ -659,8 +670,6 @@ class RegressionTree(
         indices = self.predict_index(X)
         base = self._gather_node_predictions(indices)
         if offset is None:
-            if not self._fit_with_offset:
-                return base
             return base
         offset_new = self._validate_predict_offset(offset, len(base))
         predictions = base + offset_new
@@ -672,13 +681,5 @@ class RegressionTree(
         n_samples: int,
     ) -> numpy.typing.NDArray[numpy.floating]:
         """Validate the predict-time offset for regression."""
-        offset_array = numpy.asarray(offset, dtype=float)
-        offset_shape = offset_array.shape
-        if offset_array.ndim != 1 or offset_shape[0] != n_samples:
-            raise ValueError(
-                f"offset must be 1D with length {n_samples},"
-                f" got shape {offset_shape}"
-            )
-        if not numpy.all(numpy.isfinite(offset_array)):
-            raise ValueError("offset values must be finite")
+        offset_array = self._validate_offset_shape_finite(offset, (n_samples,))
         return offset_array

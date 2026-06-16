@@ -465,7 +465,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             )
         return y_out_shape[0]
 
-    def _make_node(self, payload):
+    def _make_node(self, payload: _tree._NodePayload) -> _node.RankingNode:
         """Construct a RankingNode with the per-item metric payload."""
         node = _node.RankingNode(
             depth=payload.depth,
@@ -801,6 +801,22 @@ def _bca_per_item_quantiles(
     return ci_low_vec, ci_high_vec
 
 
+def _pl_fisher_cho_factor(
+    cache: _ranking._OrderingsCache,
+    alpha: numpy.typing.NDArray[numpy.floating],
+    n_items: int,
+) -> tuple[numpy.typing.NDArray[numpy.floating], bool]:
+    """Ridge-regularized Cholesky factor of the PL Fisher information."""
+    h = _ranking._compute_pl_fisher_info(
+        cache, alpha, cache.ordering_weights, n_items
+    )
+    trace_value = float(numpy.trace(h))
+    ridge = 1.0e-9 * max(trace_value, 1.0) / n_items
+    h_regularised = h + ridge * numpy.eye(n_items, dtype=float)
+    cho = scipy.linalg.cho_factor(h_regularised, lower=True)
+    return cho
+
+
 def _wald_per_item_ci(
     cache: _ranking._OrderingsCache,
     n_items: int,
@@ -823,13 +839,7 @@ def _wald_per_item_ci(
     )
     point_rank = _ranking.pl_expected_rank(alpha)
     with numpy.errstate(divide="ignore", over="ignore", invalid="ignore"):
-        h = _ranking._compute_pl_fisher_info(
-            cache, alpha, cache.ordering_weights, n_items
-        )
-        trace_value = float(numpy.trace(h))
-        ridge = 1.0e-9 * max(trace_value, 1.0) / n_items
-        h_regularised = h + ridge * numpy.eye(n_items, dtype=float)
-        c_factor, lower = scipy.linalg.cho_factor(h_regularised, lower=True)
+        c_factor, lower = _pl_fisher_cho_factor(cache, alpha, n_items)
         g = _ranking._compute_pl_expected_rank_jacobian(alpha)
         z_matrix = scipy.linalg.cho_solve((c_factor, lower), g.T)
         var_per_item = numpy.einsum("ki,ik->k", g, z_matrix)
@@ -865,13 +875,7 @@ def _gaussian_multiplier_per_item_ci(
     )
     point_rank = _ranking.pl_expected_rank(alpha)
     with numpy.errstate(divide="ignore", over="ignore", invalid="ignore"):
-        h = _ranking._compute_pl_fisher_info(
-            cache, alpha, cache.ordering_weights, n_items
-        )
-        trace_value = float(numpy.trace(h))
-        ridge = 1.0e-9 * max(trace_value, 1.0) / n_items
-        h_regularised = h + ridge * numpy.eye(n_items, dtype=float)
-        c_factor, lower = scipy.linalg.cho_factor(h_regularised, lower=True)
+        c_factor, lower = _pl_fisher_cho_factor(cache, alpha, n_items)
         score = _ranking._compute_pl_score_per_row(cache, alpha, n_items)
         weighted_score = cache.ordering_weights[:, None] * score
         n_orderings = int(cache.row_sizes.size)

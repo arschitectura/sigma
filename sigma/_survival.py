@@ -38,10 +38,11 @@ def compute_logrank_scores(
         t_sorted, return_index=True, return_inverse=True
     )
     n_unique = len(unique_times)
-    d_per_time = numpy.bincount(group_id, weights=e_sorted, minlength=n_unique)
+    d_per_time = numpy.bincount(
+        group_id, weights=e_sorted, minlength=n_unique
+    ).astype(float)
     r_per_time = (n - first_idx).astype(float)
-    increment = numpy.where(r_per_time > 0, d_per_time / r_per_time, 0.0)
-    cum_haz_per_time = numpy.cumsum(increment)
+    cum_haz_per_time = _cumulative_hazard_from_counts(d_per_time, r_per_time)
     cum_haz_sorted = cum_haz_per_time[group_id]
     score_sorted = e_sorted - cum_haz_sorted
     score = numpy.empty(n, dtype=float)
@@ -79,8 +80,7 @@ def compute_kaplan_meier(
         empty_s = numpy.empty(0, dtype=float)
         return empty_t, empty_s
     unique_times, d_w, r_w = grouped
-    safe_factor = numpy.where(r_w > 0, 1.0 - d_w / r_w, 1.0)
-    surv = numpy.cumprod(safe_factor)
+    surv = _km_survival_from_counts(d_w, r_w)
     return unique_times, surv
 
 
@@ -173,19 +173,12 @@ def compute_kaplan_meier_with_variance(
         empty = numpy.empty(0, dtype=float)
         return empty, empty, empty, empty, empty
     unique_times, d_w, r_w = grouped
-    safe_factor = numpy.where(r_w > 0, 1.0 - d_w / r_w, 1.0)
-    surv = numpy.cumprod(safe_factor)
+    surv = _km_survival_from_counts(d_w, r_w)
     denom = r_w * (r_w - d_w)
     safe_denom = numpy.where(denom > 0, denom, 1.0)
     log_var_increment = numpy.where(denom > 0, d_w / safe_denom, 0.0)
     var_log_s = numpy.cumsum(log_var_increment)
-    return (
-        unique_times.astype(float),
-        surv.astype(float),
-        var_log_s.astype(float),
-        d_w.astype(float),
-        r_w.astype(float),
-    )
+    return unique_times, surv, var_log_s, d_w, r_w
 
 
 def compute_survival_at(
@@ -209,7 +202,7 @@ def compute_survival_at(
     """
     if len(times) == 0:
         return 1.0
-    index = int(numpy.searchsorted(times, query, side="right")) - 1
+    index = _km_step_index(times, query)
     if index < 0:
         return 1.0
     value = float(surv[index])
@@ -242,7 +235,7 @@ def compute_log_log_ci_at(
     """
     if len(times) == 0:
         return 1.0, 1.0
-    index = int(numpy.searchsorted(times, query, side="right")) - 1
+    index = _km_step_index(times, query)
     if index < 0:
         return 1.0, 1.0
     s = float(surv[index])
@@ -434,8 +427,7 @@ def compute_nelson_aalen(
         empty = numpy.empty(0, dtype=float)
         return empty, empty
     unique_times, d_w, r_w = grouped
-    increment = numpy.where(r_w > 0, d_w / r_w, 0.0)
-    cum_haz = numpy.cumsum(increment)
+    cum_haz = _cumulative_hazard_from_counts(d_w, r_w)
     return unique_times, cum_haz
 
 
@@ -515,6 +507,36 @@ def _grouped_weighted_risk(
         r_w.astype(float),
     )
     return result
+
+
+def _km_survival_from_counts(
+    d_w: numpy.typing.NDArray[numpy.floating],
+    r_w: numpy.typing.NDArray[numpy.floating],
+) -> numpy.typing.NDArray[numpy.floating]:
+    """Kaplan-Meier survival step values from weighted event and risk counts."""
+    safe_factor = numpy.where(r_w > 0, 1.0 - d_w / r_w, 1.0)
+    surv = numpy.cumprod(safe_factor)
+    return surv
+
+
+def _cumulative_hazard_from_counts(
+    d: numpy.typing.NDArray[numpy.floating],
+    r: numpy.typing.NDArray[numpy.floating],
+) -> numpy.typing.NDArray[numpy.floating]:
+    """Nelson-Aalen cumulative hazard from event and at-risk counts per time."""
+    increment = numpy.where(r > 0, d / r, 0.0)
+    cum_haz = numpy.cumsum(increment)
+    return cum_haz
+
+
+def _km_step_index(
+    times: numpy.typing.NDArray[numpy.floating],
+    query: float,
+) -> int:
+    """Index of the Kaplan-Meier step active at a query time, or -1 below it."""
+    position = numpy.searchsorted(times, query, side="right")
+    index = int(position) - 1
+    return index
 
 
 def _first_time_at_or_below(

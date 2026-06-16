@@ -127,21 +127,9 @@ def export_text(
         TypeError: If out_file is neither None, a string, nor a file-like
             object with a write method.
     """
-    if max_depth is not None and (
-        not isinstance(max_depth, int) or max_depth < 0
-    ):
-        raise ValueError("max_depth must be None or a non-negative integer")
-    if not isinstance(precision, int) or precision < 0:
-        raise ValueError("precision must be a non-negative integer")
-    if (
-        out_file is not None
-        and not isinstance(out_file, str)
-        and not hasattr(out_file, "write")
-    ):
-        raise TypeError(
-            "out_file must be None, a string path, or a file-like object"
-            " with a write method"
-        )
+    _validate_max_depth(max_depth)
+    _validate_precision(precision)
+    _validate_out_file(out_file)
     sklearn.utils.validation.check_is_fitted(tree, "content_")
     displayed_indices = _resolve_displayed_indices(tree, top_displayed_items)
     names = tree._effective_feature_names(feature_names)
@@ -193,16 +181,8 @@ def export_text(
         rendered_rows.append(cells)
     lines = _tree_text._format_aligned_headers(headers, rendered_rows)
     result = "\n".join(lines)
-    match out_file:
-        case None:
-            return result
-        case str():
-            with open(out_file, "w", encoding="utf-8") as file_handle:
-                file_handle.write(result)
-            return None
-        case _:
-            out_file.write(result)
-            return None
+    emitted = _write_text_output(result, out_file)
+    return emitted
 
 
 @typing.overload
@@ -306,19 +286,8 @@ def export_sql(
         TypeError: If out_file is neither None, a string, nor a file-like
             object with a write method.
     """
-    if max_depth is not None and (
-        not isinstance(max_depth, int) or max_depth < 0
-    ):
-        raise ValueError("max_depth must be None or a non-negative integer")
-    if (
-        out_file is not None
-        and not isinstance(out_file, str)
-        and not hasattr(out_file, "write")
-    ):
-        raise TypeError(
-            "out_file must be None, a string path, or a file-like object"
-            " with a write method"
-        )
+    _validate_max_depth(max_depth)
+    _validate_out_file(out_file)
     sklearn.utils.validation.check_is_fitted(tree, "content_")
     from . import _tree_sql
 
@@ -337,16 +306,8 @@ def export_sql(
         max_depth,
         not tree.reverse_order,
     )
-    match out_file:
-        case None:
-            return result
-        case str():
-            with open(out_file, "w", encoding="utf-8") as file_handle:
-                file_handle.write(result)
-            return None
-        case _:
-            out_file.write(result)
-            return None
+    emitted = _write_text_output(result, out_file)
+    return emitted
 
 
 @typing.overload
@@ -506,25 +467,11 @@ def export_graphviz(
             object with a write method.
         ImportError: If graphviz is not installed.
     """
-    if max_depth is not None and (
-        not isinstance(max_depth, int) or max_depth < 0
-    ):
-        raise ValueError("max_depth must be None or a non-negative integer")
-    if not isinstance(precision, int) or precision < 0:
-        raise ValueError("precision must be a non-negative integer")
-    if not isinstance(dpi, int) or dpi <= 0:
-        raise ValueError("dpi must be a positive integer")
-    if not isinstance(max_branch_length, int) or max_branch_length <= 0:
-        raise ValueError("max_branch_length must be a positive integer")
-    if (
-        out_file is not None
-        and not isinstance(out_file, str)
-        and not hasattr(out_file, "write")
-    ):
-        raise TypeError(
-            "out_file must be None, a string path, or a file-like object"
-            " with a write method"
-        )
+    _validate_max_depth(max_depth)
+    _validate_precision(precision)
+    _validate_positive_int(dpi, "dpi")
+    _validate_positive_int(max_branch_length, "max_branch_length")
+    _validate_out_file(out_file)
     sklearn.utils.validation.check_is_fitted(tree, "content_")
     from . import _graphviz
 
@@ -560,16 +507,8 @@ def export_graphviz(
         max_branch_length=max_branch_length,
     )
     dot_source = dot.source.rstrip("\n")
-    match out_file:
-        case None:
-            return dot_source
-        case str():
-            with open(out_file, "w", encoding="utf-8") as file_handle:
-                file_handle.write(dot_source)
-            return None
-        case _:
-            out_file.write(dot_source)
-            return None
+    emitted = _write_text_output(dot_source, out_file)
+    return emitted
 
 
 @typing.overload
@@ -777,25 +716,11 @@ def export_image(
         raise ValueError("format must be one of 'gif', 'pdf', 'png', or 'svg'")
     if kind not in ("tree", "response"):
         raise ValueError("kind must be one of 'tree' or 'response'")
-    if max_depth is not None and (
-        not isinstance(max_depth, int) or max_depth < 0
-    ):
-        raise ValueError("max_depth must be None or a non-negative integer")
-    if not isinstance(precision, int) or precision < 0:
-        raise ValueError("precision must be a non-negative integer")
-    if not isinstance(dpi, int) or dpi <= 0:
-        raise ValueError("dpi must be a positive integer")
-    if not isinstance(max_branch_length, int) or max_branch_length <= 0:
-        raise ValueError("max_branch_length must be a positive integer")
-    if (
-        out_file is not None
-        and not isinstance(out_file, str)
-        and not hasattr(out_file, "write")
-    ):
-        raise TypeError(
-            "out_file must be None, a string path, or a file-like object"
-            " with a write method"
-        )
+    _validate_max_depth(max_depth)
+    _validate_precision(precision)
+    _validate_positive_int(dpi, "dpi")
+    _validate_positive_int(max_branch_length, "max_branch_length")
+    _validate_out_file(out_file)
     sklearn.utils.validation.check_is_fitted(tree, "content_")
     from . import _graphviz
     from . import _palette
@@ -822,16 +747,8 @@ def export_image(
             leaf_palette=effective_leaf_palette,
             foreground_color=effective_foreground_color,
         )
-        match out_file:
-            case None:
-                return payload
-            case str():
-                with open(out_file, "wb") as file_handle:
-                    file_handle.write(payload)
-                return None
-            case _:
-                out_file.write(payload)
-                return None
+        emitted = _write_bytes_output(payload, out_file)
+        return emitted
     effective_top_displayed_items = _resolve_top_displayed_items(
         tree, top_displayed_items
     )
@@ -879,16 +796,8 @@ def export_image(
                     payload = cairosvg.svg2pdf(bytestring=svg_bytes, dpi=96)
                 case "png":
                     payload = cairosvg.svg2png(bytestring=svg_bytes, dpi=96)
-    match out_file:
-        case None:
-            return payload
-        case str():
-            with open(out_file, "wb") as file_handle:
-                file_handle.write(payload)
-            return None
-        case _:
-            out_file.write(payload)
-            return None
+    emitted = _write_bytes_output(payload, out_file)
+    return emitted
 
 
 _DEFAULT_TOP_DISPLAYED_ITEMS = 3
@@ -933,3 +842,68 @@ def _resolve_displayed_indices(
     ranking_tree = typing.cast(_tree_ranking.RankingTree, tree)
     result = ranking_tree._compute_displayed_indices(effective)
     return result
+
+
+def _write_text_output(
+    payload: str, out_file: None | str | typing.IO[str]
+) -> None | str:
+    """Return text when out_file is None, else write it and return None."""
+    match out_file:
+        case None:
+            return payload
+        case str():
+            with open(out_file, "w", encoding="utf-8") as file_handle:
+                file_handle.write(payload)
+            return None
+        case _:
+            out_file.write(payload)
+            return None
+
+
+def _write_bytes_output(
+    payload: bytes, out_file: None | str | typing.IO[bytes]
+) -> None | bytes:
+    """Return bytes when out_file is None, else write them and return None."""
+    match out_file:
+        case None:
+            return payload
+        case str():
+            with open(out_file, "wb") as file_handle:
+                file_handle.write(payload)
+            return None
+        case _:
+            out_file.write(payload)
+            return None
+
+
+def _validate_max_depth(max_depth: None | int) -> None:
+    """Raise when max_depth is neither None nor a non-negative integer."""
+    if max_depth is not None and (
+        not isinstance(max_depth, int) or max_depth < 0
+    ):
+        raise ValueError("max_depth must be None or a non-negative integer")
+
+
+def _validate_precision(precision: int) -> None:
+    """Raise when precision is not a non-negative integer."""
+    if not isinstance(precision, int) or precision < 0:
+        raise ValueError("precision must be a non-negative integer")
+
+
+def _validate_positive_int(value: int, name: str) -> None:
+    """Raise when value is not a positive integer."""
+    if not isinstance(value, int) or value <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+
+
+def _validate_out_file(out_file: None | str | object) -> None:
+    """Raise when out_file is not None, a string, nor a file-like object."""
+    if (
+        out_file is not None
+        and not isinstance(out_file, str)
+        and not hasattr(out_file, "write")
+    ):
+        raise TypeError(
+            "out_file must be None, a string path, or a file-like object"
+            " with a write method"
+        )

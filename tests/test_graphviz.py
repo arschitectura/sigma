@@ -51,6 +51,23 @@ def _make_survival_tree():
     return survival_tree
 
 
+def _build_default_digraph(
+    graphviz_module, root, category_labels=None, class_names=None, **kwargs
+):
+    """Invoke _build_digraph with the default color scheme."""
+    digraph = graphviz_module._build_digraph(
+        root,
+        category_labels,
+        class_names,
+        graphviz_module._DEFAULT_ROOT_COLORS,
+        graphviz_module._DEFAULT_SPLIT_COLORS,
+        graphviz_module._DEFAULT_LEAF_PALETTE,
+        "black",
+        **kwargs,
+    )
+    return digraph
+
+
 @unittest.skipUnless(_HAS_GRAPHVIZ, "graphviz not installed")
 class TestBuildDigraph(unittest.TestCase):
     """Tests for the _build_digraph helper function."""
@@ -72,14 +89,11 @@ class TestBuildDigraph(unittest.TestCase):
             reverse_order=False,
         ):
             """Invoke _build_digraph with default colors."""
-            digraph = _graphviz._build_digraph(
+            digraph = _build_default_digraph(
+                _graphviz,
                 root,
                 labels,
                 class_names,
-                _graphviz._DEFAULT_ROOT_COLORS,
-                _graphviz._DEFAULT_SPLIT_COLORS,
-                _graphviz._DEFAULT_LEAF_PALETTE,
-                "black",
                 feature_names=feature_names,
                 orientation=orientation,
                 reverse_order=reverse_order,
@@ -735,14 +749,9 @@ class TestBuildDigraphMaxDepth(unittest.TestCase):
 
     def _build(self, max_depth):
         """Invoke _build_digraph with a max_depth and default colors."""
-        digraph = self._graphviz._build_digraph(
+        digraph = _build_default_digraph(
+            self._graphviz,
             self.regression_tree.content_,
-            None,
-            None,
-            self._graphviz._DEFAULT_ROOT_COLORS,
-            self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_PALETTE,
-            foreground_color="black",
             max_depth=max_depth,
         )
         return digraph
@@ -799,14 +808,9 @@ class TestBuildDigraphPrecision(unittest.TestCase):
 
     def _build(self, precision):
         """Invoke _build_digraph with a precision and default colors."""
-        digraph = self._graphviz._build_digraph(
+        digraph = _build_default_digraph(
+            self._graphviz,
             self.regression_tree.content_,
-            None,
-            None,
-            self._graphviz._DEFAULT_ROOT_COLORS,
-            self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_PALETTE,
-            foreground_color="black",
             precision=precision,
         )
         return digraph
@@ -895,14 +899,9 @@ class TestBuildDigraphMaxBranchLength(unittest.TestCase):
 
     def _build(self, max_branch_length):
         """Invoke _build_digraph with the long feature name and a max_branch_length."""
-        digraph = self._graphviz._build_digraph(
+        digraph = _build_default_digraph(
+            self._graphviz,
             self.regression_tree.content_,
-            None,
-            None,
-            self._graphviz._DEFAULT_ROOT_COLORS,
-            self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_PALETTE,
-            foreground_color="black",
             feature_names=numpy.array([self.long_feature_name]),
             max_branch_length=max_branch_length,
         )
@@ -983,16 +982,7 @@ class TestUniformNodeWidths(unittest.TestCase):
 
     def _build(self, root, **kwargs):
         """Invoke _build_digraph with default colors."""
-        digraph = self._graphviz._build_digraph(
-            root,
-            None,
-            None,
-            self._graphviz._DEFAULT_ROOT_COLORS,
-            self._graphviz._DEFAULT_SPLIT_COLORS,
-            self._graphviz._DEFAULT_LEAF_PALETTE,
-            foreground_color="black",
-            **kwargs,
-        )
+        digraph = _build_default_digraph(self._graphviz, root, **kwargs)
         return digraph
 
     def test_dot_source_sets_uniform_width(self):
@@ -1097,15 +1087,7 @@ class TestBoldPredictionValues(unittest.TestCase):
         """Invoke _build_digraph with default colors."""
         from sigma import _graphviz
 
-        digraph = _graphviz._build_digraph(
-            root,
-            None,
-            None,
-            _graphviz._DEFAULT_ROOT_COLORS,
-            _graphviz._DEFAULT_SPLIT_COLORS,
-            _graphviz._DEFAULT_LEAF_PALETTE,
-            "black",
-        )
+        digraph = _build_default_digraph(_graphviz, root)
         return digraph
 
     def test_regression_value_is_wrapped_in_bold(self):

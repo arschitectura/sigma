@@ -186,7 +186,7 @@ def _format_prediction(
         )
         return text
     if isinstance(node, _node.RankingNode):
-        ranking_indices = [] if displayed_indices is None else displayed_indices
+        ranking_indices = _normalize_displayed_indices(displayed_indices)
         text = _format_ranking_prediction(
             node,
             prediction_formatter,
@@ -214,6 +214,15 @@ def _capitalize_first_letter(text: str) -> str:
     """Return text with its first character upper-cased."""
     result = text[:1].upper() + text[1:]
     return result
+
+
+def _normalize_displayed_indices(
+    displayed_indices: None | list[int],
+) -> list[int]:
+    """Return the displayed item indices, treating None as an empty list."""
+    if displayed_indices is None:
+        return []
+    return displayed_indices
 
 
 def _ellipsize(s: str, max_length: int) -> str:
@@ -355,18 +364,17 @@ def _format_survival_metric_line(
     bold_value: bool,
 ) -> str:
     """Format a single metric line with optional CI."""
-
-    def default_formatter(v: float) -> str:
-        if style == "probability":
-            return _format_probability(v, precision)
-        return _format_value(v, precision)
-
-    formatter = prediction_formatter or default_formatter
     display_label = _apply_response_name(label, response_name)
-    value_text = _bold(formatter(value), bold_value)
+    value_text = _format_metric_value(
+        value,
+        ci_low,
+        ci_high,
+        style,
+        prediction_formatter,
+        precision,
+        bold_value,
+    )
     line = f"{display_label} = {value_text}"
-    if ci_low is not None and ci_high is not None:
-        line += _format_ci_pair(formatter, ci_low, ci_high)
     return line
 
 
@@ -405,7 +413,7 @@ def _table_prediction_headers(
         result = _table_survival_prediction_headers(node, response_name)
         return result
     if isinstance(node, _node.RankingNode):
-        ranking_indices = [] if displayed_indices is None else displayed_indices
+        ranking_indices = _normalize_displayed_indices(displayed_indices)
         result = _table_ranking_prediction_headers(node, ranking_indices)
         return result
     result = _table_regression_prediction_headers(response_name)
@@ -485,7 +493,7 @@ def _table_prediction_cells(
         )
         return result
     if isinstance(node, _node.RankingNode):
-        ranking_indices = [] if displayed_indices is None else displayed_indices
+        ranking_indices = _normalize_displayed_indices(displayed_indices)
         result = _table_ranking_prediction_cells(
             node, prediction_formatter, precision, ranking_indices
         )
@@ -569,6 +577,28 @@ def _format_survival_metric_cell(
     precision: int,
 ) -> str:
     """Render one survival metric cell with optional CI bounds."""
+    cell = _format_metric_value(
+        value,
+        ci_low,
+        ci_high,
+        style,
+        prediction_formatter,
+        precision,
+        False,
+    )
+    return cell
+
+
+def _format_metric_value(
+    value: float,
+    ci_low: None | float,
+    ci_high: None | float,
+    style: typing.Literal["value", "probability"],
+    prediction_formatter: None | typing.Callable[[float], str],
+    precision: int,
+    bold_value: bool,
+) -> str:
+    """Render a metric value with optional bolding and trailing CI bounds."""
 
     def default_formatter(v: float) -> str:
         if style == "probability":
@@ -576,10 +606,11 @@ def _format_survival_metric_cell(
         return _format_value(v, precision)
 
     formatter = prediction_formatter or default_formatter
-    cell = formatter(value)
+    formatted_value = formatter(value)
+    text = _bold(formatted_value, bold_value)
     if ci_low is not None and ci_high is not None:
-        cell += _format_ci_pair(formatter, ci_low, ci_high)
-    return cell
+        text += _format_ci_pair(formatter, ci_low, ci_high)
+    return text
 
 
 def _table_ranking_prediction_cells(
@@ -750,12 +781,10 @@ def _append_child_text_rows(
     left_label, right_label = _format_branch_labels(
         partition, category_labels, feature_names, precision=precision
     )
-    ordered_children = node.display_children(best_first)
-    left_child, right_child = ordered_children or (
-        partition.left,
-        partition.right,
+    left_child, right_child, swapped = _node.ordered_display_children(
+        node, partition, best_first
     )
-    if left_child is not partition.left:
+    if swapped:
         left_label, right_label = right_label, left_label
     for branch_label, child, is_last in [
         (left_label, left_child, False),
@@ -799,13 +828,11 @@ def _format_categorical_condition(name: str, items: list[str]) -> str:
     return f"{name} is {listing}"
 
 
-def _format_branch_labels(
+def _resolve_feature_name(
     partition: _partition.Partition,
-    category_labels: None | dict[int, dict[float, str]],
-    feature_names: None | numpy.typing.NDArray = None,
-    precision: int = 3,
-) -> tuple[str, str]:
-    """Return display labels for the left and right branches of a partition."""
+    feature_names: None | numpy.typing.NDArray,
+) -> str:
+    """Resolve a partition's display feature name from optional feature names."""
     feature_index = partition.feature_index
     if feature_names is None:
         if partition.feature_name is None:
@@ -814,6 +841,18 @@ def _format_branch_labels(
             name = partition.feature_name
     else:
         name = str(feature_names[feature_index])
+    return name
+
+
+def _format_branch_labels(
+    partition: _partition.Partition,
+    category_labels: None | dict[int, dict[float, str]],
+    feature_names: None | numpy.typing.NDArray = None,
+    precision: int = 3,
+) -> tuple[str, str]:
+    """Return display labels for the left and right branches of a partition."""
+    feature_index = partition.feature_index
+    name = _resolve_feature_name(partition, feature_names)
     if isinstance(partition, _partition.BooleanPartition):
         left_label = f"{name} is false"
         right_label = f"{name} is true"

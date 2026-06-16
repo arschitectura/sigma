@@ -538,6 +538,60 @@ def _sample_singular_mvn(
     return samples
 
 
+def _assert_selects_associated_variable(test_type, **kwargs):
+    """Assert select_variable picks the signal feature under test_type."""
+    rng = numpy.random.default_rng(42)
+    n = 200
+    x_signal = numpy.linspace(0, 10, n)
+    x_noise = rng.standard_normal(n)
+    X = numpy.column_stack([x_noise, x_signal])
+    y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
+    weights = numpy.ones(n)
+    feature_types = numpy.array(
+        [sigma._types.CovariateType.REAL, sigma._types.CovariateType.REAL]
+    )
+    result = sigma._statistics.select_variable(
+        X,
+        y.reshape(-1, 1),
+        weights,
+        feature_types,
+        sigma._types.TestStat.QUADRATIC,
+        test_type,
+        correlation=sigma._types.Correlation.NORMAL,
+        **kwargs,
+    )
+    assert result is not None
+    assert result.feature_index == 1
+    assert result.p_value < 0.05
+
+
+def _assert_returns_none_when_independent(test_type, **kwargs):
+    """Assert select_variable returns None on noise features under test_type."""
+    rng = numpy.random.default_rng(123)
+    n = 50
+    X = rng.standard_normal((n, 3))
+    y = rng.standard_normal(n)
+    weights = numpy.ones(n)
+    feature_types = numpy.array(
+        [
+            sigma._types.CovariateType.REAL,
+            sigma._types.CovariateType.REAL,
+            sigma._types.CovariateType.REAL,
+        ]
+    )
+    result = sigma._statistics.select_variable(
+        X,
+        y.reshape(-1, 1),
+        weights,
+        feature_types,
+        sigma._types.TestStat.QUADRATIC,
+        test_type,
+        correlation=sigma._types.Correlation.NORMAL,
+        **kwargs,
+    )
+    assert result is None
+
+
 class TestSelectVariable(unittest.TestCase):
     """Tests for variable selection."""
 
@@ -545,53 +599,11 @@ class TestSelectVariable(unittest.TestCase):
 
     def test_selects_associated_variable(self):
         """Selects the variable with the strongest association."""
-        rng = numpy.random.default_rng(42)
-        n = 200
-        x_signal = numpy.linspace(0, 10, n)
-        x_noise = rng.standard_normal(n)
-        X = numpy.column_stack([x_noise, x_signal])
-        y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
-        weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [sigma._types.CovariateType.REAL, sigma._types.CovariateType.REAL]
-        )
-        result = sigma._statistics.select_variable(
-            X,
-            y.reshape(-1, 1),
-            weights,
-            feature_types,
-            sigma._types.TestStat.QUADRATIC,
-            sigma._types.TestType.SIDAK,
-            correlation=sigma._types.Correlation.NORMAL,
-        )
-        assert result is not None
-        assert result.feature_index == 1
-        assert result.p_value < 0.05
+        _assert_selects_associated_variable(sigma._types.TestType.SIDAK)
 
     def test_returns_none_when_independent(self):
         """Returns None when no variable is significantly associated."""
-        rng = numpy.random.default_rng(123)
-        n = 50
-        X = rng.standard_normal((n, 3))
-        y = rng.standard_normal(n)
-        weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [
-                sigma._types.CovariateType.REAL,
-                sigma._types.CovariateType.REAL,
-                sigma._types.CovariateType.REAL,
-            ]
-        )
-        result = sigma._statistics.select_variable(
-            X,
-            y.reshape(-1, 1),
-            weights,
-            feature_types,
-            sigma._types.TestStat.QUADRATIC,
-            sigma._types.TestType.SIDAK,
-            correlation=sigma._types.Correlation.NORMAL,
-        )
-        assert result is None
+        _assert_returns_none_when_independent(sigma._types.TestType.SIDAK)
 
     def test_categorical_variable(self):
         """Correctly handles a categorical variable with strong signal."""
@@ -779,53 +791,11 @@ class TestSelectVariableSidak(unittest.TestCase):
 
     def test_selects_associated_variable(self):
         """Selects the variable with the strongest association."""
-        rng = numpy.random.default_rng(42)
-        n = 200
-        x_signal = numpy.linspace(0, 10, n)
-        x_noise = rng.standard_normal(n)
-        X = numpy.column_stack([x_noise, x_signal])
-        y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
-        weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [sigma._types.CovariateType.REAL, sigma._types.CovariateType.REAL]
-        )
-        result = sigma._statistics.select_variable(
-            X,
-            y.reshape(-1, 1),
-            weights,
-            feature_types,
-            sigma._types.TestStat.QUADRATIC,
-            sigma._types.TestType.SIDAK,
-            correlation=sigma._types.Correlation.NORMAL,
-        )
-        assert result is not None
-        assert result.feature_index == 1
-        assert result.p_value < 0.05
+        _assert_selects_associated_variable(sigma._types.TestType.SIDAK)
 
     def test_returns_none_when_independent(self):
         """Returns None when no variable is significantly associated."""
-        rng = numpy.random.default_rng(123)
-        n = 50
-        X = rng.standard_normal((n, 3))
-        y = rng.standard_normal(n)
-        weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [
-                sigma._types.CovariateType.REAL,
-                sigma._types.CovariateType.REAL,
-                sigma._types.CovariateType.REAL,
-            ]
-        )
-        result = sigma._statistics.select_variable(
-            X,
-            y.reshape(-1, 1),
-            weights,
-            feature_types,
-            sigma._types.TestStat.QUADRATIC,
-            sigma._types.TestType.SIDAK,
-            correlation=sigma._types.Correlation.NORMAL,
-        )
-        assert result is None
+        _assert_returns_none_when_independent(sigma._types.TestType.SIDAK)
 
 
 class TestSelectVariableBonferroni(unittest.TestCase):
@@ -835,53 +805,11 @@ class TestSelectVariableBonferroni(unittest.TestCase):
 
     def test_selects_associated_variable(self):
         """Selects the variable with the strongest association."""
-        rng = numpy.random.default_rng(42)
-        n = 200
-        x_signal = numpy.linspace(0, 10, n)
-        x_noise = rng.standard_normal(n)
-        X = numpy.column_stack([x_noise, x_signal])
-        y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
-        weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [sigma._types.CovariateType.REAL, sigma._types.CovariateType.REAL]
-        )
-        result = sigma._statistics.select_variable(
-            X,
-            y.reshape(-1, 1),
-            weights,
-            feature_types,
-            sigma._types.TestStat.QUADRATIC,
-            sigma._types.TestType.BONFERRONI,
-            correlation=sigma._types.Correlation.NORMAL,
-        )
-        assert result is not None
-        assert result.feature_index == 1
-        assert result.p_value < 0.05
+        _assert_selects_associated_variable(sigma._types.TestType.BONFERRONI)
 
     def test_returns_none_when_independent(self):
         """Returns None when no variable is significantly associated."""
-        rng = numpy.random.default_rng(123)
-        n = 50
-        X = rng.standard_normal((n, 3))
-        y = rng.standard_normal(n)
-        weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [
-                sigma._types.CovariateType.REAL,
-                sigma._types.CovariateType.REAL,
-                sigma._types.CovariateType.REAL,
-            ]
-        )
-        result = sigma._statistics.select_variable(
-            X,
-            y.reshape(-1, 1),
-            weights,
-            feature_types,
-            sigma._types.TestStat.QUADRATIC,
-            sigma._types.TestType.BONFERRONI,
-            correlation=sigma._types.Correlation.NORMAL,
-        )
-        assert result is None
+        _assert_returns_none_when_independent(sigma._types.TestType.BONFERRONI)
 
 
 class TestRankTransform(unittest.TestCase):
@@ -1121,57 +1049,19 @@ class TestSelectVariableMonteCarlo(unittest.TestCase):
 
     def test_selects_associated_variable(self):
         """Selects the signal variable with monte_carlo adjustment."""
-        rng = numpy.random.default_rng(42)
-        n = 200
-        x_signal = numpy.linspace(0, 10, n)
-        x_noise = rng.standard_normal(n)
-        X = numpy.column_stack([x_noise, x_signal])
-        y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
-        weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [sigma._types.CovariateType.REAL, sigma._types.CovariateType.REAL]
-        )
-        result = sigma._statistics.select_variable(
-            X,
-            y.reshape(-1, 1),
-            weights,
-            feature_types,
-            sigma._types.TestStat.QUADRATIC,
+        _assert_selects_associated_variable(
             sigma._types.TestType.MONTE_CARLO,
-            correlation=sigma._types.Correlation.NORMAL,
             resamples=499,
             rng=numpy.random.default_rng(0),
         )
-        assert result is not None
-        assert result.feature_index == 1
-        assert result.p_value < 0.05
 
     def test_returns_none_when_independent(self):
         """Returns None when no variable is associated under monte_carlo."""
-        rng = numpy.random.default_rng(123)
-        n = 50
-        X = rng.standard_normal((n, 3))
-        y = rng.standard_normal(n)
-        weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [
-                sigma._types.CovariateType.REAL,
-                sigma._types.CovariateType.REAL,
-                sigma._types.CovariateType.REAL,
-            ]
-        )
-        result = sigma._statistics.select_variable(
-            X,
-            y.reshape(-1, 1),
-            weights,
-            feature_types,
-            sigma._types.TestStat.QUADRATIC,
+        _assert_returns_none_when_independent(
             sigma._types.TestType.MONTE_CARLO,
-            correlation=sigma._types.Correlation.NORMAL,
             resamples=499,
             rng=numpy.random.default_rng(0),
         )
-        assert result is None
 
     def test_reproducible_with_same_seed(self):
         """Two calls with the same RNG seed return identical results."""

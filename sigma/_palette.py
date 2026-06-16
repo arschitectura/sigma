@@ -30,10 +30,7 @@ def _contrast_foreground(hex_color: str) -> str:
 
 def _relative_luminance(hex_color: str) -> float:
     """Compute WCAG 2.0 relative luminance from a hex color string."""
-    red, green, blue = _hex_to_srgb(hex_color)
-    red_linear = _srgb_to_linear(red)
-    green_linear = _srgb_to_linear(green)
-    blue_linear = _srgb_to_linear(blue)
+    red_linear, green_linear, blue_linear = _hex_to_linear_rgb(hex_color)
     luminance = (
         0.2126 * red_linear + 0.7152 * green_linear + 0.0722 * blue_linear
     )
@@ -59,10 +56,7 @@ def _interpolate_oklab(hex1: str, hex2: str, fraction: float) -> str:
 
 def _hex_to_oklab(hex_color: str) -> tuple[float, float, float]:
     """Convert a #RRGGBB string to OKLab (L, a, b)."""
-    red, green, blue = _hex_to_srgb(hex_color)
-    red_linear = _srgb_to_linear(red)
-    green_linear = _srgb_to_linear(green)
-    blue_linear = _srgb_to_linear(blue)
+    red_linear, green_linear, blue_linear = _hex_to_linear_rgb(hex_color)
     l_long = (
         0.4122214708 * red_linear
         + 0.5363325363 * green_linear
@@ -123,6 +117,16 @@ def _hex_to_srgb(hex_color: str) -> tuple[float, float, float]:
     blue = int(hex_color[5:7], 16) / 255.0
     srgb = (red, green, blue)
     return srgb
+
+
+def _hex_to_linear_rgb(hex_color: str) -> tuple[float, float, float]:
+    """Convert a #RRGGBB string to linear-sRGB (red, green, blue) in [0, 1]."""
+    red, green, blue = _hex_to_srgb(hex_color)
+    red_linear = _srgb_to_linear(red)
+    green_linear = _srgb_to_linear(green)
+    blue_linear = _srgb_to_linear(blue)
+    linear_rgb = (red_linear, green_linear, blue_linear)
+    return linear_rgb
 
 
 def _srgb_to_hex(red: float, green: float, blue: float) -> str:

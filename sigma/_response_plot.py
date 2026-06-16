@@ -81,7 +81,9 @@ def _render_response_image(
     elif isinstance(tree, _tree_survival.SurvivalTree):
         _plot_survival(axes, tree, response_name, leaf_palette=leaf_palette)
     elif isinstance(tree, _tree_ranking.RankingTree):
-        ranking_indices = [] if displayed_indices is None else displayed_indices
+        ranking_indices = _tree_text._normalize_displayed_indices(
+            displayed_indices
+        )
         _plot_ranking(axes, tree, ranking_indices, leaf_palette=leaf_palette)
     else:
         raise TypeError(f"unsupported tree type: {type(tree).__name__}")

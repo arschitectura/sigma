@@ -915,12 +915,10 @@ class Tree(
 
     def _validate_offset_shape_finite(
         self,
-        offset: None | numpy.typing.NDArray[numpy.floating],
+        offset: numpy.typing.NDArray[numpy.floating],
         expected_shape: tuple[int, ...],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Shape/finiteness-check an offset (None passes through)."""
-        if offset is None:
-            return None
+    ) -> numpy.typing.NDArray[numpy.floating]:
+        """Coerce offset to float and require expected_shape with finite values."""
         offset_array = numpy.asarray(offset, dtype=float)
         if offset_array.shape != expected_shape:
             raise ValueError(
