@@ -2162,7 +2162,7 @@ class TestExportSql(unittest.TestCase):
         """A non-finite leaf prediction renders as the bare NULL keyword."""
         regression_tree = _helpers._fit_step_regression_tree()
         first_leaf = regression_tree.leaves_[0]
-        first_leaf.prediction = float("nan")
+        first_leaf._prediction = float("nan")
         result = regression_tree.to_sql()
         self.assertIn("NULL -- Leaf 1", result)
 

@@ -2,8 +2,6 @@
 """Generate eight demo decision-tree PNGs at <dir>/<prefix><dataset>.png."""
 
 import argparse
-import csv
-import io
 import os
 import sys
 import time
@@ -178,25 +176,15 @@ def _build_diabetes_tree(output_path: str, dpi: int) -> None:
         random_state=123,
         reverse_order=True,
     )
-    fit_start = time.perf_counter()
-    regression_tree.fit(X_diabetes, y_diabetes)
-    print(f"Fitted in {time.perf_counter() - fit_start:.1f}s")
-    text = regression_tree.to_text(precision=1)
-    print(text)
-    print()
-    regression_tree_png = regression_tree.to_image(
-        "png",
-        dpi=dpi,
-        orientation="left-to-right",
+    _build_and_export_tree(
+        regression_tree,
+        X_diabetes,
+        y_diabetes,
+        output_path,
+        dpi,
         precision=1,
+        orientation="left-to-right",
     )
-    _write_png(output_path, regression_tree_png, "tree")
-    response_png = regression_tree.to_image(
-        "png",
-        kind="response",
-        dpi=dpi,
-    )
-    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_titanic_tree(output_path: str, dpi: int) -> None:
@@ -247,24 +235,14 @@ def _build_titanic_tree(output_path: str, dpi: int) -> None:
         resamples=2000,
         random_state=123,
     )
-    fit_start = time.perf_counter()
-    classification_tree.fit(X_titanic, y_titanic)
-    print(f"Fitted in {time.perf_counter() - fit_start:.1f}s")
-    text = classification_tree.to_text(precision=1)
-    print(text)
-    print()
-    classification_tree_png = classification_tree.to_image(
-        "png",
-        dpi=dpi,
+    _build_and_export_tree(
+        classification_tree,
+        X_titanic,
+        y_titanic,
+        output_path,
+        dpi,
         precision=1,
     )
-    _write_png(output_path, classification_tree_png, "tree")
-    response_png = classification_tree.to_image(
-        "png",
-        kind="response",
-        dpi=dpi,
-    )
-    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_german_credit_tree(output_path: str, dpi: int) -> None:
@@ -327,24 +305,14 @@ def _build_german_credit_tree(output_path: str, dpi: int) -> None:
         random_state=123,
         reverse_order=True,
     )
-    fit_start = time.perf_counter()
-    classification_tree.fit(X_german_credit, y_german_credit)
-    print(f"Fitted in {time.perf_counter() - fit_start:.1f}s")
-    text = classification_tree.to_text(precision=1)
-    print(text)
-    print()
-    classification_tree_png = classification_tree.to_image(
-        "png",
-        dpi=dpi,
+    _build_and_export_tree(
+        classification_tree,
+        X_german_credit,
+        y_german_credit,
+        output_path,
+        dpi,
         precision=1,
     )
-    _write_png(output_path, classification_tree_png, "tree")
-    response_png = classification_tree.to_image(
-        "png",
-        kind="response",
-        dpi=dpi,
-    )
-    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_insurance_tree(output_path: str, dpi: int) -> None:
@@ -392,25 +360,15 @@ def _build_insurance_tree(output_path: str, dpi: int) -> None:
         max_depth=4,
         reverse_order=True,
     )
-    fit_start = time.perf_counter()
-    regression_tree.fit(X_insurance, y_insurance)
-    print(f"Fitted in {time.perf_counter() - fit_start:.1f}s")
-    text = regression_tree.to_text(precision=0)
-    print(text)
-    print()
-    regression_tree_png = regression_tree.to_image(
-        "png",
-        dpi=dpi,
-        orientation="left-to-right",
+    _build_and_export_tree(
+        regression_tree,
+        X_insurance,
+        y_insurance,
+        output_path,
+        dpi,
         precision=0,
+        orientation="left-to-right",
     )
-    _write_png(output_path, regression_tree_png, "tree")
-    response_png = regression_tree.to_image(
-        "png",
-        kind="response",
-        dpi=dpi,
-    )
-    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_breast_cancer_tree(output_path: str, dpi: int) -> None:
@@ -475,24 +433,14 @@ def _build_breast_cancer_tree(output_path: str, dpi: int) -> None:
         random_state=123,
         metrics=("median", ("survival", 5.0, "years")),
     )
-    fit_start = time.perf_counter()
-    survival_tree.fit(X_breast_cancer, y_breast_cancer)
-    print(f"Fitted in {time.perf_counter() - fit_start:.1f}s")
-    text = survival_tree.to_text(precision=1)
-    print(text)
-    print()
-    survival_png = survival_tree.to_image(
-        "png",
-        dpi=dpi,
+    _build_and_export_tree(
+        survival_tree,
+        X_breast_cancer,
+        y_breast_cancer,
+        output_path,
+        dpi,
         precision=1,
     )
-    _write_png(output_path, survival_png, "tree")
-    response_png = survival_tree.to_image(
-        "png",
-        kind="response",
-        dpi=dpi,
-    )
-    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
@@ -592,25 +540,15 @@ def _build_telco_churn_tree(output_path: str, dpi: int) -> None:
         max_depth=4,
         metrics=("median", ("survival", 12.0, "months")),
     )
-    fit_start = time.perf_counter()
-    survival_tree.fit(X_telco, y_telco)
-    print(f"Fitted in {time.perf_counter() - fit_start:.1f}s")
-    text = survival_tree.to_text(precision=0)
-    print(text)
-    print()
-    survival_png = survival_tree.to_image(
-        "png",
-        dpi=dpi,
-        orientation="left-to-right",
+    _build_and_export_tree(
+        survival_tree,
+        X_telco,
+        y_telco,
+        output_path,
+        dpi,
         precision=0,
+        orientation="left-to-right",
     )
-    _write_png(output_path, survival_png, "tree")
-    response_png = survival_tree.to_image(
-        "png",
-        kind="response",
-        dpi=dpi,
-    )
-    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_movielens_tree(output_path: str, dpi: int) -> None:
@@ -735,25 +673,16 @@ def _build_movielens_tree(output_path: str, dpi: int) -> None:
         random_state=123,
         max_depth=4,
     )
-    fit_start = time.perf_counter()
-    ranking_tree.fit(X_movielens, rankings)
-    print(f"Fitted in {time.perf_counter() - fit_start:.1f}s")
-    text = ranking_tree.to_text(precision=2, top_displayed_items=1)
-    print(text)
-    print()
-    ranking_tree_png = ranking_tree.to_image(
-        "png",
-        dpi=dpi,
-        orientation="left-to-right",
+    _build_and_export_tree(
+        ranking_tree,
+        X_movielens,
+        rankings,
+        output_path,
+        dpi,
         precision=2,
+        orientation="left-to-right",
+        top_displayed_items=1,
     )
-    _write_png(output_path, ranking_tree_png, "tree")
-    response_png = ranking_tree.to_image(
-        "png",
-        kind="response",
-        dpi=dpi,
-    )
-    _write_png(_response_png_path(output_path), response_png, "responses")
 
 
 def _build_sushi_tree(output_path: str, dpi: int) -> None:
@@ -875,24 +804,42 @@ def _build_sushi_tree(output_path: str, dpi: int) -> None:
         max_depth=3,
         ci_method="gaussian_multiplier",
     )
+    _build_and_export_tree(
+        ranking_tree,
+        X_sushi,
+        rankings,
+        output_path,
+        dpi,
+        precision=2,
+        orientation="left-to-right",
+    )
+
+
+def _build_and_export_tree(
+    tree,
+    X,
+    y,
+    output_path: str,
+    dpi: int,
+    precision: int,
+    orientation: str = "top-down",
+    top_displayed_items: None | int = None,
+) -> None:
+    """Fit tree on (X, y), print its text, and write the tree and response PNGs."""
     fit_start = time.perf_counter()
-    ranking_tree.fit(X_sushi, rankings)
-    print(f"Fitted in {time.perf_counter() - fit_start:.1f}s")
-    text = ranking_tree.to_text(precision=2)
+    tree.fit(X, y)
+    elapsed = time.perf_counter() - fit_start
+    print(f"Fitted in {elapsed:.1f}s")
+    text = tree.to_text(
+        precision=precision, top_displayed_items=top_displayed_items
+    )
     print(text)
     print()
-    ranking_tree_png = ranking_tree.to_image(
-        "png",
-        dpi=dpi,
-        orientation="left-to-right",
-        precision=2,
+    tree_png = tree.to_image(
+        "png", dpi=dpi, orientation=orientation, precision=precision
     )
-    _write_png(output_path, ranking_tree_png, "tree")
-    response_png = ranking_tree.to_image(
-        "png",
-        kind="response",
-        dpi=dpi,
-    )
+    _write_png(output_path, tree_png, "tree")
+    response_png = tree.to_image("png", kind="response", dpi=dpi)
     _write_png(_response_png_path(output_path), response_png, "responses")
 
 

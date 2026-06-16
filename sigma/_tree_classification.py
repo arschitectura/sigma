@@ -198,18 +198,12 @@ class ClassificationTree(
         n_samples: int,
     ) -> None | numpy.typing.NDArray[numpy.floating]:
         """Validate the classification offset (n_samples, n_classes)."""
-        if offset is None:
-            return None
-        offset_array = numpy.asarray(offset, dtype=float)
-        offset_shape = offset_array.shape
         expected_shape = (n_samples, self.n_classes_)
-        if offset_shape != expected_shape:
-            raise ValueError(
-                f"offset must have shape {expected_shape},"
-                f" got shape {offset_shape}"
-            )
-        if not numpy.all(numpy.isfinite(offset_array)):
-            raise ValueError("offset values must be finite")
+        offset_array = self._validate_offset_shape_finite(
+            offset, expected_shape
+        )
+        if offset_array is None:
+            return None
         if numpy.any(offset_array < 0.0) or numpy.any(offset_array > 1.0):
             raise ValueError("offset values must lie in [0, 1]")
         row_sums = offset_array.sum(axis=1)
@@ -230,38 +224,21 @@ class ClassificationTree(
             )
         return y_out_shape[0]
 
-    def _make_node(
-        self,
-        depth,
-        n_samples,
-        extension,
-        prediction,
-        ci_low,
-        ci_high,
-        ci_low_per_class,
-        ci_high_per_class,
-        class_distribution,
-        survival_function,
-        survival_log_variance,
-        survival_metrics,
-        ranking_metrics,
-        mean_offset_proba,
-        response_samples,
-    ):
+    def _make_node(self, payload):
         """Construct a ClassificationNode with the per-class CI payload."""
         node = _node.ClassificationNode(
-            depth=depth,
-            n_samples=n_samples,
+            depth=payload.depth,
+            n_samples=payload.n_samples,
             share=0.0,
             decoration=None,
-            extension=extension,
-            prediction=int(prediction),
+            extension=payload.extension,
+            prediction=int(payload.prediction),
             class_distribution=typing.cast(
-                numpy.typing.NDArray[numpy.floating], class_distribution
+                numpy.typing.NDArray[numpy.floating], payload.class_distribution
             ),
-            ci_low=ci_low_per_class,
-            ci_high=ci_high_per_class,
-            mean_offset_proba=mean_offset_proba,
+            ci_low=payload.ci_low_per_class,
+            ci_high=payload.ci_high_per_class,
+            mean_offset_proba=payload.mean_offset_proba,
         )
         return node
 
@@ -340,15 +317,6 @@ class ClassificationTree(
             return not varying
         return True
 
-    def _compute_ci(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-        offset: None | numpy.typing.NDArray[numpy.floating],
-    ) -> tuple[None | float, None | float]:
-        """Return (None, None) - scalar CI is not applicable to classification."""
-        return None, None
-
     def _compute_per_class_ci(
         self,
         y: numpy.typing.NDArray[numpy.floating],
@@ -358,10 +326,9 @@ class ClassificationTree(
         None | numpy.typing.NDArray[numpy.floating],
     ]:
         """Compute per-class CI using self.ci_method."""
-        ci_coverage = self.ci_coverage
-        if ci_coverage is None:
+        alpha = self._ci_alpha()
+        if alpha is None:
             return None, None
-        alpha = (1.0 - ci_coverage) / 2.0
         w_total = float(weights.sum())
         n_classes = self.n_classes_
         if w_total == 0.0:
@@ -417,44 +384,6 @@ class ClassificationTree(
         w_sum = weights.sum()
         distribution = counts / w_sum
         return distribution
-
-    def _compute_survival_function(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> (
-        None
-        | tuple[
-            numpy.typing.NDArray[numpy.floating],
-            numpy.typing.NDArray[numpy.floating],
-        ]
-    ):
-        """Return None - classification has no survival function."""
-        return None
-
-    def _compute_survival_log_variance(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Return None - classification has no survival log-variance."""
-        return None
-
-    def _compute_survival_metrics(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | list[_node.SurvivalMetric]:
-        """Return None - classification has no survival metrics."""
-        return None
-
-    def _compute_ranking_metrics(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | list[_node.RankingMetric]:
-        """Return None - classification has no ranking metrics."""
-        return None
 
     def predict(
         self,

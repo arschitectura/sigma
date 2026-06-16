@@ -191,17 +191,7 @@ class RegressionTree(
         n_samples: int,
     ) -> None | numpy.typing.NDArray[numpy.floating]:
         """Validate the regression offset (1D, length n_samples, finite)."""
-        if offset is None:
-            return None
-        offset_array = numpy.asarray(offset, dtype=float)
-        offset_shape = offset_array.shape
-        if offset_array.ndim != 1 or offset_shape[0] != n_samples:
-            raise ValueError(
-                f"offset must be 1D with length {n_samples},"
-                f" got shape {offset_shape}"
-            )
-        if not numpy.all(numpy.isfinite(offset_array)):
-            raise ValueError("offset values must be finite")
+        offset_array = self._validate_offset_shape_finite(offset, (n_samples,))
         return offset_array
 
     def _validate_transmuted_y_shape(
@@ -217,34 +207,18 @@ class RegressionTree(
             )
         return y_out_shape[0]
 
-    def _make_node(
-        self,
-        depth,
-        n_samples,
-        extension,
-        prediction,
-        ci_low,
-        ci_high,
-        ci_low_per_class,
-        ci_high_per_class,
-        class_distribution,
-        survival_function,
-        survival_log_variance,
-        survival_metrics,
-        ranking_metrics,
-        mean_offset_proba,
-        response_samples,
-    ):
+    def _make_node(self, payload):
         """Construct a RegressionNode with the regression-relevant payload."""
+        response_samples = payload.response_samples
         node = _node.RegressionNode(
-            depth=depth,
-            n_samples=n_samples,
+            depth=payload.depth,
+            n_samples=payload.n_samples,
             share=0.0,
             decoration=None,
-            extension=extension,
-            prediction=prediction,
-            ci_low=ci_low,
-            ci_high=ci_high,
+            extension=payload.extension,
+            prediction=payload.prediction,
+            ci_low=payload.ci_low,
+            ci_high=payload.ci_high,
             response_samples=(
                 response_samples
                 if response_samples is not None
@@ -331,8 +305,8 @@ class RegressionTree(
         offset: None | numpy.typing.NDArray[numpy.floating],
     ) -> tuple[None | float, None | float]:
         """Compute a confidence interval for the weighted mean."""
-        ci_coverage = self.ci_coverage
-        if ci_coverage is None:
+        alpha = self._ci_alpha()
+        if alpha is None:
             return None, None
         active = weights > 0
         y_active = y[active]
@@ -343,7 +317,6 @@ class RegressionTree(
             prediction = float(y_active[0]) if n_active == 1 else 0.0
             return prediction, prediction
         w_active = weights[active]
-        alpha = (1.0 - ci_coverage) / 2.0
         ci_method_enum = _types.CiMethodRegressionTree(self.ci_method)
         match ci_method_enum:
             case _types.CiMethodRegressionTree.BAYESIAN_BOOTSTRAP:
@@ -666,63 +639,6 @@ class RegressionTree(
         ci_high = p_hat + t * se
         return ci_low, ci_high
 
-    def _compute_per_class_ci(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> tuple[
-        None | numpy.typing.NDArray[numpy.floating],
-        None | numpy.typing.NDArray[numpy.floating],
-    ]:
-        """Return (None, None) - regression has no per-class CI."""
-        return None, None
-
-    def _compute_class_distribution(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Return None - regression has no class distribution."""
-        return None
-
-    def _compute_survival_function(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> (
-        None
-        | tuple[
-            numpy.typing.NDArray[numpy.floating],
-            numpy.typing.NDArray[numpy.floating],
-        ]
-    ):
-        """Return None - regression has no survival function."""
-        return None
-
-    def _compute_survival_log_variance(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Return None - regression has no survival log-variance."""
-        return None
-
-    def _compute_survival_metrics(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | list[_node.SurvivalMetric]:
-        """Return None - regression has no survival metrics."""
-        return None
-
-    def _compute_ranking_metrics(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | list[_node.RankingMetric]:
-        """Return None - regression has no ranking metrics."""
-        return None
-
     def predict(
         self,
         X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
@@ -741,10 +657,7 @@ class RegressionTree(
             Predicted values, shape (n_samples,).
         """
         indices = self.predict_index(X)
-        node_predictions = numpy.array(
-            [node.prediction for node in self.nodes_]
-        )
-        base = node_predictions[indices]
+        base = self._gather_node_predictions(indices)
         if offset is None:
             if not self._fit_with_offset:
                 return base

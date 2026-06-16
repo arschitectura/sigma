@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import abc
 import collections.abc
+import dataclasses
 import typing
 
 import numpy
@@ -41,6 +42,33 @@ _OFFSET_EPS = 1e-15
 
 
 N = typing.TypeVar("N", bound=_node.Node)
+
+
+@dataclasses.dataclass(frozen=True)
+class _NodePayload:
+    """Per-task computed values passed to a subclass _make_node."""
+
+    depth: int
+    n_samples: int
+    extension: _extension.Extension
+    prediction: float
+    ci_low: None | float
+    ci_high: None | float
+    ci_low_per_class: None | numpy.typing.NDArray[numpy.floating]
+    ci_high_per_class: None | numpy.typing.NDArray[numpy.floating]
+    class_distribution: None | numpy.typing.NDArray[numpy.floating]
+    survival_function: (
+        None
+        | tuple[
+            numpy.typing.NDArray[numpy.floating],
+            numpy.typing.NDArray[numpy.floating],
+        ]
+    )
+    survival_log_variance: None | numpy.typing.NDArray[numpy.floating]
+    survival_metrics: None | list[_node.SurvivalMetric]
+    ranking_metrics: None | list[_node.RankingMetric]
+    mean_offset_proba: None | numpy.typing.NDArray[numpy.floating]
+    response_samples: None | numpy.typing.NDArray[numpy.floating]
 
 
 class Tree(
@@ -461,6 +489,16 @@ class Tree(
             indices[i] = node.node_id
         return indices
 
+    def _gather_node_predictions(
+        self, indices: numpy.typing.NDArray[numpy.intp]
+    ) -> numpy.typing.NDArray[numpy.floating]:
+        """Per-sample node prediction value gathered by node index."""
+        node_predictions = numpy.array(
+            [node.prediction for node in self.nodes_]
+        )
+        gathered = node_predictions[indices]
+        return gathered
+
     def apply(
         self,
         X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
@@ -818,7 +856,7 @@ class Tree(
                     right=right_child,
                     threshold=typing.cast(int | float, split_threshold),
                 )
-        node = self._make_node(
+        payload = _NodePayload(
             depth=depth,
             n_samples=n_samples,
             extension=partition,
@@ -835,33 +873,13 @@ class Tree(
             mean_offset_proba=mean_offset_proba,
             response_samples=None,
         )
+        node = self._make_node(payload)
         self._apply_decorator(node, X, y, weights, side_data, offset)
         return node
 
     @abc.abstractmethod
-    def _make_node(
-        self,
-        depth: int,
-        n_samples: int,
-        extension: _extension.Extension,
-        prediction: float,
-        ci_low: None | float,
-        ci_high: None | float,
-        ci_low_per_class: None | numpy.typing.NDArray[numpy.floating],
-        ci_high_per_class: None | numpy.typing.NDArray[numpy.floating],
-        class_distribution: None | numpy.typing.NDArray[numpy.floating],
-        survival_function: None
-        | tuple[
-            numpy.typing.NDArray[numpy.floating],
-            numpy.typing.NDArray[numpy.floating],
-        ],
-        survival_log_variance: None | numpy.typing.NDArray[numpy.floating],
-        survival_metrics: None | list[_node.SurvivalMetric],
-        ranking_metrics: None | list[_node.RankingMetric],
-        mean_offset_proba: None | numpy.typing.NDArray[numpy.floating],
-        response_samples: None | numpy.typing.NDArray[numpy.floating],
-    ) -> N:
-        """Construct a task-specific Node from the per-task computed payloads."""
+    def _make_node(self, payload: _NodePayload) -> N:
+        """Construct a task-specific Node from the per-task computed payload."""
 
     def _compute_response_samples_for_leaf(
         self,
@@ -894,6 +912,24 @@ class Tree(
         n_samples: int,
     ) -> None | numpy.typing.NDArray[numpy.floating]:
         """Validate and coerce the fit-time offset to its canonical shape."""
+
+    def _validate_offset_shape_finite(
+        self,
+        offset: None | numpy.typing.NDArray[numpy.floating],
+        expected_shape: tuple[int, ...],
+    ) -> None | numpy.typing.NDArray[numpy.floating]:
+        """Shape/finiteness-check an offset (None passes through)."""
+        if offset is None:
+            return None
+        offset_array = numpy.asarray(offset, dtype=float)
+        if offset_array.shape != expected_shape:
+            raise ValueError(
+                f"offset must have shape {expected_shape},"
+                f" got shape {offset_array.shape}"
+            )
+        if not numpy.all(numpy.isfinite(offset_array)):
+            raise ValueError("offset values must be finite")
+        return offset_array
 
     @abc.abstractmethod
     def _compute_influence(
@@ -929,16 +965,23 @@ class Tree(
     ) -> bool:
         """Check whether the response is constant in this node."""
 
-    @abc.abstractmethod
+    def _ci_alpha(self) -> None | float:
+        """Half the non-coverage tail mass, or None when CI is disabled."""
+        ci_coverage = self.ci_coverage
+        if ci_coverage is None:
+            return None
+        alpha = (1.0 - ci_coverage) / 2.0
+        return alpha
+
     def _compute_ci(
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
         offset: None | numpy.typing.NDArray[numpy.floating],
     ) -> tuple[None | float, None | float]:
-        """Compute the confidence interval for the node prediction."""
+        """Node-prediction CI; (None, None) unless the task overrides it."""
+        return None, None
 
-    @abc.abstractmethod
     def _compute_per_class_ci(
         self,
         y: numpy.typing.NDArray[numpy.floating],
@@ -947,17 +990,17 @@ class Tree(
         None | numpy.typing.NDArray[numpy.floating],
         None | numpy.typing.NDArray[numpy.floating],
     ]:
-        """Compute per-class CI bounds (classification only)."""
+        """Per-class CI bounds; (None, None) unless the task overrides it."""
+        return None, None
 
-    @abc.abstractmethod
     def _compute_class_distribution(
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
     ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Compute the class distribution for a node."""
+        """Node class distribution; None unless the task overrides it."""
+        return None
 
-    @abc.abstractmethod
     def _compute_survival_function(
         self,
         y: numpy.typing.NDArray[numpy.floating],
@@ -969,31 +1012,32 @@ class Tree(
             numpy.typing.NDArray[numpy.floating],
         ]
     ):
-        """Compute the survival function for a node."""
+        """Node survival function; None unless the task overrides it."""
+        return None
 
-    @abc.abstractmethod
     def _compute_survival_log_variance(
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
     ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Compute the Greenwood variance of log S(t) for a node."""
+        """Greenwood log S(t) variance; None unless the task overrides it."""
+        return None
 
-    @abc.abstractmethod
     def _compute_survival_metrics(
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
     ) -> None | list[_node.SurvivalMetric]:
-        """Compute the per-node summary metrics for the display stack."""
+        """Per-node survival metrics; None unless the task overrides it."""
+        return None
 
-    @abc.abstractmethod
     def _compute_ranking_metrics(
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
     ) -> None | list[_node.RankingMetric]:
-        """Compute the per-item ranking metrics for the display stack."""
+        """Per-item ranking metrics; None unless the task overrides it."""
+        return None
 
     @staticmethod
     def _offset_active_slice(
@@ -1310,7 +1354,7 @@ class Tree(
         response_samples = self._compute_response_samples_for_leaf(
             y_transmuted, w_transmuted, offset_transmuted
         )
-        leaf = self._make_node(
+        payload = _NodePayload(
             depth=depth,
             n_samples=n_samples,
             extension=_extension.Leaf(),
@@ -1327,6 +1371,7 @@ class Tree(
             mean_offset_proba=mean_offset_proba,
             response_samples=response_samples,
         )
+        leaf = self._make_node(payload)
         return leaf
 
     def _apply_decorator(

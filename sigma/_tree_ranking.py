@@ -465,32 +465,17 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             )
         return y_out_shape[0]
 
-    def _make_node(
-        self,
-        depth,
-        n_samples,
-        extension,
-        prediction,
-        ci_low,
-        ci_high,
-        ci_low_per_class,
-        ci_high_per_class,
-        class_distribution,
-        survival_function,
-        survival_log_variance,
-        survival_metrics,
-        ranking_metrics,
-        mean_offset_proba,
-        response_samples,
-    ):
+    def _make_node(self, payload):
         """Construct a RankingNode with the per-item metric payload."""
         node = _node.RankingNode(
-            depth=depth,
-            n_samples=n_samples,
+            depth=payload.depth,
+            n_samples=payload.n_samples,
             share=0.0,
             decoration=None,
-            extension=extension,
-            metrics=typing.cast(list[_node.RankingMetric], ranking_metrics),
+            extension=payload.extension,
+            metrics=typing.cast(
+                list[_node.RankingMetric], payload.ranking_metrics
+            ),
         )
         return node
 
@@ -551,64 +536,6 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             if not numpy.allclose(row_finite, first_finite, equal_nan=False):
                 return False
         return True
-
-    def _compute_ci(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-        offset: None | numpy.typing.NDArray[numpy.floating],
-    ) -> tuple[None | float, None | float]:
-        """Return (None, None) - the favorite-item index has no CI."""
-        return None, None
-
-    def _compute_per_class_ci(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> tuple[
-        None | numpy.typing.NDArray[numpy.floating],
-        None | numpy.typing.NDArray[numpy.floating],
-    ]:
-        """Return (None, None) - ranking CIs flow through ranking_metrics."""
-        return None, None
-
-    def _compute_class_distribution(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Return None - ranking has no class distribution."""
-        return None
-
-    def _compute_survival_function(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> (
-        None
-        | tuple[
-            numpy.typing.NDArray[numpy.floating],
-            numpy.typing.NDArray[numpy.floating],
-        ]
-    ):
-        """Return None - ranking has no survival function."""
-        return None
-
-    def _compute_survival_log_variance(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Return None - ranking has no survival log-variance."""
-        return None
-
-    def _compute_survival_metrics(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | list[_node.SurvivalMetric]:
-        """Return None - ranking has no survival metrics."""
-        return None
 
     def _compute_ranking_metrics(
         self,

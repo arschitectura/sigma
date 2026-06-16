@@ -270,10 +270,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         """
         indices = self.predict_index(X)
         if offset is None and not self._fit_with_offset:
-            node_predictions = numpy.array(
-                [node.prediction for node in self.nodes_]
-            )
-            predictions = node_predictions[indices]
+            predictions = self._gather_node_predictions(indices)
             return predictions
         event_grid = self.event_grid_
         n_indices = len(indices)
@@ -496,17 +493,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         n_samples: int,
     ) -> None | numpy.typing.NDArray[numpy.floating]:
         """Validate the survival fit-time offset (1D, length n_samples)."""
-        if offset is None:
+        offset_array = self._validate_offset_shape_finite(offset, (n_samples,))
+        if offset_array is None:
             return None
-        offset_array = numpy.asarray(offset, dtype=float)
-        offset_shape = offset_array.shape
-        if offset_array.ndim != 1 or offset_shape[0] != n_samples:
-            raise ValueError(
-                f"offset must be 1D with length {n_samples},"
-                f" got shape {offset_shape}"
-            )
-        if not numpy.all(numpy.isfinite(offset_array)):
-            raise ValueError("offset values must be finite")
         if numpy.any(offset_array <= 0.0) or numpy.any(offset_array > 1.0):
             raise ValueError("offset survival probabilities must lie in (0, 1]")
         return offset_array
@@ -524,42 +513,28 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             )
         return y_out_shape[0]
 
-    def _make_node(
-        self,
-        depth,
-        n_samples,
-        extension,
-        prediction,
-        ci_low,
-        ci_high,
-        ci_low_per_class,
-        ci_high_per_class,
-        class_distribution,
-        survival_function,
-        survival_log_variance,
-        survival_metrics,
-        ranking_metrics,
-        mean_offset_proba,
-        response_samples,
-    ):
+    def _make_node(self, payload):
         """Construct a SurvivalNode with the survival-function and metrics payload."""
         node = _node.SurvivalNode(
-            depth=depth,
-            n_samples=n_samples,
+            depth=payload.depth,
+            n_samples=payload.n_samples,
             share=0.0,
             decoration=None,
-            extension=extension,
+            extension=payload.extension,
             survival_function=typing.cast(
                 tuple[
                     numpy.typing.NDArray[numpy.floating],
                     numpy.typing.NDArray[numpy.floating],
                 ],
-                survival_function,
+                payload.survival_function,
             ),
             survival_log_variance=typing.cast(
-                numpy.typing.NDArray[numpy.floating], survival_log_variance
+                numpy.typing.NDArray[numpy.floating],
+                payload.survival_log_variance,
             ),
-            metrics=typing.cast(list[_node.SurvivalMetric], survival_metrics),
+            metrics=typing.cast(
+                list[_node.SurvivalMetric], payload.survival_metrics
+            ),
         )
         return node
 
@@ -625,25 +600,6 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         record = self._compute_metric_record(self._get_metrics()[0], y, weights)
         return record.ci_low, record.ci_high
 
-    def _compute_per_class_ci(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> tuple[
-        None | numpy.typing.NDArray[numpy.floating],
-        None | numpy.typing.NDArray[numpy.floating],
-    ]:
-        """Return (None, None) - survival has no per-class CI."""
-        return None, None
-
-    def _compute_class_distribution(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Return None - survival has no class distribution."""
-        return None
-
     def _compute_survival_function(
         self,
         y: numpy.typing.NDArray[numpy.floating],
@@ -689,14 +645,6 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         ]
         return records
 
-    def _compute_ranking_metrics(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | list[_node.RankingMetric]:
-        """Return None - survival has no ranking metrics."""
-        return None
-
     def _compute_metric_record(
         self,
         resolved: _Metric,
@@ -706,11 +654,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         """Compute a single metric value and CI for a node."""
         time_column = y[:, 0]
         event_column = y[:, 1]
-        ci_coverage = self.ci_coverage
-        if ci_coverage is None:
+        alpha = self._ci_alpha()
+        if alpha is None:
             alpha = 0.025
-        else:
-            alpha = (1.0 - ci_coverage) / 2.0
         match resolved.kind:
             case _types.SurvivalMetricKind.MEDIAN:
                 record = self._compute_median_record(

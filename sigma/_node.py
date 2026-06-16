@@ -141,6 +141,11 @@ class Node(abc.ABC):
     def leaf_sort_key(self) -> tuple[float, ...]:
         """Sort key for ordering leaves of this task type."""
 
+    @property
+    @abc.abstractmethod
+    def prediction(self) -> float:
+        """The node's point prediction for its task."""
+
 
 class RegressionNode(Node):
     """Node of a fitted RegressionTree.
@@ -156,7 +161,7 @@ class RegressionNode(Node):
             internal nodes and on leaves when response_sample_size=0.
     """
 
-    __slots__ = ("prediction", "ci_low", "ci_high", "response_samples")
+    __slots__ = ("_prediction", "ci_low", "ci_high", "response_samples")
 
     def __init__(
         self,
@@ -171,10 +176,15 @@ class RegressionNode(Node):
         response_samples: numpy.typing.NDArray[numpy.floating],
     ) -> None:
         super().__init__(depth, n_samples, share, decoration, extension)
-        self.prediction = prediction
+        self._prediction = prediction
         self.ci_low = ci_low
         self.ci_high = ci_high
         self.response_samples = response_samples
+
+    @property
+    def prediction(self) -> float:
+        """Weighted mean of the response in this node's active samples."""
+        return self._prediction
 
     def leaf_sort_key(self) -> tuple[float, ...]:
         """Sort key: ascending by predicted mean."""
@@ -200,7 +210,7 @@ class ClassificationNode(Node):
     """
 
     __slots__ = (
-        "prediction",
+        "_prediction",
         "class_distribution",
         "ci_low",
         "ci_high",
@@ -221,11 +231,16 @@ class ClassificationNode(Node):
         mean_offset_proba: None | numpy.typing.NDArray[numpy.floating],
     ) -> None:
         super().__init__(depth, n_samples, share, decoration, extension)
-        self.prediction = prediction
+        self._prediction = prediction
         self.class_distribution = class_distribution
         self.ci_low = ci_low
         self.ci_high = ci_high
         self.mean_offset_proba = mean_offset_proba
+
+    @property
+    def prediction(self) -> int:
+        """Index of the majority class within the estimator's classes_ array."""
+        return self._prediction
 
     def leaf_sort_key(self) -> tuple[float, ...]:
         """Sort key: descending by class distribution tuple."""
