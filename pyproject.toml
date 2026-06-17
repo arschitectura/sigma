@@ -1,14 +1,16 @@
 [build-system]
-requires = ["setuptools >= 68.0"]
+requires = ["setuptools >= 77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ars-sigma"
 version = "1.0.0"
 description = "Conditional inference trees for Python"
+readme = "README.md"
 requires-python = ">= 3.10"
 license = "LicenseRef-ArsChitectura-Sigma"
-license-files = ["LICENSE.txt"]
+license-files = ["LICENSE.txt", "NOTICE.txt"]
+authors = [{ name = "ArsChitectura SAS" }]
 dependencies = [
     "numpy >= 1.24",
     "scipy >= 1.11",
@@ -26,6 +28,7 @@ Contact = "https://arschitectura.com/contact/"
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["sigma*"]
 
 [tool.arschitectura.license]
 spdx = "LicenseRef-ArsChitectura-Sigma"
