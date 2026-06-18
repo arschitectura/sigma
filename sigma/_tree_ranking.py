@@ -76,8 +76,13 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             in lieu of this argument.
         correlation: Correlation type: "normal" or "rank" (default).
         test_stat: Test statistic form: "maximum" or "quadratic".
+            "maximum" attains higher power against low-dimensional
+            ranking alternatives; the "quadratic" default keeps behavior
+            consistent with the other tree types.
         test_type: Multiplicity adjustment method: "bonferroni",
-            "monte_carlo", or "sidak".
+            "monte_carlo", or "sidak". Pairing test_stat="maximum" with
+            "monte_carlo" is much slower, as it evaluates a
+            multivariate-normal CDF once per permutation per feature.
         alpha: Significance level for the stopping rule.
         min_splits: Minimum sum of weights required to attempt a split.
         min_buckets: Minimum sum of weights in each child node.
@@ -113,7 +118,10 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             ci_method="wald". Defaults to 200.
         ci_coverage: Coverage level for per-item expected-rank
             confidence intervals. Defaults to 0.95. Set to None to
-            disable CI computation.
+            disable CI computation. Each interval is marginal at this
+            level for its own item; the probability that all M displayed
+            items are covered simultaneously is lower, bounded above by
+            roughly ci_coverage ** M.
         transmuter: Optional callable applied to node data before
             computing predictions and confidence intervals, with post-hoc
             split validation. See Tree for full signature and behavior.
@@ -289,6 +297,8 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             expected rank at the node each sample reaches, shape
             (n_samples,). The dtype matches item_names_: integer indices
             when no names were provided at fit, else the supplied labels.
+            A sample reaching a node whose items all have an undefined
+            expected rank receives the first item (index 0).
         """
         indices = self.predict_index(X)
         node_predictions = numpy.array(

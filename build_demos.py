@@ -21,7 +21,7 @@ _CACHE_DIR = os.path.join(
 
 
 def run() -> int:
-    """Parse CLI args and write the six demo tree PNGs with response companions.
+    """Parse CLI args and write the eight demo tree PNGs with response companions.
 
     Returns:
         0 on success. argparse may exit the process with status 2 before

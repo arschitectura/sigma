@@ -144,6 +144,42 @@ class TestComputePLMle(unittest.TestCase):
         self.assertTrue(numpy.isnan(expected_rank[1]))
         self.assertFalse(numpy.isnan(expected_rank[2]))
 
+    def test_equal_worths_give_midpoint_expected_rank(self):
+        """Equal worths place every item at the midpoint rank (K+1)/2."""
+        for n_items in (2, 3, 5):
+            alpha = numpy.ones(n_items)
+            expected_rank = sigma._ranking.pl_expected_rank(alpha)
+            midpoint = (n_items + 1.0) / 2.0
+            numpy.testing.assert_allclose(expected_rank, midpoint)
+
+    def test_expected_ranks_sum_to_triangular_number(self):
+        """The per-item expected ranks sum to K(K+1)/2 for any worth vector."""
+        rng = numpy.random.default_rng(20)
+        for _ in range(5):
+            n_items = int(rng.integers(2, 12))
+            alpha = rng.uniform(0.1, 5.0, size=n_items)
+            expected_rank = sigma._ranking.pl_expected_rank(alpha)
+            triangular = n_items * (n_items + 1.0) / 2.0
+            self.assertAlmostEqual(float(expected_rank.sum()), triangular)
+
+    def test_expected_rank_decreases_as_worth_increases(self):
+        """A strictly decreasing worth vector yields strictly increasing ranks."""
+        alpha = numpy.array([8.0, 4.0, 2.0, 1.0])
+        expected_rank = sigma._ranking.pl_expected_rank(alpha)
+        differences = numpy.diff(expected_rank)
+        self.assertTrue(bool(numpy.all(differences > 0.0)))
+
+    def test_partial_top_d_rankings_recover_worth_order(self):
+        """Top-3 rows ranking 0 then 1 then 2 recover that expected-rank order."""
+        n_items = 6
+        row = _ranks_in_cell({0: 1.0, 1: 2.0, 2: 3.0}, n_items)
+        y = numpy.tile(row, (30, 1))
+        weights = numpy.ones(30)
+        alpha = sigma._ranking.compute_pl_mle(y, weights)
+        expected_rank = sigma._ranking.pl_expected_rank(alpha)
+        self.assertLess(expected_rank[0], expected_rank[1])
+        self.assertLess(expected_rank[1], expected_rank[2])
+
 
 class TestRankingTreeFit(unittest.TestCase):
     """End-to-end smoke tests for the RankingTree estimator."""
