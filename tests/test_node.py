@@ -1,9 +1,11 @@
 """Unit tests for the Node hierarchy, the Partition hierarchy, and traversal."""
 
 import unittest
+import weakref
 
 import numpy
 
+import sigma
 import sigma._extension
 import sigma._node
 import sigma._partition
@@ -501,6 +503,113 @@ class TestNodeIdDefault(unittest.TestCase):
         partition = _numeric_partition(left, right)
         root = _regression_root(partition, 5.0, 20)
         self.assertEqual(root.node_id, 0)
+
+
+class TestWeakReferenceable(unittest.TestCase):
+    """Tests that every public class can be the target of a weak reference."""
+
+    __slots__ = ()
+
+    def _public_instances(self) -> list[object]:
+        """Build one instance of each public class for weakref checks."""
+        leaf = _leaf_regression(1.0)
+        right_leaf = _leaf_regression(9.0)
+        numerical = _numeric_partition(leaf, right_leaf)
+        boolean = sigma._partition.BooleanPartition(
+            feature_index=0,
+            feature_name="flag",
+            p_value=0.01,
+            T=_DUMMY_T,
+            mu=_DUMMY_MU,
+            Sigma=_DUMMY_SIGMA,
+            left=leaf,
+            right=right_leaf,
+        )
+        categorical = sigma._partition.CategoricalPartition(
+            feature_index=0,
+            feature_name="cat",
+            p_value=0.05,
+            T=_DUMMY_T,
+            mu=_DUMMY_MU,
+            Sigma=_DUMMY_SIGMA,
+            left=leaf,
+            right=right_leaf,
+            left_categories=frozenset({0.0}),
+            right_categories=frozenset({1.0}),
+        )
+        survival_metric = sigma._node.SurvivalMetric(
+            label="Median survival",
+            value=2.5,
+            ci_low=None,
+            ci_high=None,
+            style="value",
+            better_is="higher",
+        )
+        ranking_metric = sigma._node.RankingMetric(
+            label="item",
+            value=1.0,
+            ci_low=None,
+            ci_high=None,
+        )
+        classification = sigma._node.ClassificationNode(
+            depth=0,
+            n_samples=10,
+            share=1.0,
+            decoration=None,
+            extension=sigma._extension.Leaf(),
+            prediction=0,
+            class_distribution=numpy.array([0.6, 0.4]),
+            ci_low=None,
+            ci_high=None,
+            mean_offset_proba=None,
+        )
+        survival = sigma._node.SurvivalNode(
+            depth=0,
+            n_samples=10,
+            share=1.0,
+            decoration=None,
+            extension=sigma._extension.Leaf(),
+            survival_function=(numpy.array([1.0]), numpy.array([1.0])),
+            survival_log_variance=numpy.zeros(1, dtype=float),
+            metrics=[survival_metric],
+        )
+        ranking = sigma._node.RankingNode(
+            depth=0,
+            n_samples=10,
+            share=1.0,
+            decoration=None,
+            extension=sigma._extension.Leaf(),
+            metrics=[ranking_metric],
+        )
+        error = sigma._partition.UnknownCategoryError("x", 42)
+        instances: list[object] = [
+            leaf.extension,
+            leaf,
+            numerical,
+            boolean,
+            categorical,
+            classification,
+            survival,
+            ranking,
+            survival_metric,
+            ranking_metric,
+            error,
+            sigma.ClassificationTree(),
+            sigma.RegressionTree(),
+            sigma.SurvivalTree(),
+            sigma.RankingTree(),
+        ]
+        return instances
+
+    def test_public_instances_support_weakref(self):
+        """weakref.ref succeeds and resolves back to each public instance."""
+        instances = self._public_instances()
+        for instance in instances:
+            instance_type = type(instance)
+            with self.subTest(cls=instance_type.__name__):
+                reference = weakref.ref(instance)
+                resolved = reference()
+                self.assertIs(resolved, instance)
 
 
 if __name__ == "__main__":

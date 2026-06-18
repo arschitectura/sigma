@@ -19,7 +19,7 @@ class Extension(typing.Generic[N], abc.ABC):
     routing records to children); leaves carry a Leaf.
     """
 
-    __slots__ = ()
+    __slots__ = ("__weakref__",)
 
 
 class Leaf(Extension[N], typing.Generic[N]):

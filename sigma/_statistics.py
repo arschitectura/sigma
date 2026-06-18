@@ -15,7 +15,7 @@ import scipy.stats
 from . import _types
 
 
-class VariableSelection(typing.NamedTuple):
+class _VariableSelection(typing.NamedTuple):
     """Selected variable and its test inputs at one tree node."""
 
     feature_index: int
@@ -189,7 +189,7 @@ def select_variable(
     correlation: _types.Correlation = _types.Correlation.RANK,
     resamples: None | int = None,
     rng: None | numpy.random.Generator = None,
-) -> None | VariableSelection:
+) -> None | _VariableSelection:
     """Select the covariate with strongest association to the response.
 
     Applies multiplicity adjustment and returns None if the global null
@@ -210,7 +210,7 @@ def select_variable(
             test_type is MONTE_CARLO.
 
     Returns:
-        A VariableSelection if the global null is rejected, None otherwise.
+        A _VariableSelection if the global null is rejected, None otherwise.
 
     Raises:
         ValueError: If test_type is MONTE_CARLO but resamples or rng is None.
@@ -284,7 +284,7 @@ def select_variable(
     if adjusted_p_values[j_star] > alpha:
         return None
     array_type = numpy.typing.NDArray[numpy.floating]
-    result = VariableSelection(
+    result = _VariableSelection(
         feature_index=j_star,
         p_value=float(adjusted_p_values[j_star]),
         T=typing.cast(array_type, T_list[j_star]),

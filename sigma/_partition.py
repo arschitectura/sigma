@@ -22,7 +22,7 @@ class UnknownCategoryError(ValueError):
         value: The unobserved category value supplied to route().
     """
 
-    __slots__ = ("feature_name", "value")
+    __slots__ = ("feature_name", "value", "__weakref__")
 
     def __init__(self, feature_name: None | str, value: object) -> None:
         feature_label = "<unnamed>" if feature_name is None else feature_name
