@@ -104,41 +104,43 @@ All records                           59.6% (55.9% to 63.1%) 40.4% (36.9% to 44.
 ### 4.2. Diabetes (regression)
 
 Predicting one-year disease progression with a Bayesian-bootstrap 95%
-confidence interval at each node - surfaces age, BMI, and HDL
-cholesterol.
+confidence interval at each node - surfaces BMI, triglycerides, and blood
+pressure. BMI splits recursively, so the example calls `compact()` (see
+section 5.5) to fold that chain into one multi-way node.
 
 ```python
-tree = sigma.RegressionTree(random_state=123, reverse_order=True)
+tree = sigma.RegressionTree(
+    test_type="monte_carlo",
+    resamples=2000,
+    random_state=123,
+    reverse_order=True,
+)
 tree.fit(X, y)
-print(tree.to_text(precision=1))
-tree.to_image("png", "diabetes.png", orientation="left-to-right", precision=1)
-tree.to_image("png", "diabetes_response.png", kind="response")
+compact_tree = tree.compact()
+print(compact_tree.to_text(precision=1))
+compact_tree.to_image(
+    "png", "diabetes.png", orientation="left-to-right", precision=1
+)
+compact_tree.to_image("png", "diabetes_response.png", kind="response")
 ```
 
 ```
-                                           Disease progression mean Obs. count Obs. share Split p-value Leaf index
-                                           ------------------------ ---------- ---------- ------------- ----------
-All records                                  152.1 (145.1 to 159.3)        442     100.0%         0.02%
-├── Age <= 49                                136.7 (127.1 to 147.0)        214      48.4%         0.02%
-│   ├── BMI <= 27.0                          108.7 (100.0 to 118.2)        143      32.4%         0.02%
-│   │   ├── HDL cholesterol > 43.5             95.0 (86.7 to 104.5)        109      24.7%         2.92%
-│   │   │   ├── Age > 24                       89.8 (80.9 to 100.3)         92      20.8%                       11
-│   │   │   └── Age <= 24                    123.3 (104.0 to 144.2)         17       3.8%                        7
-│   │   └── HDL cholesterol <= 43.5          152.5 (134.3 to 171.3)         34       7.7%         0.68%
-│   │       ├── Total cholesterol <= 181     119.4 (100.5 to 139.1)         17       3.8%                        9
-│   │       └── Total cholesterol > 181      185.7 (163.9 to 209.0)         17       3.8%                        4
-│   └── BMI > 27.0                           193.1 (176.0 to 210.0)         71      16.1%         1.30%
-│       ├── Blood sugar <= 103               179.6 (162.2 to 197.7)         60      13.6%                        5
-│       └── Blood sugar > 103                267.1 (249.9 to 283.8)         11       2.5%                        1
-└── Age > 49                                 166.6 (156.9 to 176.6)        228      51.6%         0.02%
-    ├── BMI <= 26.9                          130.2 (119.4 to 141.4)        124      28.1%         0.02%
-    │   ├── Triglycerides (log) <= 4.7        104.9 (95.5 to 115.4)         80      18.1%                       10
-    │   └── Triglycerides (log) > 4.7        176.2 (157.9 to 194.1)         44      10.0%                        6
-    └── BMI > 26.9                           210.0 (196.1 to 223.3)        104      23.5%         0.02%
-        ├── Blood pressure <= 111.8          193.1 (178.3 to 207.8)         78      17.6%         1.64%
-        │   ├── Triglycerides (log) <= 4.4    122.6 (98.5 to 144.7)         10       2.3%                        8
-        │   └── Triglycerides (log) > 4.4    203.4 (188.4 to 218.9)         68      15.4%                        3
-        └── Blood pressure > 111.8           260.8 (240.9 to 277.6)         26       5.9%                        2
+                                       Disease progression mean Obs. count Obs. share Split p-value Leaf index
+                                       ------------------------ ---------- ---------- ------------- ----------
+All records                              152.1 (145.1 to 159.4)        442     100.0%
+├── BMI <= 24.4                           105.0 (97.6 to 112.9)        165      37.3%         0.05%
+│   ├── Triglycerides (log) <= 4.6         93.9 (86.7 to 101.4)        123      27.8%                        8
+│   └── Triglycerides (log) > 4.6        137.7 (121.6 to 153.6)         42       9.5%                        6
+├── 24.4 < BMI <= 27.2                   144.0 (131.5 to 157.1)        112      25.3%         0.05%
+│   ├── Total-to-HDL ratio <= 4.8        118.4 (104.3 to 133.9)         65      14.7%         0.05%
+│   │   ├── Triglycerides (log) <= 4.8    102.2 (89.5 to 116.4)         53      12.0%                        7
+│   │   └── Triglycerides (log) > 4.8    190.0 (162.1 to 217.8)         12       2.7%                        3
+│   └── Total-to-HDL ratio > 4.8         179.3 (160.8 to 197.9)         47      10.6%                        4
+└── BMI > 27.2                           204.8 (193.8 to 215.4)        165      37.3%         0.05%
+    ├── Blood pressure <= 111.8          189.3 (176.8 to 201.6)        124      28.1%         0.05%
+    │   ├── Triglycerides (log) <= 5.1   171.1 (156.4 to 186.8)         80      18.1%                        5
+    │   └── Triglycerides (log) > 5.1    222.5 (205.0 to 238.2)         44      10.0%                        2
+    └── Blood pressure > 111.8           251.4 (235.1 to 265.8)         41       9.3%                        1
 ```
 
 <table>
@@ -199,7 +201,9 @@ All records                                               4.9 (4.2 to 5.5) 49.2%
 Predicting per-item Plackett-Luce expected rank with a Bayesian-bootstrap
 95% confidence interval at each node - surfaces sex and age group as the
 strongest demographic drivers of sushi preference among 5000 Japanese
-respondents ranking ten classic sushi.
+respondents ranking ten classic sushi. Age group splits recursively on the
+male side, so the example calls `compact()` (see section 5.5) to fold that
+chain into one multi-way node.
 
 ```python
 tree = sigma.RankingTree(
@@ -208,22 +212,24 @@ tree = sigma.RankingTree(
     max_depth=3,
 )
 tree.fit(X, rankings)
-print(tree.to_text(precision=2))
-tree.to_image("png", "sushi.png", orientation="left-to-right", precision=2)
-tree.to_image("png", "sushi_response.png", kind="response")
+compact_tree = tree.compact()
+print(compact_tree.to_text(precision=2))
+compact_tree.to_image(
+    "png", "sushi.png", orientation="left-to-right", precision=2
+)
+compact_tree.to_image("png", "sushi_response.png", kind="response")
 ```
 
 ```
                                                                                                                               Ebi rank          Anago rank         Maguro rank            Uni rank         Tamago rank Obs. count Obs. share Split p-value Leaf index
                                                                                                                    ------------------- ------------------- ------------------- ------------------- ------------------- ---------- ---------- ------------- ----------
 All records                                                                                                        4.94 (4.86 to 5.01) 5.39 (5.32 to 5.46) 4.37 (4.31 to 4.43) 6.07 (5.98 to 6.16) 3.24 (3.15 to 3.31)       5000     100.0%       <1e-300
-├── Gender is "male"                                                                                               5.16 (5.05 to 5.25) 5.15 (5.06 to 5.28) 4.22 (4.11 to 4.33) 5.66 (5.50 to 5.77) 2.90 (2.82 to 3.01)       2373      47.5%       <1e-300
+├── Gender is "male"                                                                                               5.16 (5.05 to 5.25) 5.15 (5.06 to 5.28) 4.22 (4.11 to 4.33) 5.66 (5.50 to 5.77) 2.90 (2.82 to 3.01)       2373      47.5%
+│   ├── Age group is "30-39"                                                                                       5.27 (5.14 to 5.43) 5.04 (4.83 to 5.23) 4.31 (4.18 to 4.45) 5.53 (5.30 to 5.75) 2.83 (2.71 to 2.99)        830      16.6%                        6
 │   ├── Age group is "40-49", "50-59", or "60+"                                                                    5.21 (5.04 to 5.39) 5.28 (5.12 to 5.45) 4.29 (4.15 to 4.44) 5.03 (4.80 to 5.23) 2.96 (2.81 to 3.13)        884      17.7%         0.60%
 │   │   ├── Childhood region is "Tohoku", "Hokuriku", "Kanto+Shizuoka", "Nagoya", "Kinki", "Chugoku", or "Okinawa" 5.31 (5.13 to 5.50) 5.17 (4.97 to 5.34) 4.29 (4.14 to 4.43) 5.10 (4.88 to 5.33) 2.94 (2.76 to 3.15)        735      14.7%                        7
 │   │   └── Childhood region is "Hokkaido", "Shikoku", "Kyushu", or "abroad"                                       4.74 (4.36 to 5.13) 5.81 (5.37 to 6.23) 4.32 (3.98 to 4.66) 4.67 (4.23 to 5.19) 3.03 (2.66 to 3.35)        149       3.0%                        3
-│   └── Age group is "15-19", "20-29", or "30-39"                                                                  5.13 (5.02 to 5.24) 5.08 (4.94 to 5.21) 4.18 (4.07 to 4.28) 6.00 (5.82 to 6.19) 2.87 (2.76 to 2.98)       1489      29.8%      1.22e-06
-│       ├── Age group is "30-39"                                                                                   5.27 (5.14 to 5.43) 5.04 (4.83 to 5.23) 4.31 (4.18 to 4.45) 5.53 (5.30 to 5.75) 2.83 (2.71 to 2.99)        830      16.6%                        6
-│       └── Age group is "15-19" or "20-29"                                                                        4.96 (4.78 to 5.14) 5.14 (4.95 to 5.34) 4.01 (3.84 to 4.17) 6.54 (6.30 to 6.73) 2.93 (2.73 to 3.15)        659      13.2%                        5
+│   └── Age group is "15-19" or "20-29"                                                                            4.96 (4.78 to 5.14) 5.14 (4.95 to 5.34) 4.01 (3.84 to 4.17) 6.54 (6.30 to 6.73) 2.93 (2.73 to 3.15)        659      13.2%                        5
 └── Gender is "female"                                                                                             4.73 (4.64 to 4.82) 5.62 (5.53 to 5.72) 4.52 (4.43 to 4.59) 6.44 (6.32 to 6.55) 3.54 (3.43 to 3.66)       2627      52.5%       <1e-300
     ├── Age group is "20-29", "30-39", "40-49", "50-59", or "60+"                                                  4.73 (4.63 to 4.82) 5.55 (5.44 to 5.66) 4.56 (4.48 to 4.65) 6.30 (6.13 to 6.41) 3.57 (3.46 to 3.68)       2429      48.6%       <1e-300
     │   ├── Childhood region is "Hokuriku", "Kanto+Shizuoka", "Kinki", "Chugoku", "Kyushu", or "abroad"            4.90 (4.78 to 5.01) 5.43 (5.28 to 5.57) 4.54 (4.46 to 4.63) 6.44 (6.31 to 6.59) 3.50 (3.38 to 3.62)       1833      36.7%                        4
@@ -354,6 +360,42 @@ fit time evaluate to the holding node's prediction, mirroring
 `tree.predict`. `NULL` numerical or boolean inputs fall through to
 `ELSE NULL`; wrap in `COALESCE(..., default)` to substitute a fallback
 value.
+
+### 5.5. Collapsing recursive splits with `compact()`
+
+When the same feature is split over several consecutive levels, a binary
+tree repeats that feature down a chain. `compact()` returns a new tree in
+which each such chain is collapsed into a single multi-way node, with one
+branch per resulting interval (numeric features) or category subset
+(categorical features):
+
+```python
+compact_tree = tree.compact()
+print(compact_tree.to_text())
+```
+
+The compacted tree predicts identically to the original and renders
+through the same `to_text`, `to_image`, and `to_sql` methods. A merged
+node spans several original splits, so it reports no single split
+p-value. For example, a chain of consecutive splits on `Age`
+
+```
+├── Age <= 30
+└── Age > 30
+    ├── Age <= 50
+    └── Age > 50
+```
+
+collapses into one node carrying three interval branches:
+
+```
+├── Age <= 30
+├── 30 < Age <= 50
+└── Age > 50
+```
+
+The original tree is left unchanged; `compact()` produces an independent
+copy whose node ids are renumbered to match its smaller shape.
 
 ## 6. Parameters
 

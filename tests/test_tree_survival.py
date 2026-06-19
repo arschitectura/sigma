@@ -681,9 +681,9 @@ class TestSurvivalTreeLiteratureCrosscheck(unittest.TestCase):
         self.assertEqual(
             feature_columns[root_partition.feature_index], "pnodes"
         )
-        self.assertEqual(root_partition.threshold, 3)
-        left = root_partition.left
-        right = root_partition.right
+        self.assertEqual(root_partition.thresholds[0], 3)
+        left = root_partition.children[0]
+        right = root_partition.children[1]
         left_partition = left.extension
         right_partition = right.extension
         assert isinstance(left_partition, sigma._partition.NumericalPartition)
@@ -694,7 +694,7 @@ class TestSurvivalTreeLiteratureCrosscheck(unittest.TestCase):
         self.assertEqual(
             feature_columns[right_partition.feature_index], "progrec"
         )
-        self.assertEqual(right_partition.threshold, 20)
+        self.assertEqual(right_partition.thresholds[0], 20)
         leaves_by_n = {leaf.n_samples: leaf for leaf in estimator.leaves_}
         self.assertEqual(leaves_by_n[248].prediction, 2093.0)
         self.assertEqual(leaves_by_n[128].prediction, float("inf"))

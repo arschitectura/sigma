@@ -382,11 +382,14 @@ class TestCiMethodDoesNotAffectTreeShape(unittest.TestCase):
                     node.depth,
                     type(node.extension).__name__,
                     getattr(node.extension, "feature_index", None),
-                    getattr(node.extension, "threshold", None),
+                    getattr(node.extension, "thresholds", None),
                     tuple(
-                        sorted(getattr(node.extension, "left_categories", ()))
+                        tuple(sorted(group))
+                        for group in getattr(
+                            node.extension, "category_groups", ()
+                        )
                     )
-                    if hasattr(node.extension, "left_categories")
+                    if hasattr(node.extension, "category_groups")
                     else None,
                 )
                 for node in tree.nodes_

@@ -830,16 +830,23 @@ def _build_and_export_tree(
     tree.fit(X, y)
     elapsed = time.perf_counter() - fit_start
     print(f"Fitted in {elapsed:.1f}s")
-    text = tree.to_text(
+    compacted = tree.compact()
+    original_node_count = len(tree.nodes_)
+    compacted_node_count = len(compacted.nodes_)
+    if compacted_node_count < original_node_count:
+        display_tree = compacted
+    else:
+        display_tree = tree
+    text = display_tree.to_text(
         precision=precision, top_displayed_items=top_displayed_items
     )
     print(text)
     print()
-    tree_png = tree.to_image(
+    tree_png = display_tree.to_image(
         "png", dpi=dpi, orientation=orientation, precision=precision
     )
     _write_png(output_path, tree_png, "tree")
-    response_png = tree.to_image("png", kind="response", dpi=dpi)
+    response_png = display_tree.to_image("png", kind="response", dpi=dpi)
     _write_png(_response_png_path(output_path), response_png, "responses")
 
 

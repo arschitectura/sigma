@@ -306,10 +306,11 @@ class TestBuildDigraph(unittest.TestCase):
         root = self.regression_tree.content_
         partition = root.extension
         assert isinstance(partition, sigma._partition.Partition)
-        if partition.left.prediction <= partition.right.prediction:
-            smaller_child, larger_child = partition.left, partition.right
+        first_child, second_child = partition.children[0], partition.children[1]
+        if first_child.prediction <= second_child.prediction:
+            smaller_child, larger_child = first_child, second_child
         else:
-            smaller_child, larger_child = partition.right, partition.left
+            smaller_child, larger_child = second_child, first_child
         root_id = str(id(root))
         smaller_edge = f"{root_id} -> {id(smaller_child)}"
         larger_edge = f"{root_id} -> {id(larger_child)}"
@@ -330,10 +331,11 @@ class TestBuildDigraph(unittest.TestCase):
         root = self.regression_tree.content_
         partition = root.extension
         assert isinstance(partition, sigma._partition.Partition)
-        if partition.left.prediction <= partition.right.prediction:
-            smaller_child, larger_child = partition.left, partition.right
+        first_child, second_child = partition.children[0], partition.children[1]
+        if first_child.prediction <= second_child.prediction:
+            smaller_child, larger_child = first_child, second_child
         else:
-            smaller_child, larger_child = partition.right, partition.left
+            smaller_child, larger_child = second_child, first_child
         root_id = str(id(root))
         smaller_edge = f"{root_id} -> {id(smaller_child)}"
         larger_edge = f"{root_id} -> {id(larger_child)}"
@@ -777,7 +779,7 @@ class TestBuildDigraphMaxDepth(unittest.TestCase):
         count = source.count('label="..."')
         partition = self.regression_tree.content_.extension
         assert isinstance(partition, sigma._partition.Partition)
-        depth_one_children = [partition.left, partition.right]
+        depth_one_children = list(partition.children)
         self.assertEqual(count, len(depth_one_children))
 
     def test_max_depth_exceeds_tree_depth_still_marks_leaves(self):

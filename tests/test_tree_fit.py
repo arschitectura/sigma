@@ -32,9 +32,9 @@ class TestRegressionTreeFit(unittest.TestCase):
         partition = regression_tree.content_.extension
         assert isinstance(partition, sigma._partition.NumericalPartition)
         self.assertEqual(partition.feature_index, 0)
-        self.assertEqual(partition.threshold, 20.0)
-        left = typing.cast(sigma._node.RegressionNode, partition.left)
-        right = typing.cast(sigma._node.RegressionNode, partition.right)
+        self.assertEqual(partition.thresholds[0], 20.0)
+        left = typing.cast(sigma._node.RegressionNode, partition.children[0])
+        right = typing.cast(sigma._node.RegressionNode, partition.children[1])
         numpy.testing.assert_allclose(left.prediction, 0.0)
         numpy.testing.assert_allclose(right.prediction, 10.0)
 
@@ -54,10 +54,9 @@ class TestRegressionTreeFit(unittest.TestCase):
         root_extension = typing.cast(
             sigma._partition.Partition[sigma._node.Node], extension
         )
-        assert root_extension.left is not None
-        assert root_extension.right is not None
-        assert isinstance(root_extension.left.extension, sigma._extension.Leaf)
-        assert isinstance(root_extension.right.extension, sigma._extension.Leaf)
+        left_child, right_child = root_extension.children
+        assert isinstance(left_child.extension, sigma._extension.Leaf)
+        assert isinstance(right_child.extension, sigma._extension.Leaf)
 
     def test_alpha_zero_produces_single_leaf(self):
         """Returns a single leaf when alpha=0.0 rejects nothing."""
@@ -393,9 +392,8 @@ class TestToTextMaxDepth(unittest.TestCase):
         assert isinstance(root_extension, sigma._partition.Partition)
         non_leaf_depth_one = sum(
             1
-            for child in (root_extension.left, root_extension.right)
-            if child is not None
-            and isinstance(child.extension, sigma._partition.Partition)
+            for child in root_extension.children
+            if isinstance(child.extension, sigma._partition.Partition)
         )
         self.assertEqual(output.count("..."), non_leaf_depth_one)
 
@@ -528,7 +526,7 @@ class TestClassificationTreeFit(unittest.TestCase):
         partition = classification_tree.content_.extension
         assert isinstance(partition, sigma._partition.NumericalPartition)
         self.assertEqual(partition.feature_index, 0)
-        self.assertEqual(partition.threshold, 20.0)
+        self.assertEqual(partition.thresholds[0], 20.0)
 
     def test_multiclass_splits_correctly(self):
         """Splits three-class data into meaningful groups."""

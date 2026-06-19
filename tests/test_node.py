@@ -32,18 +32,25 @@ _DUMMY_MU = numpy.zeros(1)
 _DUMMY_SIGMA = numpy.zeros((1, 1))
 
 
+def _split_statistics(p_value) -> sigma._partition.SplitStatistics:
+    """Build a SplitStatistics with the given p-value and dummy moments."""
+    statistics = sigma._partition.SplitStatistics(
+        p_value=p_value,
+        T=_DUMMY_T,
+        mu=_DUMMY_MU,
+        Sigma=_DUMMY_SIGMA,
+    )
+    return statistics
+
+
 def _numeric_partition(left, right) -> sigma._partition.NumericalPartition:
     """Build a NumericalPartition on x[0] <= 5.0 around the given children."""
     partition = sigma._partition.NumericalPartition(
         feature_index=0,
         feature_name="x",
-        p_value=0.01,
-        T=_DUMMY_T,
-        mu=_DUMMY_MU,
-        Sigma=_DUMMY_SIGMA,
-        left=left,
-        right=right,
-        threshold=5.0,
+        statistics=_split_statistics(0.01),
+        children=(left, right),
+        thresholds=(5.0,),
     )
     return partition
 
@@ -292,14 +299,9 @@ class TestTraverse(unittest.TestCase):
         partition = sigma._partition.CategoricalPartition(
             feature_index=0,
             feature_name="cat",
-            p_value=0.05,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=left,
-            right=right,
-            left_categories=frozenset({0.0, 1.0}),
-            right_categories=frozenset({2.0}),
+            statistics=_split_statistics(0.05),
+            children=(left, right),
+            category_groups=(frozenset({0.0, 1.0}), frozenset({2.0})),
         )
         root = _regression_root(partition, 5.0, 10)
         self.assertIs(root.traverse(numpy.array([0.0])), left)
@@ -313,14 +315,9 @@ class TestTraverse(unittest.TestCase):
         partition = sigma._partition.CategoricalPartition(
             feature_index=0,
             feature_name="cat",
-            p_value=0.05,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=left,
-            right=right,
-            left_categories=frozenset({0.0}),
-            right_categories=frozenset({1.0}),
+            statistics=_split_statistics(0.05),
+            children=(left, right),
+            category_groups=(frozenset({0.0}), frozenset({1.0})),
         )
         root = _regression_root(partition, 5.0, 10)
         result = root.traverse(numpy.array([2.0]))
@@ -366,7 +363,7 @@ class TestLeavesAndShare(unittest.TestCase):
         partition = root.extension
         assert isinstance(partition, sigma._partition.Partition)
         leaves = root.leaves()
-        self.assertEqual(leaves, [partition.left, partition.right])
+        self.assertEqual(leaves, [partition.children[0], partition.children[1]])
 
     def test_populate_share_sets_n_samples_fraction(self):
         """_populate_share sets share = n_samples / root.n_samples on every node."""
@@ -375,8 +372,8 @@ class TestLeavesAndShare(unittest.TestCase):
         self.assertAlmostEqual(root.share, 1.0)
         match root.extension:
             case sigma._partition.Partition() as partition:
-                self.assertAlmostEqual(partition.left.share, 0.75)
-                self.assertAlmostEqual(partition.right.share, 0.25)
+                self.assertAlmostEqual(partition.children[0].share, 0.75)
+                self.assertAlmostEqual(partition.children[1].share, 0.25)
             case _:
                 self.fail("root extension should be a Partition")
 
@@ -401,14 +398,9 @@ class TestPartitionTypes(unittest.TestCase):
         partition = sigma._partition.CategoricalPartition(
             feature_index=0,
             feature_name="cat",
-            p_value=0.05,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=left,
-            right=right,
-            left_categories=frozenset({"a", "b"}),
-            right_categories=frozenset({"c"}),
+            statistics=_split_statistics(0.05),
+            children=(left, right),
+            category_groups=(frozenset({"a", "b"}), frozenset({"c"})),
         )
         self.assertEqual(
             partition.observed_categories, frozenset({"a", "b", "c"})
@@ -429,12 +421,8 @@ class TestPartitionTypes(unittest.TestCase):
         partition = sigma._partition.BooleanPartition(
             feature_index=0,
             feature_name="flag",
-            p_value=0.01,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=left,
-            right=right,
+            statistics=_split_statistics(0.01),
+            children=(left, right),
         )
         self.assertIs(partition.route(False), left)
         self.assertIs(partition.route(0.0), left)
@@ -448,12 +436,8 @@ class TestPartitionTypes(unittest.TestCase):
         partition = sigma._partition.BooleanPartition(
             feature_index=0,
             feature_name="flag",
-            p_value=0.01,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=left,
-            right=right,
+            statistics=_split_statistics(0.01),
+            children=(left, right),
         )
         with self.assertRaises(ValueError):
             partition.route(0.5)
@@ -518,24 +502,15 @@ class TestWeakReferenceable(unittest.TestCase):
         boolean = sigma._partition.BooleanPartition(
             feature_index=0,
             feature_name="flag",
-            p_value=0.01,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=leaf,
-            right=right_leaf,
+            statistics=_split_statistics(0.01),
+            children=(leaf, right_leaf),
         )
         categorical = sigma._partition.CategoricalPartition(
             feature_index=0,
             feature_name="cat",
-            p_value=0.05,
-            T=_DUMMY_T,
-            mu=_DUMMY_MU,
-            Sigma=_DUMMY_SIGMA,
-            left=leaf,
-            right=right_leaf,
-            left_categories=frozenset({0.0}),
-            right_categories=frozenset({1.0}),
+            statistics=_split_statistics(0.05),
+            children=(leaf, right_leaf),
+            category_groups=(frozenset({0.0}), frozenset({1.0})),
         )
         survival_metric = sigma._node.SurvivalMetric(
             label="Median survival",
@@ -594,6 +569,10 @@ class TestWeakReferenceable(unittest.TestCase):
             survival_metric,
             ranking_metric,
             error,
+            _split_statistics(0.01),
+            sigma._partition.NumericInterval(None, 5.0),
+            sigma._partition.CategorySubset(frozenset({0.0})),
+            sigma._partition.BooleanValue(True),
             sigma.ClassificationTree(),
             sigma.RegressionTree(),
             sigma.SurvivalTree(),

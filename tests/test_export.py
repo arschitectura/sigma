@@ -467,8 +467,8 @@ class TestExportGraphviz(unittest.TestCase):
         natural_root = natural_tree.content_
         natural_partition = natural_root.extension
         assert isinstance(natural_partition, sigma.Partition)
-        natural_left = natural_partition.left
-        natural_right = natural_partition.right
+        natural_left = natural_partition.children[0]
+        natural_right = natural_partition.children[1]
         if natural_left.prediction <= natural_right.prediction:
             natural_smaller_child = natural_left
             natural_larger_child = natural_right
@@ -483,8 +483,8 @@ class TestExportGraphviz(unittest.TestCase):
         reversed_root = reversed_tree.content_
         reversed_partition = reversed_root.extension
         assert isinstance(reversed_partition, sigma.Partition)
-        reversed_left = reversed_partition.left
-        reversed_right = reversed_partition.right
+        reversed_left = reversed_partition.children[0]
+        reversed_right = reversed_partition.children[1]
         if reversed_left.prediction <= reversed_right.prediction:
             reversed_smaller_child = reversed_left
             reversed_larger_child = reversed_right

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import abc
 import collections.abc
+import copy
 import dataclasses
 import typing
 
@@ -18,6 +19,7 @@ import numpy.typing
 import scipy.sparse
 import sklearn.base
 import sklearn.utils.validation
+import typing_extensions
 
 from . import _extension
 from . import _node
@@ -556,6 +558,32 @@ class Tree(
         )
         return path
 
+    def compact(self) -> typing_extensions.Self:
+        """Return a new tree with recursive same-feature splits merged.
+
+        Wherever a node splits on a feature and one of its children splits on
+        the same feature, the chain collapses into a single node whose
+        branches carry numeric intervals or category subsets. The returned
+        tree predicts identically to this one for routable samples; the tree
+        this is called on is left unchanged.
+
+        Merged nodes carry no split statistics. Because merging removes
+        nodes, apply and decision_path report different node ids on the
+        returned tree than on this one.
+
+        Returns:
+            A new fitted tree of the same type whose internal nodes are
+            N-ary wherever a same-feature chain was collapsed.
+        """
+        sklearn.utils.validation.check_is_fitted(self, "content_")
+        compacted = copy.copy(self)
+        root = _compact_node(self.content_, 0)
+        compacted.content_ = typing.cast(N, root)
+        _node._populate_share(compacted.content_)
+        compacted._assign_node_ids()
+        compacted._build_leaves()
+        return compacted
+
     def _build_leaves(self) -> None:
         """Populate leaves_ and assign each leaf its leaf_id."""
         raw_leaves = self.content_.leaves()
@@ -577,8 +605,8 @@ class Tree(
             collected.append(node)
             match node.extension:
                 case _partition.Partition() as partition:
-                    stack.append(partition.right)
-                    stack.append(partition.left)
+                    for child in reversed(partition.children):
+                        stack.append(child)
         self.nodes_ = typing.cast(list[N], collected)
 
     def _build_tree(
@@ -815,46 +843,42 @@ class Tree(
             w_transmuted, offset_transmuted
         )
         split_name = None if names is None else str(names[feature_index])
-        T = selection.T
-        mu = selection.mu
-        Sigma = selection.Sigma
+        statistics = _partition.SplitStatistics(
+            p_value=p_value,
+            T=selection.T,
+            mu=selection.mu,
+            Sigma=selection.Sigma,
+        )
+        children = (left_child, right_child)
         partition: _partition.Partition[_node.Node]
         match self.feature_types_[feature_index]:
             case _types.CovariateType.BOOLEAN:
                 partition = _partition.BooleanPartition(
                     feature_index=feature_index,
                     feature_name=split_name,
-                    p_value=p_value,
-                    T=T,
-                    mu=mu,
-                    Sigma=Sigma,
-                    left=left_child,
-                    right=right_child,
+                    statistics=statistics,
+                    children=children,
                 )
             case _types.CovariateType.CATEGORICAL:
+                category_groups = (
+                    typing.cast(frozenset, left_categories),
+                    typing.cast(frozenset, right_categories),
+                )
                 partition = _partition.CategoricalPartition(
                     feature_index=feature_index,
                     feature_name=split_name,
-                    p_value=p_value,
-                    T=T,
-                    mu=mu,
-                    Sigma=Sigma,
-                    left=left_child,
-                    right=right_child,
-                    left_categories=typing.cast(frozenset, left_categories),
-                    right_categories=typing.cast(frozenset, right_categories),
+                    statistics=statistics,
+                    children=children,
+                    category_groups=category_groups,
                 )
             case _types.CovariateType.INTEGER | _types.CovariateType.REAL:
+                thresholds = (typing.cast(int | float, split_threshold),)
                 partition = _partition.NumericalPartition(
                     feature_index=feature_index,
                     feature_name=split_name,
-                    p_value=p_value,
-                    T=T,
-                    mu=mu,
-                    Sigma=Sigma,
-                    left=left_child,
-                    right=right_child,
-                    threshold=typing.cast(int | float, split_threshold),
+                    statistics=statistics,
+                    children=children,
+                    thresholds=thresholds,
                 )
         payload = _NodePayload(
             depth=depth,
@@ -1736,6 +1760,164 @@ class Tree(
             "image/svg+xml": svg_bytes.decode("utf-8"),
         }
         return bundle
+
+
+def _compact_node(node: _node.Node, depth: int) -> _node.Node:
+    """Return the compacted copy of node placed at the given depth."""
+    match node.extension:
+        case _partition.Partition() as partition:
+            result = _compact_internal(node, partition, depth)
+        case _:
+            result = copy.copy(node)
+            result.extension = _extension.Leaf()
+            result.depth = depth
+    return result
+
+
+def _compact_internal(
+    node: _node.Node, partition: _partition.Partition, depth: int
+) -> _node.Node:
+    """Return the compacted copy of an internal node, merging any same-feature
+    chain rooted at it into one N-ary node."""
+    feature_index = partition.feature_index
+    chain_partitions: list[_partition.Partition] = []
+    frontier: list[_node.Node] = []
+    _collect_same_feature_chain(node, feature_index, chain_partitions, frontier)
+    merged_partition: None | _partition.Partition = None
+    if len(chain_partitions) > 1:
+        match partition:
+            case _partition.NumericalPartition():
+                merged_partition = _merge_numeric_chain(
+                    node, partition, chain_partitions, depth
+                )
+            case _partition.CategoricalPartition():
+                merged_partition = _merge_categorical_chain(
+                    node, partition, frontier, depth
+                )
+    if merged_partition is None:
+        new_partition = _rebuild_partition(partition, depth)
+    else:
+        new_partition = merged_partition
+    result = copy.copy(node)
+    result.extension = new_partition
+    result.depth = depth
+    return result
+
+
+def _rebuild_partition(
+    partition: _partition.Partition, depth: int
+) -> _partition.Partition:
+    """Return a copy of partition with compacted children, statistics kept."""
+    new_children: list[_node.Node] = []
+    for child in partition.children:
+        new_children.append(_compact_node(child, depth + 1))
+    new_partition = copy.copy(partition)
+    new_partition.children = tuple(new_children)
+    return new_partition
+
+
+def _merge_numeric_chain(
+    node: _node.Node,
+    partition: _partition.Partition,
+    chain_partitions: list[_partition.Partition],
+    depth: int,
+) -> _partition.NumericalPartition:
+    """Build the merged numeric partition for a same-feature chain at node."""
+    feature_index = partition.feature_index
+    threshold_values: set[int | float] = set()
+    for chain_partition in chain_partitions:
+        numeric_partition = typing.cast(
+            _partition.NumericalPartition, chain_partition
+        )
+        for threshold in numeric_partition.thresholds:
+            threshold_values.add(threshold)
+    sorted_thresholds = sorted(threshold_values)
+    probes: list[int | float] = list(sorted_thresholds)
+    probes.append(numpy.inf)
+    children: list[_node.Node] = []
+    for probe in probes:
+        frontier_node = _route_same_feature(node, feature_index, probe)
+        children.append(_compact_node(frontier_node, depth + 1))
+    merged = _partition.NumericalPartition(
+        feature_index=feature_index,
+        feature_name=partition.feature_name,
+        statistics=None,
+        children=tuple(children),
+        thresholds=tuple(sorted_thresholds),
+    )
+    return merged
+
+
+def _merge_categorical_chain(
+    node: _node.Node,
+    partition: _partition.Partition,
+    frontier: list[_node.Node],
+    depth: int,
+) -> _partition.CategoricalPartition:
+    """Build the merged categorical partition for a same-feature chain."""
+    feature_index = partition.feature_index
+    categorical = typing.cast(_partition.CategoricalPartition, partition)
+    observed = categorical.observed_categories
+    frontier_categories: dict[int, set] = {}
+    for frontier_node in frontier:
+        frontier_categories[id(frontier_node)] = set()
+    for category in observed:
+        reached = _route_same_feature(node, feature_index, category)
+        frontier_categories[id(reached)].add(category)
+    category_groups: list[frozenset] = []
+    children: list[_node.Node] = []
+    for frontier_node in frontier:
+        categories = frontier_categories[id(frontier_node)]
+        category_groups.append(frozenset(categories))
+        children.append(_compact_node(frontier_node, depth + 1))
+    merged = _partition.CategoricalPartition(
+        feature_index=feature_index,
+        feature_name=partition.feature_name,
+        statistics=None,
+        children=tuple(children),
+        category_groups=tuple(category_groups),
+    )
+    return merged
+
+
+def _collect_same_feature_chain(
+    node: _node.Node,
+    feature_index: int,
+    chain_partitions: list[_partition.Partition],
+    frontier: list[_node.Node],
+) -> None:
+    """Gather the contiguous same-feature partitions and their frontier nodes."""
+    if _splits_on_feature(node, feature_index):
+        partition = typing.cast(_partition.Partition, node.extension)
+        chain_partitions.append(partition)
+        for child in partition.children:
+            _collect_same_feature_chain(
+                child, feature_index, chain_partitions, frontier
+            )
+    else:
+        frontier.append(node)
+
+
+def _route_same_feature(
+    start: _node.Node, feature_index: int, value: object
+) -> _node.Node:
+    """Descend from start following only splits on feature_index."""
+    current = start
+    while _splits_on_feature(current, feature_index):
+        partition = typing.cast(_partition.Partition, current.extension)
+        child = partition.route(value)
+        if child is None:
+            break
+        current = child
+    return current
+
+
+def _splits_on_feature(node: _node.Node, feature_index: int) -> bool:
+    """Whether node is an internal node splitting on feature_index."""
+    extension = node.extension
+    if isinstance(extension, _partition.Partition):
+        return extension.feature_index == feature_index
+    return False
 
 
 def _extract_response_name(y: typing.Any) -> None | str:

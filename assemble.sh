@@ -48,7 +48,7 @@ mypy --ignore-missing-imports --no-color sigma tests | \
 # Unit tests
 python -m unittest discover tests -q 2>&1 | \
     grep -vE \
-        -e '^$|^-+$|^Ran [0-9]+ tests? in' -e '^OK$' \
+        -e '^$|^-+$|^Ran [0-9]+ tests? in' -e '^OK( \(.*\))?$' \
     || true
 
 # Reinstall

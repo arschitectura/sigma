@@ -216,7 +216,9 @@ class TestRankingTreeFit(unittest.TestCase):
         first_split = tree.content_.extension
         self.assertIsInstance(first_split, sigma._partition.Partition)
         partition = typing.cast(sigma._partition.Partition, first_split)
-        self.assertLess(partition.p_value, 1e-3)
+        statistics = partition.statistics
+        assert statistics is not None
+        self.assertLess(statistics.p_value, 1e-3)
 
     def test_predict_returns_favorite_item_label(self):
         """predict returns the favorite-item label per sample."""

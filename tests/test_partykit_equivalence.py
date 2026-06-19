@@ -47,9 +47,9 @@ class TestRegressionTreePartykitEquivalence(unittest.TestCase):
             root_partition,
         )
         self.assertEqual(feature_columns[root_partition.feature_index], "Temp")
-        self.assertEqual(root_partition.threshold, 82)
-        left = root_partition.left
-        right = root_partition.right
+        self.assertEqual(root_partition.thresholds[0], 82)
+        left = root_partition.children[0]
+        right = root_partition.children[1]
         left_partition = left.extension
         right_partition = right.extension
         assert isinstance(left_partition, sigma._partition.NumericalPartition)
@@ -90,8 +90,8 @@ class TestClassificationTreePartykitEquivalence(unittest.TestCase):
             root_partition,
         )
         self.assertEqual(feature_columns[root_partition.feature_index], "vari")
-        left = root_partition.left
-        right = root_partition.right
+        left = root_partition.children[0]
+        right = root_partition.children[1]
         left_partition = left.extension
         right_partition = right.extension
         assert isinstance(left_partition, sigma._partition.NumericalPartition)

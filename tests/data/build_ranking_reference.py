@@ -215,21 +215,21 @@ def _serialize_tree(tree, n_items: int, item_names, fit_seconds: float) -> dict:
             case _partition.Partition() as partition:
                 is_leaf[i] = False
                 feature_index[i] = partition.feature_index
-                left_child[i] = partition.left.node_id
-                right_child[i] = partition.right.node_id
+                left_child[i] = partition.children[0].node_id
+                right_child[i] = partition.children[1].node_id
                 match partition:
                     case _partition.NumericalPartition():
                         partition_kind[i] = 1
-                        threshold[i] = float(partition.threshold)
+                        threshold[i] = float(partition.thresholds[0])
                     case _partition.BooleanPartition():
                         partition_kind[i] = 2
                     case _partition.CategoricalPartition():
                         partition_kind[i] = 3
                         left_categories_list.append(
-                            sorted(partition.left_categories, key=repr)
+                            sorted(partition.category_groups[0], key=repr)
                         )
                         right_categories_list.append(
-                            sorted(partition.right_categories, key=repr)
+                            sorted(partition.category_groups[1], key=repr)
                         )
             case _:
                 is_leaf[i] = True

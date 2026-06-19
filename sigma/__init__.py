@@ -20,9 +20,14 @@ from ._node import (
 )
 from ._partition import (
     BooleanPartition,
+    BooleanValue,
+    BranchCondition,
     CategoricalPartition,
+    CategorySubset,
     NumericalPartition,
+    NumericInterval,
     Partition,
+    SplitStatistics,
     UnknownCategoryError,
 )
 from ._tree_classification import ClassificationTree
@@ -32,19 +37,24 @@ from ._tree_survival import SurvivalTree
 
 __all__ = [
     "BooleanPartition",
+    "BooleanValue",
+    "BranchCondition",
     "CategoricalPartition",
+    "CategorySubset",
     "ClassificationNode",
     "ClassificationTree",
     "Extension",
     "Leaf",
     "Node",
     "NumericalPartition",
+    "NumericInterval",
     "Partition",
     "RankingMetric",
     "RankingNode",
     "RankingTree",
     "RegressionNode",
     "RegressionTree",
+    "SplitStatistics",
     "SurvivalMetric",
     "SurvivalNode",
     "SurvivalTree",

@@ -55,49 +55,34 @@ def _build_sql_case(
         )
         return line
     partition = typing.cast(_partition.Partition, extension)
-    left_condition, right_condition = _format_sql_split_conditions(
-        partition, feature_names, category_labels
-    )
-    left_child, right_child, swapped = _node.ordered_display_children(
-        node, partition, best_first
-    )
-    if swapped:
-        left_condition, right_condition = right_condition, left_condition
-    left_subexpression = _build_sql_case(
-        left_child,
-        feature_names,
-        category_labels,
-        target_class_index,
-        max_depth,
-        best_first,
-        indent_level + 2,
-    )
-    right_subexpression = _build_sql_case(
-        right_child,
-        feature_names,
-        category_labels,
-        target_class_index,
-        max_depth,
-        best_first,
-        indent_level + 2,
-    )
+    branches = _node.display_branches(node, partition, best_first)
+    raw_name = _tree_text._resolve_feature_name(partition, feature_names)
+    feature = _format_sql_identifier(raw_name)
+    labels = _tree_text._feature_category_labels(partition, category_labels)
     indent = "    " * indent_level
     when_indent = "    " * (indent_level + 1)
+    lines: list[str] = [f"{indent}CASE"]
+    for condition, child in branches:
+        sql_condition = _format_sql_condition(condition, feature, labels)
+        subexpression = _build_sql_case(
+            child,
+            feature_names,
+            category_labels,
+            target_class_index,
+            max_depth,
+            best_first,
+            indent_level + 2,
+        )
+        lines.append(f"{when_indent}WHEN {sql_condition} THEN")
+        lines.append(subexpression)
     if isinstance(partition, _partition.CategoricalPartition):
         fallback_value = _leaf_numeric_value(node, target_class_index)
         fallback_literal = _format_sql_numeric_literal(fallback_value)
         else_clause = f"{when_indent}ELSE {fallback_literal}"
     else:
         else_clause = f"{when_indent}ELSE NULL"
-    lines = [
-        f"{indent}CASE",
-        f"{when_indent}WHEN {left_condition} THEN",
-        left_subexpression,
-        f"{when_indent}WHEN {right_condition} THEN",
-        right_subexpression,
-        else_clause,
-        f"{indent}END",
-    ]
+    lines.append(else_clause)
+    lines.append(f"{indent}END")
     result = "\n".join(lines)
     return result
 
@@ -149,55 +134,67 @@ def _leaf_numeric_value(
     return value
 
 
-def _format_sql_split_conditions(
-    partition: _partition.Partition,
-    feature_names: None | numpy.typing.NDArray,
-    category_labels: None | dict[int, dict[float, str]],
-) -> tuple[str, str]:
-    """Return (left_condition, right_condition) SQL fragments for a partition."""
-    feature_index = partition.feature_index
-    raw_name = _tree_text._resolve_feature_name(partition, feature_names)
-    feature = _format_sql_identifier(raw_name)
-    if isinstance(partition, _partition.BooleanPartition):
-        return (f"NOT {feature}", f"{feature}")
-    if isinstance(partition, _partition.NumericalPartition):
-        threshold = _format_sql_numeric_literal(partition.threshold)
-        return (f"{feature} <= {threshold}", f"{feature} > {threshold}")
-    categorical = typing.cast(_partition.CategoricalPartition, partition)
-    labels = (
-        category_labels.get(feature_index)
-        if category_labels is not None
-        else None
-    )
-    sorted_left = sorted(categorical.left_categories)
-    sorted_right = sorted(categorical.right_categories)
+def _format_sql_condition(
+    condition: _partition.BranchCondition,
+    feature: str,
+    labels: None | dict[float, str],
+) -> str:
+    """Return the SQL predicate fragment for a single branch condition."""
+    match condition:
+        case _partition.BooleanValue() as boolean:
+            if boolean.value:
+                return f"{feature}"
+            return f"NOT {feature}"
+        case _partition.NumericInterval() as interval:
+            fragment = _format_sql_interval_condition(feature, interval)
+            return fragment
+        case _:
+            subset = typing.cast(_partition.CategorySubset, condition)
+            fragment = _format_sql_subset_condition(feature, subset, labels)
+            return fragment
+
+
+def _format_sql_interval_condition(
+    feature: str, interval: _partition.NumericInterval
+) -> str:
+    """Return the SQL predicate for a numeric interval branch."""
+    lower = interval.lower
+    upper = interval.upper
+    if lower is None:
+        upper_literal = _format_sql_numeric_literal(
+            typing.cast(int | float, upper)
+        )
+        return f"{feature} <= {upper_literal}"
+    if upper is None:
+        lower_literal = _format_sql_numeric_literal(lower)
+        return f"{feature} > {lower_literal}"
+    lower_literal = _format_sql_numeric_literal(lower)
+    upper_literal = _format_sql_numeric_literal(upper)
+    return f"{feature} > {lower_literal} AND {feature} <= {upper_literal}"
+
+
+def _format_sql_subset_condition(
+    feature: str,
+    subset: _partition.CategorySubset,
+    labels: None | dict[float, str],
+) -> str:
+    """Return the SQL predicate for a categorical subset branch."""
+    sorted_cats = sorted(subset.categories)
     if labels is None:
-        left_items = [
-            _format_sql_category_literal(category) for category in sorted_left
-        ]
-        right_items = [
-            _format_sql_category_literal(category) for category in sorted_right
+        items = [
+            _format_sql_category_literal(category) for category in sorted_cats
         ]
     else:
-        left_items = [
+        items = [
             _format_sql_category_literal(labels.get(category, category))
-            for category in sorted_left
+            for category in sorted_cats
         ]
-        right_items = [
-            _format_sql_category_literal(labels.get(category, category))
-            for category in sorted_right
-        ]
-    if len(left_items) == 1:
-        left_condition = f"{feature} = {left_items[0]}"
+    if len(items) == 1:
+        condition = f"{feature} = {items[0]}"
     else:
-        left_listing = ", ".join(left_items)
-        left_condition = f"{feature} IN ({left_listing})"
-    if len(right_items) == 1:
-        right_condition = f"{feature} = {right_items[0]}"
-    else:
-        right_listing = ", ".join(right_items)
-        right_condition = f"{feature} IN ({right_listing})"
-    return (left_condition, right_condition)
+        listing = ", ".join(items)
+        condition = f"{feature} IN ({listing})"
+    return condition
 
 
 def _format_sql_identifier(name: str) -> str:

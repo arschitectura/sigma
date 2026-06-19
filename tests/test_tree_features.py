@@ -130,8 +130,8 @@ class TestSampleWeight(unittest.TestCase):
             weighted_partition.feature_index,
         )
         self.assertAlmostEqual(
-            expanded_partition.threshold,
-            weighted_partition.threshold,
+            expanded_partition.thresholds[0],
+            weighted_partition.thresholds[0],
         )
         preds_expanded = reg_expanded.predict(X)
         preds_weighted = reg_weighted.predict(X)
@@ -1037,12 +1037,12 @@ class TestRegressionTreeResponseSamples(unittest.TestCase):
 
 
 class TestPartitionExposesVariableSelectionTriple(unittest.TestCase):
-    """Tests that each internal node's partition exposes T, mu, Sigma."""
+    """Tests each internal partition exposes T, mu, Sigma via statistics."""
 
     __slots__ = ()
 
     def test_partition_triple_reproduces_stored_p_value(self):
-        """Round-tripping partition T, mu, Sigma through compute_test_statistic and compute_p_value reproduces the stored Sidak-adjusted p-value."""
+        """Round-tripping split-statistics T, mu, Sigma through compute_test_statistic and compute_p_value reproduces the stored Sidak-adjusted p-value."""
         rng = numpy.random.default_rng(0)
         n = 200
         x_signal = numpy.linspace(0.0, 10.0, n)
@@ -1063,24 +1063,26 @@ class TestPartitionExposesVariableSelectionTriple(unittest.TestCase):
         for node in internal_nodes:
             partition = node.extension
             assert isinstance(partition, sigma._partition.Partition)
-            self.assertEqual(partition.T.shape, partition.mu.shape)
+            statistics = partition.statistics
+            assert statistics is not None
+            self.assertEqual(statistics.T.shape, statistics.mu.shape)
             self.assertEqual(
-                partition.Sigma.shape, (partition.T.size, partition.T.size)
+                statistics.Sigma.shape, (statistics.T.size, statistics.T.size)
             )
             c = sigma._statistics.compute_test_statistic(
-                partition.T,
-                partition.mu,
-                partition.Sigma,
+                statistics.T,
+                statistics.mu,
+                statistics.Sigma,
                 sigma._types.TestStat.QUADRATIC,
             )
             p_raw = sigma._statistics.compute_p_value(
-                c, partition.Sigma, sigma._types.TestStat.QUADRATIC
+                c, statistics.Sigma, sigma._types.TestStat.QUADRATIC
             )
             p_adj = 1.0 - (1.0 - p_raw) ** tree.n_features_in_
-            numpy.testing.assert_allclose(p_adj, partition.p_value, rtol=1e-10)
+            numpy.testing.assert_allclose(p_adj, statistics.p_value, rtol=1e-10)
 
     def test_partition_triple_present_for_categorical_split(self):
-        """A tree that splits on a categorical covariate stores T, mu, and Sigma on the resulting CategoricalPartition."""
+        """A tree that splits on a categorical covariate stores T, mu, and Sigma on the resulting CategoricalPartition's split statistics."""
         rng = numpy.random.default_rng(7)
         n = 300
         categories = rng.integers(0, 3, size=n).astype(float)
@@ -1105,11 +1107,13 @@ class TestPartitionExposesVariableSelectionTriple(unittest.TestCase):
         assert len(internal_nodes) >= 1
         root_partition = internal_nodes[0].extension
         assert isinstance(root_partition, sigma._partition.CategoricalPartition)
-        self.assertIsInstance(root_partition.T, numpy.ndarray)
-        self.assertIsInstance(root_partition.mu, numpy.ndarray)
-        self.assertIsInstance(root_partition.Sigma, numpy.ndarray)
-        self.assertEqual(root_partition.T.shape, root_partition.mu.shape)
+        statistics = root_partition.statistics
+        assert statistics is not None
+        self.assertIsInstance(statistics.T, numpy.ndarray)
+        self.assertIsInstance(statistics.mu, numpy.ndarray)
+        self.assertIsInstance(statistics.Sigma, numpy.ndarray)
+        self.assertEqual(statistics.T.shape, statistics.mu.shape)
         self.assertEqual(
-            root_partition.Sigma.shape,
-            (root_partition.T.size, root_partition.T.size),
+            statistics.Sigma.shape,
+            (statistics.T.size, statistics.T.size),
         )

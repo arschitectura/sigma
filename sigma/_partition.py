@@ -10,6 +10,11 @@ import numpy.typing
 
 from . import _extension
 
+if typing.TYPE_CHECKING:
+    from . import _node
+
+N = typing.TypeVar("N", bound="_node.Node")
+
 
 # TODO use it
 class UnknownCategoryError(ValueError):
@@ -35,9 +40,85 @@ class UnknownCategoryError(ValueError):
         self.value = value
 
 
-class Partition(
-    _extension.Extension[_extension.N], typing.Generic[_extension.N]
-):
+class SplitStatistics:
+    """Conditional-inference test backing a single binary split.
+
+    Attributes:
+        p_value: Significance p-value of the split. When a transmuter is
+            used, this is the maximum of the variable selection p-value and
+            the transmuter confirmation p-value.
+        T: Observed linear test statistic for the split variable.
+        mu: Expected value of T under the null of independence.
+        Sigma: Covariance of T under the null of independence.
+    """
+
+    __slots__ = ("p_value", "T", "mu", "Sigma", "__weakref__")
+
+    def __init__(
+        self,
+        p_value: float,
+        T: numpy.typing.NDArray[numpy.floating],
+        mu: numpy.typing.NDArray[numpy.floating],
+        Sigma: numpy.typing.NDArray[numpy.floating],
+    ) -> None:
+        self.p_value = p_value
+        self.T = T
+        self.mu = mu
+        self.Sigma = Sigma
+
+
+class BranchCondition(abc.ABC):
+    """Description of the records that a single branch of a partition admits."""
+
+    __slots__ = ("__weakref__",)
+
+
+class NumericInterval(BranchCondition):
+    """Numeric branch range, open on the lower bound and closed on the upper.
+
+    Attributes:
+        lower: Exclusive lower bound, or None when the branch extends down
+            without bound.
+        upper: Inclusive upper bound, or None when the branch extends up
+            without bound.
+    """
+
+    __slots__ = ("lower", "upper")
+
+    def __init__(
+        self, lower: None | int | float, upper: None | int | float
+    ) -> None:
+        self.lower = lower
+        self.upper = upper
+
+
+class CategorySubset(BranchCondition):
+    """Categorical branch admitting a fixed set of category values.
+
+    Attributes:
+        categories: Category values routed to this branch.
+    """
+
+    __slots__ = ("categories",)
+
+    def __init__(self, categories: frozenset) -> None:
+        self.categories = categories
+
+
+class BooleanValue(BranchCondition):
+    """Boolean branch admitting one truth value.
+
+    Attributes:
+        value: The truth value routed to this branch.
+    """
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: bool) -> None:
+        self.value = value
+
+
+class Partition(_extension.Extension[N], typing.Generic[N]):
     """Routes records reaching an internal tree node to one of its children.
 
     Attributes:
@@ -46,163 +127,156 @@ class Partition(
         feature_name: Display name of the partition covariate, or None when
             no name source (constructor feature_names or DataFrame columns)
             was available at fit time.
-        p_value: P-value of the partition at this node. When a transmuter
-            is used, this is the maximum of the variable selection p-value
-            and the transmuter confirmation p-value.
-        T: Observed linear test statistic for the split variable.
-        mu: Expected value of T under the null of independence.
-        Sigma: Covariance of T under the null of independence.
-        left: Left child node.
-        right: Right child node.
+        statistics: Conditional-inference test backing the split, or None
+            when no single test applies to this node.
+        children: Child nodes in branch order, one per branch.
     """
 
-    __slots__ = (
-        "feature_index",
-        "feature_name",
-        "p_value",
-        "T",
-        "mu",
-        "Sigma",
-        "left",
-        "right",
-    )
+    __slots__ = ("feature_index", "feature_name", "statistics", "children")
 
     def __init__(
         self,
         feature_index: int,
         feature_name: None | str,
-        p_value: float,
-        T: numpy.typing.NDArray[numpy.floating],
-        mu: numpy.typing.NDArray[numpy.floating],
-        Sigma: numpy.typing.NDArray[numpy.floating],
-        left: _extension.N,
-        right: _extension.N,
+        statistics: None | SplitStatistics,
+        children: tuple[N, ...],
     ) -> None:
         self.feature_index = feature_index
         self.feature_name = feature_name
-        self.p_value = p_value
-        self.T = T
-        self.mu = mu
-        self.Sigma = Sigma
-        self.left = left
-        self.right = right
+        self.statistics = statistics
+        self.children = children
+
+    @property
+    @abc.abstractmethod
+    def branch_conditions(self) -> tuple[BranchCondition, ...]:
+        """Branch conditions in branch order, one per child."""
 
     @abc.abstractmethod
-    def route(self, value: object) -> None | _extension.N:
+    def route(self, value: object) -> None | N:
         """Return the child to descend into for a record's feature value,
         or None when the value is not routable from this partition.
         """
 
 
-class NumericalPartition(Partition[_extension.N], typing.Generic[_extension.N]):
-    """Binary partition on a numeric covariate by a threshold.
+class NumericalPartition(Partition[N], typing.Generic[N]):
+    """Partition on a numeric covariate by ascending threshold cut points.
 
-    Records with value <= threshold go left, others go right.
+    A record routes to the first branch whose inclusive upper threshold is
+    not exceeded, and to the last branch when it exceeds every threshold.
 
     Attributes:
-        threshold: Numeric split point. Stored as a Python int when the
-            split covariate is integer-valued, otherwise as a float.
+        thresholds: Cut points in strictly ascending order. There is one
+            more child than there are thresholds.
     """
 
-    __slots__ = ("threshold",)
+    __slots__ = ("thresholds",)
 
     def __init__(
         self,
         feature_index: int,
         feature_name: None | str,
-        p_value: float,
-        T: numpy.typing.NDArray[numpy.floating],
-        mu: numpy.typing.NDArray[numpy.floating],
-        Sigma: numpy.typing.NDArray[numpy.floating],
-        left: _extension.N,
-        right: _extension.N,
-        threshold: int | float,
+        statistics: None | SplitStatistics,
+        children: tuple[N, ...],
+        thresholds: tuple[int | float, ...],
     ) -> None:
-        super().__init__(
-            feature_index, feature_name, p_value, T, mu, Sigma, left, right
-        )
-        self.threshold = threshold
+        super().__init__(feature_index, feature_name, statistics, children)
+        self.thresholds = thresholds
 
-    def route(self, value: object) -> _extension.N:
-        """Return left when value <= threshold, otherwise right."""
-        threshold = self.threshold
+    @property
+    def branch_conditions(self) -> tuple[BranchCondition, ...]:
+        """Numeric intervals in ascending order, one per child."""
+        lowers: tuple[None | int | float, ...] = (None,) + self.thresholds
+        uppers: tuple[None | int | float, ...] = self.thresholds + (None,)
+        conditions: list[BranchCondition] = []
+        for lower, upper in zip(lowers, uppers):
+            conditions.append(NumericInterval(lower, upper))
+        result = tuple(conditions)
+        return result
+
+    def route(self, value: object) -> N:
+        """Return the child for the interval that contains value."""
         numeric_value = typing.cast(float, value)
-        child = self.left if numeric_value <= threshold else self.right
-        return child
+        for index, threshold in enumerate(self.thresholds):
+            if numeric_value <= threshold:
+                return self.children[index]
+        return self.children[-1]
 
 
-class BooleanPartition(Partition[_extension.N], typing.Generic[_extension.N]):
+class BooleanPartition(Partition[N], typing.Generic[N]):
     """Binary partition on a boolean covariate.
 
-    Records with value False (or 0.0) route to the left child; records with
-    value True (or 1.0) route to the right child.
+    Records with value False (or 0.0) route to the first child; records with
+    value True (or 1.0) route to the second child.
     """
 
     __slots__ = ()
 
-    def route(self, value: object) -> _extension.N:
-        """Return left for False / 0.0, right for True / 1.0.
+    @property
+    def branch_conditions(self) -> tuple[BranchCondition, ...]:
+        """False branch first, then the true branch."""
+        result = (BooleanValue(False), BooleanValue(True))
+        return result
+
+    def route(self, value: object) -> N:
+        """Return the first child for False / 0.0, the second for True / 1.0.
 
         Raises:
             ValueError: When value is neither truthy-1 nor falsy-0.
         """
         numeric = float(typing.cast(float, value))
         if numeric == 0.0:
-            return self.left
+            return self.children[0]
         if numeric == 1.0:
-            return self.right
+            return self.children[1]
         raise ValueError(
             f"boolean feature {self.feature_name!r} got non-boolean"
             f" predict-time value {value!r}"
         )
 
 
-class CategoricalPartition(
-    Partition[_extension.N], typing.Generic[_extension.N]
-):
-    """Binary partition on a categorical covariate by category membership.
+class CategoricalPartition(Partition[N], typing.Generic[N]):
+    """Partition on a categorical covariate by category membership.
 
     Attributes:
-        left_categories: Categories observed at this node that route to
-            the left child.
-        right_categories: Categories observed at this node that route to
-            the right child.
+        category_groups: Disjoint category sets in branch order, one per
+            child. A value outside every set is not routable.
     """
 
-    __slots__ = ("left_categories", "right_categories")
+    __slots__ = ("category_groups",)
 
     def __init__(
         self,
         feature_index: int,
         feature_name: None | str,
-        p_value: float,
-        T: numpy.typing.NDArray[numpy.floating],
-        mu: numpy.typing.NDArray[numpy.floating],
-        Sigma: numpy.typing.NDArray[numpy.floating],
-        left: _extension.N,
-        right: _extension.N,
-        left_categories: frozenset,
-        right_categories: frozenset,
+        statistics: None | SplitStatistics,
+        children: tuple[N, ...],
+        category_groups: tuple[frozenset, ...],
     ) -> None:
-        super().__init__(
-            feature_index, feature_name, p_value, T, mu, Sigma, left, right
-        )
-        self.left_categories = left_categories
-        self.right_categories = right_categories
+        super().__init__(feature_index, feature_name, statistics, children)
+        self.category_groups = category_groups
 
     @property
     def observed_categories(self) -> frozenset:
         """All categories observed at this node during training."""
-        cats = self.left_categories | self.right_categories
-        return cats
+        observed: frozenset = frozenset()
+        for group in self.category_groups:
+            observed = observed | group
+        return observed
 
-    def route(self, value: object) -> None | _extension.N:
-        """Return the child whose category set contains value, or None
-        when value belongs to neither the left nor the right category
-        set.
+    @property
+    def branch_conditions(self) -> tuple[BranchCondition, ...]:
+        """Category subsets in branch order, one per child."""
+        conditions: list[BranchCondition] = []
+        for group in self.category_groups:
+            conditions.append(CategorySubset(group))
+        result = tuple(conditions)
+        return result
+
+    def route(self, value: object) -> None | N:
+        """Return the child whose category set contains value, or None when
+        value belongs to no branch's category set.
         """
-        if value in self.left_categories:
-            return self.left
-        if value in self.right_categories:
-            return self.right
+        for group, child in zip(self.category_groups, self.children):
+            if value in group:
+                return child
         return None

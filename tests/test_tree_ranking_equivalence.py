@@ -107,14 +107,11 @@ def _assert_same_tree_shape(test_case, tree_a, tree_b):
                 match part_a:
                     case sigma._partition.NumericalPartition():
                         test_case.assertEqual(
-                            part_a.threshold, part_b.threshold
+                            part_a.thresholds, part_b.thresholds
                         )
                     case sigma._partition.CategoricalPartition():
                         test_case.assertEqual(
-                            part_a.left_categories, part_b.left_categories
-                        )
-                        test_case.assertEqual(
-                            part_a.right_categories, part_b.right_categories
+                            part_a.category_groups, part_b.category_groups
                         )
 
 
@@ -343,7 +340,7 @@ class TestMovieLensEndToEndEquivalence(unittest.TestCase):
                                 partition, sigma._partition.NumericalPartition
                             )
                             self.assertEqual(
-                                float(partition.threshold),
+                                float(partition.thresholds[0]),
                                 float(reference["threshold"][node_id]),
                             )
                         case 2:

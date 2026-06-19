@@ -29,9 +29,9 @@ def _format_p_value_number(value: float) -> str:
     return formatted
 
 
-def _format_p_value(partition: _partition.Partition) -> str:
-    """Format 'Split p-value = ...' for a split node ('<1e-300' on underflow)."""
-    value = partition.p_value
+def _format_p_value(statistics: _partition.SplitStatistics) -> str:
+    """Format 'Split p-value = ...' for a split ('<1e-300' on underflow)."""
+    value = statistics.p_value
     formatted = _format_p_value_number(value)
     result = f"Split p-value = {formatted}"
     return result
@@ -637,10 +637,12 @@ def _table_ranking_prediction_cells(
     return cells
 
 
-def _table_p_value_cell(partition: _partition.Partition) -> str:
-    """Cell string for Split p-value, e.g. '0.01%' or '<1e-300'."""
-    value = partition.p_value
-    formatted = _format_p_value_number(value)
+def _table_p_value_cell(partition: _partition.Partition) -> None | str:
+    """Cell string for Split p-value, or None when the split carries no test."""
+    statistics = partition.statistics
+    if statistics is None:
+        return None
+    formatted = _format_p_value_number(statistics.p_value)
     return formatted
 
 
@@ -778,18 +780,13 @@ def _append_child_text_rows(
             )
         )
         return
-    left_label, right_label = _format_branch_labels(
-        partition, category_labels, feature_names, precision=precision
-    )
-    left_child, right_child, swapped = _node.ordered_display_children(
-        node, partition, best_first
-    )
-    if swapped:
-        left_label, right_label = right_label, left_label
-    for branch_label, child, is_last in [
-        (left_label, left_child, False),
-        (right_label, right_child, True),
-    ]:
+    branches = _node.display_branches(node, partition, best_first)
+    name = _resolve_feature_name(partition, feature_names)
+    labels = _feature_category_labels(partition, category_labels)
+    branch_count = len(branches)
+    for index, (condition, child) in enumerate(branches):
+        is_last = index == branch_count - 1
+        branch_label = _format_condition(condition, name, labels, precision)
         connector = "└──" if is_last else "├──"
         prefix = f"{indent}{connector} {branch_label}"
         _append_text_row(
@@ -844,42 +841,66 @@ def _resolve_feature_name(
     return name
 
 
-def _format_branch_labels(
+def _feature_category_labels(
     partition: _partition.Partition,
     category_labels: None | dict[int, dict[float, str]],
-    feature_names: None | numpy.typing.NDArray = None,
-    precision: int = 3,
-) -> tuple[str, str]:
-    """Return display labels for the left and right branches of a partition."""
-    feature_index = partition.feature_index
-    name = _resolve_feature_name(partition, feature_names)
-    if isinstance(partition, _partition.BooleanPartition):
-        left_label = f"{name} is false"
-        right_label = f"{name} is true"
-        return (left_label, right_label)
-    if isinstance(partition, _partition.NumericalPartition):
-        threshold = _format_threshold(partition.threshold, precision)
-        left_label = f"{name} <= {threshold}"
-        right_label = f"{name} > {threshold}"
-        return (left_label, right_label)
-    categorical = typing.cast(_partition.CategoricalPartition, partition)
-    labels = (
-        category_labels.get(feature_index)
-        if category_labels is not None
-        else None
-    )
-    included_cats = sorted(categorical.left_categories)
-    excluded_cats = sorted(categorical.right_categories)
+) -> None | dict[float, str]:
+    """Resolve the category-label mapping for a partition's feature."""
+    if category_labels is None:
+        return None
+    labels = category_labels.get(partition.feature_index)
+    return labels
+
+
+def _format_condition(
+    condition: _partition.BranchCondition,
+    name: str,
+    labels: None | dict[float, str],
+    precision: int,
+) -> str:
+    """Return the display label for a single branch condition."""
+    match condition:
+        case _partition.BooleanValue() as boolean:
+            truth = "true" if boolean.value else "false"
+            return f"{name} is {truth}"
+        case _partition.NumericInterval() as interval:
+            label = _format_interval_label(name, interval, precision)
+            return label
+        case _:
+            subset = typing.cast(_partition.CategorySubset, condition)
+            label = _format_subset_label(name, subset, labels)
+            return label
+
+
+def _format_interval_label(
+    name: str, interval: _partition.NumericInterval, precision: int
+) -> str:
+    """Return the label for a numeric interval branch."""
+    lower = interval.lower
+    upper = interval.upper
+    if lower is None:
+        upper_text = _format_threshold(
+            typing.cast(int | float, upper), precision
+        )
+        return f"{name} <= {upper_text}"
+    if upper is None:
+        lower_text = _format_threshold(lower, precision)
+        return f"{name} > {lower_text}"
+    lower_text = _format_threshold(lower, precision)
+    upper_text = _format_threshold(upper, precision)
+    return f"{lower_text} < {name} <= {upper_text}"
+
+
+def _format_subset_label(
+    name: str,
+    subset: _partition.CategorySubset,
+    labels: None | dict[float, str],
+) -> str:
+    """Return the label for a categorical subset branch."""
+    sorted_cats = sorted(subset.categories)
     if labels is None:
-        included_items = [_format_repr(c) for c in included_cats]
-        excluded_items = [_format_repr(c) for c in excluded_cats]
+        items = [_format_repr(c) for c in sorted_cats]
     else:
-        included_items = [
-            _format_repr(labels.get(c, str(c))) for c in included_cats
-        ]
-        excluded_items = [
-            _format_repr(labels.get(c, str(c))) for c in excluded_cats
-        ]
-    left_label = _format_categorical_condition(name, included_items)
-    right_label = _format_categorical_condition(name, excluded_items)
-    return (left_label, right_label)
+        items = [_format_repr(labels.get(c, str(c))) for c in sorted_cats]
+    label = _format_categorical_condition(name, items)
+    return label

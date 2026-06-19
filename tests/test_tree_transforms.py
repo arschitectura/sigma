@@ -172,8 +172,12 @@ class TestTransmuterClassificationTree(unittest.TestCase):
         classification_tree.fit(X, y)
         partition = classification_tree.content_.extension
         assert isinstance(partition, sigma._partition.Partition)
-        left = typing.cast(sigma._node.ClassificationNode, partition.left)
-        right = typing.cast(sigma._node.ClassificationNode, partition.right)
+        left = typing.cast(
+            sigma._node.ClassificationNode, partition.children[0]
+        )
+        right = typing.cast(
+            sigma._node.ClassificationNode, partition.children[1]
+        )
         numpy.testing.assert_allclose(left.class_distribution[1], 1.0)
         numpy.testing.assert_allclose(right.class_distribution[0], 1.0)
 
@@ -427,7 +431,9 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
         reg_plain.fit(X, y)
         plain_partition = reg_plain.content_.extension
         assert isinstance(plain_partition, sigma._partition.Partition)
-        original_p = plain_partition.p_value
+        plain_statistics = plain_partition.statistics
+        assert plain_statistics is not None
+        original_p = plain_statistics.p_value
 
         def add_noise(X, y, sample_weight, offset, side_data):
             """Add noise to weaken the signal."""
@@ -444,9 +450,9 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
         reg_noisy.fit(X, y)
         noisy_partition = reg_noisy.content_.extension
         assert isinstance(noisy_partition, sigma._partition.Partition)
-        noisy_p = noisy_partition.p_value
-        if original_p is None or noisy_p is None:
-            self.fail("p_value must not be None on internal nodes")
+        noisy_statistics = noisy_partition.statistics
+        assert noisy_statistics is not None
+        noisy_p = noisy_statistics.p_value
         self.assertGreaterEqual(noisy_p, original_p)
 
 

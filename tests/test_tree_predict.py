@@ -582,8 +582,8 @@ class TestLeafId(unittest.TestCase):
                     sigma._partition.Partition[sigma._node.Node], node.extension
                 )
                 collected.append(node)
-                stack.append(partition.left)
-                stack.append(partition.right)
+                for child in partition.children:
+                    stack.append(child)
         return collected
 
     def test_internal_nodes_have_no_leaf_id(self):
@@ -706,10 +706,9 @@ class TestNodeId(unittest.TestCase):
                 sigma._partition.Partition[sigma._node.Node], extension
             )
             assert node.node_id is not None
-            assert partition.left.node_id is not None
-            assert partition.right.node_id is not None
-            self.assertLess(node.node_id, partition.left.node_id)
-            self.assertLess(node.node_id, partition.right.node_id)
+            for child in partition.children:
+                assert child.node_id is not None
+                self.assertLess(node.node_id, child.node_id)
 
     def test_node_ids_unchanged_by_reverse_order(self):
         """node_ids are assigned identically regardless of reverse_order."""

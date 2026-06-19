@@ -172,8 +172,8 @@ def _collect_nodes(node: _NodeT) -> list[_NodeT]:
     nodes = [node]
     extension = node.extension
     if isinstance(extension, sigma._partition.Partition):
-        nodes.extend(_collect_nodes(typing.cast(_NodeT, extension.left)))
-        nodes.extend(_collect_nodes(typing.cast(_NodeT, extension.right)))
+        for child in extension.children:
+            nodes.extend(_collect_nodes(typing.cast(_NodeT, child)))
     return nodes
 
 
@@ -213,8 +213,8 @@ def _collect_split_features(node) -> set[int]:
     if not isinstance(extension, sigma._partition.Partition):
         return features
     features.add(int(extension.feature_index))
-    features |= _collect_split_features(extension.left)
-    features |= _collect_split_features(extension.right)
+    for child in extension.children:
+        features |= _collect_split_features(child)
     return features
 
 

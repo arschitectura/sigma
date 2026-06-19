@@ -106,9 +106,9 @@ class Node(abc.ABC):
         """Return all leaf nodes in this subtree, in left-to-right order."""
         match self.extension:
             case _partition.Partition() as partition:
-                result: list[_NodeT] = (
-                    partition.left.leaves() + partition.right.leaves()
-                )
+                result: list[_NodeT] = []
+                for child in partition.children:
+                    result.extend(child.leaves())
             case _:
                 result = [self]
         return result
@@ -438,27 +438,22 @@ def _assign_share(node: Node, total: int) -> None:
     node.share = node.n_samples / total
     match node.extension:
         case _partition.Partition() as partition:
-            _assign_share(partition.left, total)
-            _assign_share(partition.right, total)
+            for child in partition.children:
+                _assign_share(child, total)
 
 
-def ordered_display_children(
+def display_branches(
     node: Node, partition: _partition.Partition, best_first: bool
-) -> tuple[Node, Node, bool]:
-    """Order a partition's children for display and report whether swapped."""
-    swap = _should_swap_display_children(node) ^ best_first
-    if swap:
-        return (partition.right, partition.left, True)
-    return (partition.left, partition.right, False)
+) -> list[tuple[_partition.BranchCondition, Node]]:
+    """Order a partition's branches for display as (condition, child) pairs.
 
-
-def _should_swap_display_children(node: Node) -> bool:
-    """Whether to swap children for display ordering."""
-    match node.extension:
-        case _partition.Partition() as partition:
-            left = partition.left
-            right = partition.right
-            swaps = left.leaf_sort_key() > right.leaf_sort_key()
-            return bool(swaps)
-        case _:
-            return False
+    Branches are ordered ascending by their child's leaf sort key, then
+    reversed in full when best_first is True.
+    """
+    conditions = partition.branch_conditions
+    children = partition.children
+    pairs = list(zip(conditions, children))
+    pairs.sort(key=lambda pair: pair[1].leaf_sort_key())
+    if best_first:
+        pairs.reverse()
+    return pairs

@@ -261,8 +261,12 @@ def _emit_digraph(
             decoration_suffix = f"\n{decoration_text}"
         match node.extension:
             case _partition.Partition() as partition:
-                p_value_line = _tree_text._format_p_value(partition)
-                label = f"{label}\n{p_value_line}{decoration_suffix}"
+                statistics = partition.statistics
+                if statistics is None:
+                    label = f"{label}{decoration_suffix}"
+                else:
+                    p_value_line = _tree_text._format_p_value(statistics)
+                    label = f"{label}\n{p_value_line}{decoration_suffix}"
                 foreground, background, border = (
                     root_colors if node is root else split_colors
                 )
@@ -276,45 +280,32 @@ def _emit_digraph(
                     **uniform_attrs,
                 )
                 if max_depth is None or node.depth < max_depth:
-                    left_label, right_label = _tree_text._format_branch_labels(
-                        partition,
-                        category_labels,
-                        feature_names,
-                        precision=precision,
+                    branches = _node.display_branches(
+                        node, partition, display_reverse
                     )
-                    left_label = _tree_text._ellipsize(
-                        left_label, max_branch_length
+                    branch_name = _tree_text._resolve_feature_name(
+                        partition, feature_names
                     )
-                    right_label = _tree_text._ellipsize(
-                        right_label, max_branch_length
+                    branch_labels = _tree_text._feature_category_labels(
+                        partition, category_labels
                     )
-                    left_child, right_child, swapped = (
-                        _node.ordered_display_children(
-                            node, partition, display_reverse
+                    for condition, child in branches:
+                        edge_label = _tree_text._format_condition(
+                            condition, branch_name, branch_labels, precision
                         )
-                    )
-                    if swapped:
-                        left_label, right_label = right_label, left_label
-                    left_child_object_id = id(left_child)
-                    left_child_id = str(left_child_object_id)
-                    dot.edge(
-                        node_id,
-                        left_child_id,
-                        label=f"  {left_label}",
-                        color=foreground_color,
-                        fontcolor=foreground_color,
-                    )
-                    stack.append(left_child)
-                    right_child_object_id = id(right_child)
-                    right_child_id = str(right_child_object_id)
-                    dot.edge(
-                        node_id,
-                        right_child_id,
-                        label=f"  {right_label}",
-                        color=foreground_color,
-                        fontcolor=foreground_color,
-                    )
-                    stack.append(right_child)
+                        edge_label = _tree_text._ellipsize(
+                            edge_label, max_branch_length
+                        )
+                        child_object_id = id(child)
+                        child_id = str(child_object_id)
+                        dot.edge(
+                            node_id,
+                            child_id,
+                            label=f"  {edge_label}",
+                            color=foreground_color,
+                            fontcolor=foreground_color,
+                        )
+                        stack.append(child)
                     continue
             case _extension.Leaf() as leaf:
                 label = f"{label}{decoration_suffix}"
