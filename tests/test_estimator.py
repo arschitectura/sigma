@@ -1,7 +1,6 @@
 """Unit tests for sklearn estimator compliance."""
 
 import unittest
-import warnings
 
 import numpy
 import sklearn.pipeline
@@ -75,17 +74,11 @@ _RANKING_EXPECTED_FAILED_CHECKS = {
 
 
 def _run_check_estimator(estimator, expected_failed_checks):
-    """Run the sklearn estimator checks while muffling a cast warning."""
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message="invalid value encountered in cast",
-            category=RuntimeWarning,
-        )
-        sklearn.utils.estimator_checks.check_estimator(
-            estimator,
-            expected_failed_checks=expected_failed_checks,
-        )
+    """Run the scikit-learn estimator checks for the given estimator."""
+    sklearn.utils.estimator_checks.check_estimator(
+        estimator,
+        expected_failed_checks=expected_failed_checks,
+    )
 
 
 class TestSklearnCompliance(unittest.TestCase):

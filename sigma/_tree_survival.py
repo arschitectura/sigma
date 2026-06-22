@@ -818,6 +818,9 @@ def _coerce_survival_y(
         event = (ages >= 0.0).astype(float)
         coerced = numpy.column_stack([time, event])
         return coerced
+    if arr_dtype.kind == "O":
+        coerced = numpy.asarray(arr, dtype=float)
+        return coerced
     return arr
 
 
