@@ -2,7 +2,10 @@
 
 Implements the algorithm from Hothorn, Hornik, and Zeileis (2006), "Unbiased
 Recursive Partitioning: A Conditional Inference Framework," *Journal of
-Computational and Graphical Statistics*, 15(3), 651-674.
+Computational and Graphical Statistics*, 15(3), 651-674, reproducing the
+reference implementation in Hothorn and Zeileis (2015), "partykit: A Modular
+Toolkit for Recursive Partytioning in R," *Journal of Machine Learning
+Research*, 16, 3905-3909.
 """
 
 # TODO verify the pickling

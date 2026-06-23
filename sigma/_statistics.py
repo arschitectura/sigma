@@ -4,6 +4,9 @@ Implements the linear statistics, conditional moments, test statistics, p-value
 computation, and variable selection procedure described in Hothorn, Hornik, and
 Zeileis (2006), "Unbiased Recursive Partitioning: A Conditional Inference
 Framework," *Journal of Computational and Graphical Statistics*, 15(3), 651-674.
+The conditional distribution used for the p-value follows Hothorn, Hornik,
+van de Wiel, and Zeileis (2006), "A Lego System for Conditional Inference,"
+*The American Statistician*, 60(3), 257-263.
 """
 
 import typing
@@ -348,7 +351,7 @@ def _adjust_p_values_monte_carlo(
     resamples: int,
     rng: numpy.random.Generator,
 ) -> numpy.typing.NDArray[numpy.floating]:
-    """Compute Westfall-Young min-P adjusted p-values by permutation."""
+    """Compute min-P value resampling adjusted p-values by permutation."""
     active_indices = numpy.where(weights > 0)[0]
     n_active = len(active_indices)
     m = len(observed_p_values)

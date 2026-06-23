@@ -476,7 +476,7 @@ stopping rule fires.
 - `"bonferroni"` is the closed-form $\min(m P_j, 1)$. The simplest and
   best-known correction, strictly more conservative than Sidak under
   independence; prefer `"sidak"` unless matching an external reference.
-- `"monte_carlo"` is the Westfall-Young min-P resampling procedure.
+- `"monte_carlo"` is the min-P resampling procedure.
   More powerful than Sidak when covariates are correlated, at the cost
   of $B \cdot m$ extra statistic evaluations per node, where $B$ is the
   number of response permutations (controlled by `resamples`). Choose
@@ -548,10 +548,10 @@ sample size at the node, and $n_{\text{eff}}$ the Kish effective
 sample size at the node.
 
 - `"bayesian_bootstrap"` (default) uses Dirichlet resampling of the
-  weighted mean. Nonparametric: makes no assumption on the response
-  distribution. The safe choice for arbitrary regression targets, but
-  less powerful than a method tailored to the response's actual
-  distribution.
+  weighted mean (Rubin, 1981). Nonparametric: makes no assumption on
+  the response distribution. The safe choice for arbitrary regression
+  targets, but less powerful than a method tailored to the response's
+  actual distribution.
 - `"bca"` is the bias-corrected and accelerated bootstrap interval
   (Efron, 1987): resample $10{,}000$ times from the empirical
   distribution, then read percentiles corrected for median
@@ -571,10 +571,10 @@ sample size at the node.
   a method-of-moments shape estimate; requires $y \ge 0$. Choose for
   non-negative right-skewed responses (insurance claims, incomes,
   durations).
-- `"log_normal"` is Cox's interval for the arithmetic mean of a
-  log-normal response; requires $y > 0$. Centered on the log-normal
-  MLE of the mean, not the sample mean. Choose when $\log y$ is
-  approximately normal (financial returns, biological measurements).
+- `"log_normal"` is Cox's interval (Olsson, 2005) for the arithmetic
+  mean of a log-normal response; requires $y > 0$. Centered on the
+  log-normal MLE of the mean, not the sample mean. Choose when $\log y$
+  is approximately normal (financial returns, biological measurements).
 - `"log_normal_gci"` is the generalized confidence interval
   (Krishnamoorthy & Mathew, 2003) for the arithmetic mean of a
   log-normal response; requires $y > 0$. Like `"log_normal"` but built
@@ -843,7 +843,9 @@ families is the influence function $h$ applied to the response $Y_i$
 of observation $i$. For classification with $J$ classes,
 $h(Y_i) = e_J(Y_i)$ (one-hot encoding of the class label). For
 regression, $h(Y_i) = Y_i$ (identity). For survival, $h(Y_i)$ is the
-log-rank score (a scalar centred Savage score). For ranking, the
+log-rank score (a scalar centred Savage score), the efficient score of
+Cox's censored-data likelihood (Efron, 1977) formed from the
+cumulative-hazard residuals of Breslow (1974). For ranking, the
 ranks-in-cell $Y_i$ is imputed at unranked items with the per-row
 tail mean, log-transformed via $\log(1 + Y_i)$, column-centered, and
 projected onto the top-$R$ right singular vectors of the resulting
@@ -884,12 +886,12 @@ independent or positively dependent. A simpler closed-form alternative,
 `test_type="bonferroni"`, uses
 $\text{adjusted } P_j = \min(m P_j, 1)$; it is strictly more
 conservative than Sidak. The third alternative,
-`test_type="monte_carlo"`, uses the Westfall-Young (1993) min-P
-resampling procedure. For each of $B$ permutations of the response, all
-$m$ p-values are recomputed and the minimum recorded. The adjusted
-p-value for covariate $j$ is the proportion of permutations where this
-minimum did not exceed the observed $P_j$. This method is more powerful
-than Sidak when covariates are correlated, at the cost of
+`test_type="monte_carlo"`, uses the min-P resampling procedure
+described by Hothorn et al. (2006). For each of $B$ permutations of the
+response, all $m$ p-values are recomputed and the minimum recorded. The
+adjusted p-value for covariate $j$ is the proportion of permutations
+where this minimum did not exceed the observed $P_j$. This method is
+more powerful than Sidak when covariates are correlated, at the cost of
 $O(B \cdot m)$ additional statistic evaluations. Set `resamples` (e.g.,
 1000 or 10000) and optionally `random_state` for reproducibility. All
 three methods are available via the `test_type` parameter.
@@ -969,14 +971,14 @@ Three deliberate deviations from partykit are worth knowing about:
 
 ## 9. References
 
-- Hothorn, T., & Zeileis, A. (2015). *partykit: A Modular Toolkit for
-  Recursive Partytioning in R.* *Journal of Machine Learning
-  Research*, 16, 3905-3909.
-  [jmlr.org/papers/v16/hothorn15a](https://jmlr.org/papers/v16/hothorn15a.html)
 - Turner, H., van Etten, J., Firth, D., & Kosmidis, I. (2020).
   *Modelling Rankings in R: The PlackettLuce Package.* *Computational
   Statistics*, 35(3), 1027-1057.
   [doi:10.1007/s00180-020-00959-3](https://doi.org/10.1007/s00180-020-00959-3)
+- Hothorn, T., & Zeileis, A. (2015). *partykit: A Modular Toolkit for
+  Recursive Partytioning in R.* *Journal of Machine Learning
+  Research*, 16, 3905-3909.
+  [jmlr.org/papers/v16/hothorn15a](https://jmlr.org/papers/v16/hothorn15a.html)
 - Patil, V. V., & Kulkarni, H. V. (2012). *Comparison of Confidence
   Intervals for the Poisson Mean: Some New Aspects.* *REVSTAT -
   Statistical Journal*, 10(2), 211-227.
@@ -989,6 +991,9 @@ Three deliberate deviations from partykit are worth knowing about:
   *A Lego System for Conditional Inference.* *The American
   Statistician*, 60(3), 257-263.
   [doi:10.1198/000313006X118430](https://doi.org/10.1198/000313006X118430)
+- Hothorn, T., Buhlmann, P., Dudoit, S., Molinaro, A., & Van der Laan,
+  M. J. (2006). *Survival Ensembles.* *Biostatistics*, 7(3), 355-373.
+  [doi:10.1093/biostatistics/kxj011](https://doi.org/10.1093/biostatistics/kxj011)
 - Leydesdorff, L. (2006). *Classification and Powerlaws: The
   Logarithmic Transformation.* *Journal of the American Society for
   Information Science and Technology*, 57(11), 1470-1486.

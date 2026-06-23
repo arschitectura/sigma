@@ -3,7 +3,10 @@
 Implements Step 2 of the algorithm in Hothorn, Hornik, and Zeileis (2006),
 "Unbiased Recursive Partitioning: A Conditional Inference Framework," *Journal
 of Computational and Graphical Statistics*, 15(3), 651-674: given the selected
-covariate, find the binary partition that maximizes the test statistic.
+covariate, find the binary partition that maximizes the test statistic. The
+distribution theory for such maximally selected statistics is given in Hothorn
+and Lausen (2003), "On the Exact Distribution of Maximally Selected Rank
+Statistics," *Computational Statistics & Data Analysis*, 43(2), 121-137.
 """
 
 import itertools

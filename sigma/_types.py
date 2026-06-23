@@ -37,15 +37,13 @@ class TestStat(enum.Enum):
 class TestType(enum.Enum):
     """Multiplicity adjustment method for variable selection.
 
-    See Hothorn et al. (2006), Section 4.
+    See Hothorn et al. (2006), Section 3.1.
 
     BONFERRONI: Classical Bonferroni correction. The simplest and most
         conservative closed-form correction; strictly dominated by Sidak
         under independence or positive dependence of test statistics.
-    MONTE_CARLO: Westfall-Young min-P resampling. More powerful than Sidak
-        when covariates are correlated. Requires resamples > 0 on the
-        estimator. See Westfall and Young (1993), Resampling-Based Multiple
-        Testing.
+    MONTE_CARLO: min-P value resampling. More powerful than Sidak when
+        covariates are correlated. Requires resamples > 0 on the estimator.
     SIDAK: Closed-form Sidak correction. Uniformly powerful under
         independence or positive dependence of test statistics.
     """
@@ -96,11 +94,11 @@ class CiMethodRegressionTree(enum.Enum):
     """Confidence interval method for regression tree node predictions.
 
     BAYESIAN_BOOTSTRAP: Dirichlet-based Bayesian bootstrap of the weighted
-        mean. Non-parametric; makes no assumption on the response
-        distribution.
+        mean (Rubin, 1981). Non-parametric; makes no assumption on the
+        response distribution.
     BCA: Bias-corrected and accelerated bootstrap interval for the weighted
-        mean. Non-parametric; makes no assumption on the response
-        distribution. Frequentist counterpart to BAYESIAN_BOOTSTRAP.
+        mean (Efron, 1987). Non-parametric; makes no assumption on the
+        response distribution. Frequentist counterpart to BAYESIAN_BOOTSTRAP.
     BETA: Exact Beta interval for a continuous proportional response.
         Requires responses in [0, 1]. Brackets the sample mean.
     EXPONENTIAL: Exact chi-squared interval for the mean of an Exponential
@@ -108,10 +106,10 @@ class CiMethodRegressionTree(enum.Enum):
     GAMMA: Exact chi-squared interval for the mean of a Gamma response, with
         the shape estimated from the data. Requires non-negative responses.
         Brackets the sample mean.
-    LOG_NORMAL: Cox's interval for the arithmetic mean of a log-normal
-        response. Requires all responses strictly positive. Centered on the
-        log-normal MLE of the mean, which is not in general equal to the
-        sample arithmetic mean.
+    LOG_NORMAL: Cox's interval (Olsson, 2005) for the arithmetic mean of a
+        log-normal response. Requires all responses strictly positive.
+        Centered on the log-normal MLE of the mean, which is not in general
+        equal to the sample arithmetic mean.
     LOG_NORMAL_GCI: Generalized confidence interval (Krishnamoorthy &
         Mathew, 2003) for the arithmetic mean of a log-normal response.
         Requires all responses strictly positive. Like LOG_NORMAL but
@@ -119,12 +117,13 @@ class CiMethodRegressionTree(enum.Enum):
         asymmetric bounds. Non-deterministic.
     NORMAL: Normal-approximation interval on the weighted mean. Unequal
         weights widen the interval through an effective sample size.
-    POISSON: Exact Garwood chi-squared interval for a Poisson mean rate.
-        Requires non-negative responses. Brackets the sample mean.
+    POISSON: Exact Garwood chi-squared interval for a Poisson mean rate
+        (Patil & Kulkarni, 2012). Requires non-negative responses. Brackets
+        the sample mean.
     POISSON_JEFFREYS: Equal-tailed Jeffreys interval for a Poisson mean
-        rate. Requires non-negative responses. Shorter than POISSON at
-        moderate rates; use POISSON instead when guaranteed coverage at
-        or above the nominal level matters.
+        rate (Patil & Kulkarni, 2012). Requires non-negative responses.
+        Shorter than POISSON at moderate rates; use POISSON instead when
+        guaranteed coverage at or above the nominal level matters.
     STUDENT_T: Student-t interval on the weighted mean. Wider than NORMAL
         for small effective sample sizes.
     """
@@ -208,9 +207,10 @@ class CiMethodRankingTree(enum.Enum):
 class CiMethodClassificationTree(enum.Enum):
     """Confidence interval method for classification tree per-class proportions.
 
-    AGRESTI_COULL: Closed-form adjusted Wald interval. Slightly wider than
-        Wilson at small sample sizes; convergent to Wilson at large sample
-        sizes.
+    AGRESTI_COULL: Closed-form adjusted Wald interval (Agresti & Coull, 1998).
+        Slightly wider than Wilson at small sample sizes; convergent to Wilson
+        at large sample sizes (statistically equivalent to Wilson and Jeffreys
+        for n > 40; Brown, Cai & DasGupta, 2001).
     CLOPPER_PEARSON: Exact Beta-based interval. Guarantees coverage at least
         ci_coverage; conservative, with intervals wider than Wilson,
         Jeffreys, or Agresti-Coull on average.
@@ -219,10 +219,11 @@ class CiMethodClassificationTree(enum.Enum):
         close-to-nominal coverage.
     MID_P_EXACT: Mid-p variant of Clopper-Pearson. Strictly narrower while
         keeping an exact-tail rationale; average coverage close to nominal.
-    WILSON: Closed-form Wilson score interval. Cheap to compute and
-        accurate for moderate sample sizes.
-    WILSON_CC: Continuity-corrected Wilson score interval. Slightly wider
-        than Wilson; restores lower-tail coverage at small sample sizes.
+    WILSON: Closed-form Wilson score interval (Wilson, 1927). Cheap to
+        compute and accurate for moderate sample sizes.
+    WILSON_CC: Continuity-corrected Wilson score interval (Newcombe, 1998).
+        Slightly wider than Wilson; restores lower-tail coverage at small
+        sample sizes.
     """
 
     __slots__ = ()

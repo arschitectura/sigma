@@ -5,7 +5,12 @@ Hothorn, Hornik, and Zeileis (2006), "Unbiased Recursive Partitioning: A
 Conditional Inference Framework," *Journal of Computational and Graphical
 Statistics*, 15(3), 651-674, Section 4 ("Censored regression"), and in
 Hothorn, Buhlmann, Dudoit, Molinaro, and Van der Laan (2006), "Survival
-Ensembles," *Biostatistics*, 7(3), 355-373.
+Ensembles," *Biostatistics*, 7(3), 355-373. The log-rank score's efficiency
+for censored data follows Efron (1977), "The Efficiency of Cox's Likelihood
+Function for Censored Data," *Journal of the American Statistical
+Association*, 72(359), 557-565; its cumulative-hazard construction follows
+Breslow (1974), "Covariance Analysis of Censored Survival Data," *Biometrics*,
+30(1), 89-99.
 """
 
 import numpy
