@@ -12,6 +12,7 @@ import abc
 import collections.abc
 import copy
 import dataclasses
+import sys
 import typing
 
 import numpy
@@ -30,6 +31,7 @@ from . import _types
 
 if typing.TYPE_CHECKING:
     import pandas
+    import polars
 
 # TODO review all shared data structures
 
@@ -145,12 +147,12 @@ class Tree(
             (or, for survival, the first column name of a DataFrame y) at fit
             time. None when y carries no usable name.
         category_labels_in_: Auto-extracted category-label maps, keyed by
-            column index, captured from pandas categorical-dtype and
-            object-dtype columns of X at fit time. None when X is a numpy
-            array or contains no categorical / object columns.
+            column index, captured from categorical-dtype columns of X at fit
+            time. None when X is a numpy array or contains no categorical
+            columns.
         boolean_features_in_: Frozenset of column indices flagged as boolean
-            (pandas BooleanDtype or numpy bool) at fit time. None when X is a
-            numpy array or contains no boolean columns.
+            at fit time. None when X is a numpy array or contains no boolean
+            columns.
     """
 
     # sklearn.base.BaseEstimator forbids __slots__ on subclasses (its
@@ -214,11 +216,14 @@ class Tree(
 
     def fit(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         y: (
             numpy.typing.NDArray[numpy.floating]
             | pandas.Series
             | pandas.DataFrame
+            | polars.DataFrame
         ),
         sample_weight: None | numpy.typing.NDArray[numpy.floating] = None,
         offset: None | numpy.typing.NDArray[numpy.floating] = None,
@@ -465,7 +470,9 @@ class Tree(
 
     def predict_index(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
     ) -> numpy.typing.NDArray[numpy.intp]:
         """Predict node indices for the given samples.
 
@@ -503,7 +510,9 @@ class Tree(
 
     def apply(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
     ) -> numpy.typing.NDArray[numpy.intp]:
         """Return the node_id of the node each sample is routed to.
 
@@ -521,7 +530,9 @@ class Tree(
 
     def decision_path(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
     ) -> scipy.sparse.csr_matrix:
         """Return the decision path indicator matrix for the given samples.
 
@@ -917,11 +928,14 @@ class Tree(
     @abc.abstractmethod
     def _validate_fit_params(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         y: (
             numpy.typing.NDArray[numpy.floating]
             | pandas.Series
             | pandas.DataFrame
+            | polars.DataFrame
         ),
     ) -> tuple[
         numpy.typing.NDArray[numpy.floating],
@@ -1717,10 +1731,8 @@ class Tree(
             TypeError: If out_file is neither None, a string, nor a
                 file-like object with a write method.
             ImportError: If graphviz is not installed when kind is
-                "tree", or if cairosvg is not installed when requesting
-                PDF or PNG output with kind="tree" or GIF output with
-                kind="response", or if matplotlib is not installed when
-                kind is "response".
+                "tree", or if matplotlib is not installed when kind is
+                "response".
         """
         from . import _export
 
@@ -1940,73 +1952,37 @@ def _preprocess_dataframe_X(
     None | dict[int, dict[float, str]],
     None | frozenset[int],
 ]:
-    """Encode categorical, string, object, and boolean DataFrame columns to
-    float codes.
-
-    Returns the (possibly rewritten) X, the per-column categorical label
-    map keyed by column index, and a frozenset of column indices flagged
-    as boolean (pandas BooleanDtype or numpy bool). For non-DataFrame X or
-    DataFrames with no categorical / string / object / boolean columns, X
-    is returned unchanged and both auxiliary outputs are None. The new
-    DataFrame keeps the original column names and order so sklearn's
-    feature_names_in_ extraction is unaffected.
-    """
-    columns_attr = getattr(X, "columns", None)
-    if columns_attr is None:
-        return X, None, None
-    import pandas
-
-    if not isinstance(X, pandas.DataFrame):
+    """Encode boolean and categorical DataFrame columns of X to float codes, raising on string, object, or otherwise unsupported column dtypes."""
+    columns = getattr(X, "columns", None)
+    if columns is None:
         return X, None, None
     labels: dict[int, dict[float, str]] = {}
     boolean_indices: set[int] = set()
-    encoded_data: dict[str, typing.Any] = {}
+    encoded_data: dict[typing.Any, typing.Any] = {}
     changed = False
-    for index, column_name in enumerate(X.columns):
-        column = X[column_name]
-        column_dtype = column.dtype
-        if pandas.api.types.is_bool_dtype(column_dtype):
-            if (
-                isinstance(column_dtype, pandas.BooleanDtype)
-                and column.isna().any()
-            ):
-                raise ValueError(
-                    f"column {column_name!r} contains missing values;"
-                    f" sigma's Tree estimators do not support NaN in"
-                    f" boolean columns"
-                )
-            encoded_data[column_name] = numpy.asarray(
-                column.astype(bool), dtype=numpy.float64
-            )
-            boolean_indices.add(index)
-            changed = True
-            continue
-        if isinstance(column_dtype, pandas.CategoricalDtype):
-            categorical = column
-        elif isinstance(
-            column_dtype, pandas.StringDtype
-        ) or pandas.api.types.is_object_dtype(column_dtype):
-            categorical = column.astype("category")
-        else:
-            encoded_data[column_name] = column
-            continue
-        categorical_cat = categorical.cat
-        codes = numpy.asarray(categorical_cat.codes, dtype=numpy.int64)
-        if numpy.any(codes < 0):
-            raise ValueError(
-                f"column {column_name!r} contains missing values; sigma's"
-                f" Tree estimators do not support NaN in categorical,"
-                f" string, or object-dtype columns"
-            )
-        encoded_data[column_name] = codes.astype(numpy.float64)
-        labels[index] = {
-            float(code): str(level)
-            for code, level in enumerate(categorical_cat.categories)
-        }
-        changed = True
+    for index, name in enumerate(columns):
+        column = X[name]
+        kind = _column_kind(column)
+        match kind:
+            case "boolean":
+                encoded_data[name] = _encode_boolean_column(column, name)
+                boolean_indices.add(index)
+                changed = True
+            case "categorical":
+                levels, codes = _categorical_levels_and_codes(column, name)
+                encoded_data[name] = codes
+                labels[index] = {
+                    float(code): str(level) for code, level in enumerate(levels)
+                }
+                changed = True
+            case "numeric":
+                encoded_data[name] = numpy.asarray(column)
+            case _:
+                message = _unsupported_column_message(name, column)
+                raise ValueError(message)
     if not changed:
         return X, None, None
-    new_X = pandas.DataFrame(encoded_data, index=X.index)
+    new_X = _rebuild_dataframe(X, encoded_data)
     labels_out = labels if labels else None
     booleans_out = frozenset(boolean_indices) if boolean_indices else None
     return new_X, labels_out, booleans_out
@@ -2016,35 +1992,155 @@ def _apply_categorical_encoding(
     X: typing.Any,
     category_labels_in: None | dict[int, dict[float, str]],
 ) -> typing.Any:
-    """Re-encode at predict time using the fit-time category label map."""
+    """Re-encode predict-time categorical columns to float codes using the fit-time category label map."""
     if category_labels_in is None:
         return X
-    columns_attr = getattr(X, "columns", None)
-    if columns_attr is None:
+    columns = getattr(X, "columns", None)
+    if columns is None:
         return X
-    import pandas
-
-    if not isinstance(X, pandas.DataFrame):
-        return X
-    encoded_data: dict[str, typing.Any] = {}
-    for index, column_name in enumerate(X.columns):
-        column = X[column_name]
+    encoded_data: dict[typing.Any, typing.Any] = {}
+    for index, name in enumerate(columns):
+        column = X[name]
         labels = category_labels_in.get(index)
         if labels is None:
-            encoded_data[column_name] = column
+            encoded_data[name] = numpy.asarray(column)
             continue
-        ordered_levels = [labels[float(code)] for code in range(len(labels))]
-        recoded = pandas.Categorical(column, categories=ordered_levels)
-        codes = numpy.asarray(recoded.codes, dtype=numpy.int64)
-        if numpy.any(codes < 0):
-            unknown_mask = codes < 0
-            unknown_values = sorted(
-                str(value) for value in column[unknown_mask].unique()
-            )
+        n_levels = len(labels)
+        ordered_levels = [labels[float(code)] for code in range(n_levels)]
+        level_to_code = {
+            level: float(code) for code, level in enumerate(ordered_levels)
+        }
+        values = _column_values(column)
+        codes = numpy.empty(len(values), dtype=numpy.float64)
+        unknown_values: set[str] = set()
+        for position, value in enumerate(values):
+            key = str(value)
+            code = level_to_code.get(key)
+            if code is None:
+                unknown_values.add(key)
+            else:
+                codes[position] = code
+        if unknown_values:
+            sorted_unknown = sorted(unknown_values)
             raise ValueError(
-                f"column {column_name!r} contains values not seen at fit"
-                f" time: {unknown_values}"
+                f"column {name!r} contains values not seen at fit time:"
+                f" {sorted_unknown}"
             )
-        encoded_data[column_name] = codes.astype(numpy.float64)
-    new_X = pandas.DataFrame(encoded_data, index=X.index)
+        encoded_data[name] = codes
+    new_X = _rebuild_dataframe(X, encoded_data)
     return new_X
+
+
+def _column_kind(column: typing.Any) -> str:
+    """Classify a DataFrame column as boolean, categorical, numeric, or unsupported."""
+    pandas = sys.modules.get("pandas")
+    if pandas is not None and isinstance(column, pandas.Series):
+        dtype = column.dtype
+        if pandas.api.types.is_bool_dtype(dtype):
+            return "boolean"
+        if isinstance(dtype, pandas.CategoricalDtype):
+            return "categorical"
+        if pandas.api.types.is_numeric_dtype(dtype):
+            return "numeric"
+        return "unsupported"
+    polars = sys.modules.get("polars")
+    if polars is not None and isinstance(column, polars.Series):
+        dtype = column.dtype
+        if dtype == polars.Boolean:
+            return "boolean"
+        if dtype in (polars.Categorical, polars.Enum):
+            return "categorical"
+        if dtype.is_numeric():
+            return "numeric"
+        return "unsupported"
+    return "unsupported"
+
+
+def _encode_boolean_column(
+    column: typing.Any, name: typing.Any
+) -> numpy.typing.NDArray[numpy.float64]:
+    """Cast a boolean column to float 0/1, raising if it has missing values."""
+    if _has_missing(column):
+        raise ValueError(
+            f"column {name!r} contains missing values; sigma's Tree"
+            f" estimators do not support NaN in boolean columns"
+        )
+    array = numpy.asarray(column)
+    boolean_array = array.astype(bool)
+    float_array = boolean_array.astype(numpy.float64)
+    return float_array
+
+
+def _categorical_levels_and_codes(
+    column: typing.Any, name: typing.Any
+) -> tuple[list[typing.Any], numpy.typing.NDArray[numpy.float64]]:
+    """Return a categorical column's ordered levels and its float codes, raising if it has missing values."""
+    if _has_missing(column):
+        raise ValueError(
+            f"column {name!r} contains missing values; sigma's Tree"
+            f" estimators do not support NaN in categorical columns"
+        )
+    pandas = sys.modules.get("pandas")
+    if pandas is not None and isinstance(column, pandas.Series):
+        categorical = column.cat
+        levels = categorical.categories.tolist()
+        codes = numpy.asarray(categorical.codes, dtype=numpy.float64)
+        return levels, codes
+    levels_series = column.cat.get_categories()
+    levels = levels_series.to_list()
+    physical = column.to_physical()
+    codes = numpy.asarray(physical, dtype=numpy.float64)
+    return levels, codes
+
+
+def _has_missing(column: typing.Any) -> bool:
+    """Whether a pandas or polars column contains any missing value."""
+    if hasattr(column, "isna"):
+        pandas_mask = column.isna()
+        return bool(pandas_mask.any())
+    if hasattr(column, "is_null"):
+        polars_mask = column.is_null()
+        return bool(polars_mask.any())
+    array = numpy.asarray(column)
+    nan_mask = array != array
+    return bool(nan_mask.any())
+
+
+def _column_values(column: typing.Any) -> list[typing.Any]:
+    """Return a DataFrame column's values as a Python list."""
+    if hasattr(column, "to_list"):
+        values = column.to_list()
+        return values
+    if hasattr(column, "tolist"):
+        values = column.tolist()
+        return values
+    array = numpy.asarray(column)
+    values = array.tolist()
+    return values
+
+
+def _rebuild_dataframe(
+    X: typing.Any, encoded_data: dict[typing.Any, typing.Any]
+) -> typing.Any:
+    """Build a same-typed DataFrame from the encoded column arrays, preserving column order."""
+    pandas = sys.modules.get("pandas")
+    if pandas is not None and isinstance(X, pandas.DataFrame):
+        rebuilt = pandas.DataFrame(encoded_data, index=X.index)
+        return rebuilt
+    constructor = type(X)
+    rebuilt = constructor(encoded_data)
+    return rebuilt
+
+
+def _unsupported_column_message(name: typing.Any, column: typing.Any) -> str:
+    """Build the error message for a column whose dtype sigma cannot encode."""
+    dtype = getattr(column, "dtype", None)
+    message = (
+        f"column {name!r} has unsupported dtype {dtype!r}; sigma's Tree"
+        f" estimators accept only numeric, boolean, and categorical"
+        f" columns. Cast string or object columns to a categorical dtype"
+        f" before fitting (pandas: df[{name!r}] ="
+        f" df[{name!r}].astype('category'); polars: df ="
+        f" df.with_columns(polars.col({name!r}).cast(polars.Categorical)))."
+    )
+    return message

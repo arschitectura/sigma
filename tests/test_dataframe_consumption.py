@@ -5,9 +5,11 @@ Covers three behaviors derived from pandas metadata at fit time:
 - Gap A: the response name (``y.name`` of a pandas Series) is captured on
   the fitted estimator and used as a fallback in text/graphviz/response
   exports.
-- Gap B: pandas categorical and object columns of ``X`` are auto-detected
-  as categorical features, their level names are captured, and the codes
-  are used internally so float coercion does not raise.
+- Gap B: categorical-dtype columns of ``X`` (pandas or polars) are
+  auto-detected as categorical features and their level names captured;
+  boolean and numeric columns are accepted; string, object, and otherwise
+  unsupported columns raise a clear error asking the caller to type the
+  column correctly.
 - Gap C: when ``y`` is string-valued or a pandas Categorical, the
   classification text and graphviz exports fall back to the labels stored
   in ``classes_`` instead of integer indices.
@@ -17,6 +19,7 @@ import unittest
 
 import numpy
 import pandas
+import polars
 
 import sigma._partition
 import sigma._tree_classification
@@ -184,13 +187,13 @@ class TestClassNamesFallback(unittest.TestCase):
 
 
 class TestCategoricalAutoDetection(unittest.TestCase):
-    """Tests for auto-detecting pandas categorical/object columns of ``X``."""
+    """Tests for auto-detecting categorical-dtype columns of ``X``."""
 
     __slots__ = ()
 
     @staticmethod
-    def _two_level_design(n=40):
-        """Build a length-n design with one signal column and one noise
+    def _signal_design(n=40):
+        """Build a length-n design with a two-level signal and a noise
         column.
         """
         rng = numpy.random.default_rng(42)
@@ -199,30 +202,17 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         y = numpy.where(signal == "red", 0.0, 10.0)
         return signal, noise, y
 
-    def test_object_column_auto_detected_as_categorical(self):
-        """An object-dtype string column is treated as CATEGORICAL."""
-        signal, noise, y = self._two_level_design()
-        X = pandas.DataFrame({"color": signal, "noise": noise})
-        regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        regression_tree.fit(X, y)
-        self.assertEqual(
-            regression_tree.feature_types_[0],
-            sigma._types.CovariateType.CATEGORICAL,
-        )
+    @staticmethod
+    def _categorical_frame(signal, noise, categories=None):
+        """Wrap the signal as a pandas Categorical color column."""
+        color = pandas.Categorical(signal, categories=categories)
+        frame = pandas.DataFrame({"color": color, "noise": noise})
+        return frame
 
     def test_category_dtype_column_auto_detected_as_categorical(self):
         """A pandas Categorical column is treated as CATEGORICAL."""
-        signal, noise, y = self._two_level_design()
-        X = pandas.DataFrame(
-            {
-                "color": pandas.Categorical(
-                    signal, categories=["red", "blue"], ordered=False
-                ),
-                "noise": noise,
-            }
-        )
+        signal, noise, y = self._signal_design()
+        X = self._categorical_frame(signal, noise, categories=["red", "blue"])
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
@@ -232,12 +222,10 @@ class TestCategoricalAutoDetection(unittest.TestCase):
             sigma._types.CovariateType.CATEGORICAL,
         )
 
-    def test_string_column_does_not_raise_on_fit(self):
-        """A DataFrame with string columns no longer raises during float
-        coercion.
-        """
-        signal, noise, y = self._two_level_design()
-        X = pandas.DataFrame({"color": signal, "noise": noise})
+    def test_categorical_split_constructs_categorical_partition(self):
+        """Splitting on a categorical column produces a CategoricalPartition."""
+        signal, noise, y = self._signal_design()
+        X = self._categorical_frame(signal, noise)
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
@@ -245,19 +233,10 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         partition = regression_tree.content_.extension
         self.assertIsInstance(partition, sigma._partition.CategoricalPartition)
 
-    def test_category_labels_in_extracted_for_category_dtype(self):
-        """``category_labels_in_`` carries the pandas Categorical
-        categories.
-        """
-        signal, noise, y = self._two_level_design()
-        X = pandas.DataFrame(
-            {
-                "color": pandas.Categorical(
-                    signal, categories=["red", "blue"], ordered=False
-                ),
-                "noise": noise,
-            }
-        )
+    def test_category_labels_in_preserves_explicit_order(self):
+        """``category_labels_in_`` follows the explicit Categorical order."""
+        signal, noise, y = self._signal_design()
+        X = self._categorical_frame(signal, noise, categories=["red", "blue"])
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
@@ -265,21 +244,6 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         self.assertEqual(
             regression_tree.category_labels_in_,
             {0: {0.0: "red", 1.0: "blue"}},
-        )
-
-    def test_category_labels_in_extracted_for_object_dtype(self):
-        """``category_labels_in_`` carries object-column unique values in
-        the alphabetical order pandas uses for ``.astype('category')``.
-        """
-        signal, noise, y = self._two_level_design()
-        X = pandas.DataFrame({"color": signal, "noise": noise})
-        regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        regression_tree.fit(X, y)
-        self.assertEqual(
-            regression_tree.category_labels_in_,
-            {0: {0.0: "blue", 1.0: "red"}},
         )
 
     def test_category_labels_in_none_when_no_categorical_columns(self):
@@ -302,8 +266,8 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         """``to_text`` renders auto-extracted category labels with no
         kwargs.
         """
-        signal, noise, y = self._two_level_design()
-        X = pandas.DataFrame({"color": signal, "noise": noise})
+        signal, noise, y = self._signal_design()
+        X = self._categorical_frame(signal, noise)
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
@@ -313,8 +277,8 @@ class TestCategoricalAutoDetection(unittest.TestCase):
 
     def test_user_category_labels_overrides_auto(self):
         """An explicit ``category_labels`` mapping wins over the auto map."""
-        signal, noise, y = self._two_level_design()
-        X = pandas.DataFrame({"color": signal, "noise": noise})
+        signal, noise, y = self._signal_design()
+        X = self._categorical_frame(signal, noise)
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
@@ -348,10 +312,10 @@ class TestCategoricalAutoDetection(unittest.TestCase):
             sigma._types.CovariateType.CATEGORICAL,
         )
 
-    def test_predict_accepts_string_dataframe(self):
+    def test_predict_accepts_categorical_dataframe(self):
         """``predict`` accepts the same DataFrame schema it was fit on."""
-        signal, noise, y = self._two_level_design()
-        X = pandas.DataFrame({"color": signal, "noise": noise})
+        signal, noise, y = self._signal_design()
+        X = self._categorical_frame(signal, noise)
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
@@ -448,7 +412,7 @@ class TestBooleanColumnDetection(unittest.TestCase):
         rng = numpy.random.default_rng(0)
         n = 40
         flag = numpy.repeat([False, True], n // 2)
-        color = numpy.where(flag, "red", "blue")
+        color = pandas.Categorical(numpy.where(flag, "red", "blue"))
         noise = rng.standard_normal(n)
         y = numpy.where(flag, 9.0, 1.0)
         X = pandas.DataFrame({"flag": flag, "color": color, "noise": noise})
@@ -502,6 +466,204 @@ class TestBooleanColumnDetection(unittest.TestCase):
         preds_floats = regression_tree.predict(X_floats)
         numpy.testing.assert_array_equal(preds_bool, preds_nullable)
         numpy.testing.assert_array_equal(preds_bool, preds_floats)
+
+
+class TestStrictColumnTyping(unittest.TestCase):
+    """Tests that string, object, and unsupported columns raise a clear
+    error.
+    """
+
+    __slots__ = ()
+
+    @staticmethod
+    def _design(n=40):
+        """Build a length-n design with a two-level string signal."""
+        rng = numpy.random.default_rng(0)
+        signal = numpy.repeat(["red", "blue"], n // 2)
+        noise = rng.standard_normal(n)
+        y = numpy.where(signal == "red", 0.0, 10.0)
+        return signal, noise, y
+
+    def test_pandas_string_column_raises_with_guidance(self):
+        """A pandas string/object column raises naming the column and a cast
+        hint.
+        """
+        signal, noise, y = self._design()
+        X = pandas.DataFrame({"color": signal, "noise": noise})
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        with self.assertRaises(ValueError) as context:
+            regression_tree.fit(X, y)
+        message = str(context.exception)
+        self.assertIn("color", message)
+        self.assertIn("categorical", message)
+
+    def test_polars_string_column_raises_with_guidance(self):
+        """A polars String column raises naming the column and a cast hint."""
+        signal, noise, y = self._design()
+        X = polars.DataFrame(
+            {
+                "color": polars.Series(signal, dtype=polars.String),
+                "noise": noise,
+            }
+        )
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        with self.assertRaises(ValueError) as context:
+            regression_tree.fit(X, y)
+        message = str(context.exception)
+        self.assertIn("color", message)
+        self.assertIn("categorical", message)
+
+
+class TestPolarsConsumption(unittest.TestCase):
+    """Tests for fitting and predicting on polars DataFrames."""
+
+    __slots__ = ()
+
+    @staticmethod
+    def _signal_design(n=40):
+        """Build a length-n design with a two-level signal and a noise
+        column.
+        """
+        rng = numpy.random.default_rng(42)
+        signal = numpy.repeat(["red", "blue"], n // 2)
+        noise = rng.standard_normal(n)
+        y = numpy.where(signal == "red", 0.0, 10.0)
+        return signal, noise, y
+
+    def test_polars_categorical_detected_and_labelled(self):
+        """A polars Categorical column is CATEGORICAL with extracted labels."""
+        signal, noise, y = self._signal_design()
+        X = polars.DataFrame(
+            {
+                "color": polars.Series(signal, dtype=polars.Categorical),
+                "noise": noise,
+            }
+        )
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        regression_tree.fit(X, y)
+        self.assertEqual(
+            regression_tree.feature_types_[0],
+            sigma._types.CovariateType.CATEGORICAL,
+        )
+        self.assertEqual(
+            regression_tree.category_labels_in_,
+            {0: {0.0: "red", 1.0: "blue"}},
+        )
+
+    def test_polars_categorical_matches_pandas_labels(self):
+        """polars and pandas Categorical columns yield identical label maps."""
+        signal, noise, y = self._signal_design()
+        categories = ["red", "blue"]
+        X_polars = polars.DataFrame(
+            {
+                "color": polars.Series(signal, dtype=polars.Categorical),
+                "noise": noise,
+            }
+        )
+        X_pandas = pandas.DataFrame(
+            {
+                "color": pandas.Categorical(signal, categories=categories),
+                "noise": noise,
+            }
+        )
+        polars_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        polars_tree.fit(X_polars, y)
+        pandas_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        pandas_tree.fit(X_pandas, y)
+        self.assertEqual(
+            polars_tree.category_labels_in_,
+            pandas_tree.category_labels_in_,
+        )
+
+    def test_polars_numeric_only_fits_and_names(self):
+        """A purely numeric polars DataFrame fits and sets feature names."""
+        rng = numpy.random.default_rng(0)
+        n = 40
+        X = polars.DataFrame(
+            {"a": rng.standard_normal(n), "b": rng.standard_normal(n)}
+        )
+        a_values = X["a"].to_numpy()
+        y = a_values * 2.0
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        regression_tree.fit(X, y)
+        self.assertIsNone(regression_tree.category_labels_in_)
+        names_in = getattr(regression_tree, "feature_names_in_")
+        self.assertEqual(list(names_in), ["a", "b"])
+
+    def test_polars_boolean_detected(self):
+        """A polars Boolean column is classified as BOOLEAN."""
+        rng = numpy.random.default_rng(0)
+        n = 40
+        flag = numpy.repeat([False, True], n // 2)
+        noise = rng.standard_normal(n)
+        y = numpy.where(flag, 9.0, 1.0)
+        X = polars.DataFrame(
+            {
+                "flag": polars.Series(flag, dtype=polars.Boolean),
+                "noise": noise,
+            }
+        )
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        regression_tree.fit(X, y)
+        self.assertEqual(regression_tree.boolean_features_in_, frozenset({0}))
+        self.assertEqual(
+            regression_tree.feature_types_[0],
+            sigma._types.CovariateType.BOOLEAN,
+        )
+
+    def test_polars_predict_roundtrip(self):
+        """``predict`` accepts the same polars schema it was fit on."""
+        signal, noise, y = self._signal_design()
+        X = polars.DataFrame(
+            {
+                "color": polars.Series(signal, dtype=polars.Categorical),
+                "noise": noise,
+            }
+        )
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        regression_tree.fit(X, y)
+        predictions = regression_tree.predict(X)
+        self.assertEqual(predictions.shape, (len(y),))
+
+    def test_polars_unseen_level_at_predict_raises(self):
+        """Predicting on a polars frame with an unseen level raises."""
+        signal, noise, y = self._signal_design()
+        X = polars.DataFrame(
+            {
+                "color": polars.Series(signal, dtype=polars.Categorical),
+                "noise": noise,
+            }
+        )
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        regression_tree.fit(X, y)
+        unseen = numpy.where(noise > 0, "green", "red")
+        X_unseen = polars.DataFrame(
+            {
+                "color": polars.Series(unseen, dtype=polars.Categorical),
+                "noise": noise,
+            }
+        )
+        with self.assertRaises(ValueError) as context:
+            regression_tree.predict(X_unseen)
+        self.assertIn("green", str(context.exception))
 
 
 if __name__ == "__main__":

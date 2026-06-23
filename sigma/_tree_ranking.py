@@ -22,6 +22,7 @@ from . import _types
 
 if typing.TYPE_CHECKING:
     import pandas
+    import polars
 
 
 class RankingTree(_tree.Tree[_node.RankingNode]):
@@ -283,7 +284,9 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
 
     def predict(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         offset: None | numpy.typing.NDArray[numpy.floating] = None,
     ) -> numpy.typing.NDArray:
         """Predict the favorite item label for each sample.
@@ -310,7 +313,9 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
 
     def predict_rank(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
     ) -> numpy.typing.NDArray[numpy.floating]:
         """Predict the per-item Plackett-Luce expected rank for each sample.
 
@@ -375,11 +380,14 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
 
     def _validate_fit_params(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         y: (
             numpy.typing.NDArray[numpy.floating]
             | pandas.Series
             | pandas.DataFrame
+            | polars.DataFrame
         ),
     ) -> tuple[
         numpy.typing.NDArray[numpy.floating],

@@ -19,6 +19,7 @@ from . import _types
 
 if typing.TYPE_CHECKING:
     import pandas
+    import polars
 
 
 class ClassificationTree(
@@ -142,11 +143,14 @@ class ClassificationTree(
 
     def _validate_fit_params(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         y: (
             numpy.typing.NDArray[numpy.floating]
             | pandas.Series
             | pandas.DataFrame
+            | polars.DataFrame
         ),
     ) -> tuple[
         numpy.typing.NDArray[numpy.floating],
@@ -389,7 +393,9 @@ class ClassificationTree(
 
     def predict(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         offset: None | numpy.typing.NDArray[numpy.floating] = None,
     ) -> numpy.typing.NDArray:
         """Predict class labels for the given samples.
@@ -418,7 +424,9 @@ class ClassificationTree(
 
     def predict_proba(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         offset: None | numpy.typing.NDArray[numpy.floating] = None,
     ) -> numpy.typing.NDArray[numpy.floating]:
         """Predict class probabilities for the given samples.

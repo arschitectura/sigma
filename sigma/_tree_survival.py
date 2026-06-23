@@ -7,6 +7,7 @@ import typing
 
 import numpy
 import numpy.typing
+import sklearn.utils
 import sklearn.utils.validation
 
 from . import _node
@@ -16,6 +17,7 @@ from . import _types
 
 if typing.TYPE_CHECKING:
     import pandas
+    import polars
 
 
 _SurvivalMetricSpec: typing.TypeAlias = str | tuple[str, float | int, str]
@@ -254,7 +256,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
 
     def predict(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         offset: None | numpy.typing.NDArray[numpy.floating] = None,
     ) -> numpy.typing.NDArray[numpy.floating]:
         """Predict the value of the first configured metric.
@@ -293,7 +297,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
 
     def predict_survival(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         times: numpy.typing.NDArray[numpy.floating],
         offset: None | numpy.typing.NDArray[numpy.floating] = None,
     ) -> numpy.typing.NDArray[numpy.floating]:
@@ -335,7 +341,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
 
     def score(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         y: numpy.typing.NDArray[numpy.floating],
         sample_weight: None | numpy.typing.NDArray[numpy.floating] = None,
     ) -> float:
@@ -368,14 +376,15 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             else numpy.asarray(sample_weight, dtype=float)
         )
         n_samples = len(y_array)
-        X_subset: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame = X
+        X_subset: (
+            numpy.typing.NDArray[numpy.floating]
+            | pandas.DataFrame
+            | polars.DataFrame
+        ) = X
         if n_samples > 10_000:
             rng = numpy.random.default_rng(self.random_state)
             indices = rng.choice(n_samples, size=10_000, replace=False)
-            if hasattr(X, "iloc"):
-                X_subset = typing.cast("pandas.DataFrame", X).iloc[indices]
-            else:
-                X_subset = numpy.asarray(X)[indices]
+            X_subset = sklearn.utils._safe_indexing(X, indices)
             y_array = y_array[indices]
             if weight_array is not None:
                 weight_array = weight_array[indices]
@@ -444,11 +453,14 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
 
     def _validate_fit_params(
         self,
-        X: numpy.typing.NDArray[numpy.floating] | pandas.DataFrame,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
         y: (
             numpy.typing.NDArray[numpy.floating]
             | pandas.Series
             | pandas.DataFrame
+            | polars.DataFrame
         ),
     ) -> tuple[
         numpy.typing.NDArray[numpy.floating],

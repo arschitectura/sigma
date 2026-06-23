@@ -8,6 +8,7 @@ import os
 import tempfile
 import typing
 import unittest
+import unittest.mock
 
 import numpy
 import sklearn.exceptions
@@ -649,6 +650,17 @@ class TestExportImage(unittest.TestCase):
         low = sigma.export_image(regression_tree, "pdf", dpi=72)
         high = sigma.export_image(regression_tree, "pdf", dpi=600)
         self.assertGreater(len(high), len(low))
+
+    def test_export_image_png_and_pdf_render_without_cairosvg(self):
+        """PNG and PDF render via the Graphviz binary when cairosvg is absent."""
+        regression_tree = _helpers._fit_step_regression_tree()
+        with unittest.mock.patch.dict("sys.modules", {"cairosvg": None}):
+            png_result = sigma.export_image(regression_tree, "png")
+            pdf_result = sigma.export_image(regression_tree, "pdf")
+        is_png = png_result.startswith(b"\x89PNG")
+        is_pdf = pdf_result.startswith(b"%PDF-")
+        self.assertTrue(is_png)
+        self.assertTrue(is_pdf)
 
     def test_export_image_writes_to_file_path(self):
         """A string out_file writes the bytes to disk and returns None."""
@@ -2132,7 +2144,13 @@ class TestExportSql(unittest.TestCase):
         )
         import pandas
 
-        X = pandas.DataFrame({"spread": spread, "flag": flag, "region": region})
+        X = pandas.DataFrame(
+            {
+                "spread": spread,
+                "flag": flag,
+                "region": pandas.Categorical(region),
+            }
+        )
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
             categorical_features=["region"],

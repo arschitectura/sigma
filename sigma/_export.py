@@ -707,10 +707,8 @@ def export_image(
         TypeError: If out_file is neither None, a string, nor a file-like
             object with a write method.
         ImportError: If graphviz is not installed when kind is "tree", or
-            if cairosvg is not installed when requesting PDF or PNG
-            output with kind="tree", or if matplotlib (which transitively
-            installs Pillow used to produce GIF output) is not installed
-            when kind is "response".
+            if matplotlib (which transitively installs Pillow used to
+            produce GIF output) is not installed when kind is "response".
     """
     if format not in ("gif", "pdf", "png", "svg"):
         raise ValueError("format must be one of 'gif', 'pdf', 'png', or 'svg'")
@@ -777,25 +775,7 @@ def export_image(
         top_displayed_items=effective_top_displayed_items,
         max_branch_length=max_branch_length,
     )
-    match format:
-        case "gif":
-            payload = dot.pipe(format="gif")
-        case "svg":
-            payload = dot.pipe(format="svg")
-        case "pdf" | "png":
-            svg_bytes = dot.pipe(format="svg")
-            try:
-                import cairosvg
-            except ImportError as import_error:
-                raise ImportError(
-                    "cairosvg is required for PDF and PNG output. "
-                    "Install it with: pip install cairosvg"
-                ) from import_error
-            match format:
-                case "pdf":
-                    payload = cairosvg.svg2pdf(bytestring=svg_bytes, dpi=96)
-                case "png":
-                    payload = cairosvg.svg2png(bytestring=svg_bytes, dpi=96)
+    payload = dot.pipe(format=format)
     emitted = _write_bytes_output(payload, out_file)
     return emitted
 

@@ -9,7 +9,7 @@ Provides classification (`ClassificationTree`), regression
 (`RankingTree`) estimators, compatible with scikit-learn.
 
 - **Unbiased splits** - permutation-based p-values decouple variable selection from split search, avoiding CART's bias toward variables with many possible splits
-- **Interpretable by construction** - each split is a statistical hypothesis test with a reported p-value, and fitted trees render to PNG/SVG via `to_image`
+- **Interpretable by construction** - each split is a statistical hypothesis test with a reported p-value, and fitted trees render to PNG, PDF, SVG, or GIF via `to_image`
 - **scikit-learn compatible** - `ClassificationTree`, `RegressionTree`, `SurvivalTree`, and `RankingTree` drop into any sklearn pipeline
 
 Every statistical method in Sigma comes from a [peer-reviewed paper](#references).
@@ -254,10 +254,10 @@ All records                                                                     
 every split test, so lowering it produces a terser, more statistically
 conservative tree, and raising it produces a richer, more exploratory
 one. `min_splits`, `min_buckets`, and `max_depth` are secondary safety
-bounds, shared between `RegressionTree` and `ClassificationTree`.
+bounds.
 
 ```python
-tree = ClassificationTree(
+tree = sigma.ClassificationTree(
     max_depth=4,            # maximum tree depth (None = unlimited)
 )
 ```
@@ -267,7 +267,9 @@ tree = ClassificationTree(
 Sample weights let you model **variable exposures** - per-row
 time-at-risk, insurance policy-years, or frequency weights for
 pre-aggregated rows. A weight of `k` is equivalent to observing the
-sample `k` times.
+sample `k` times for regression, classification, and ranking; for
+survival the weights enter the log-rank risk sets, so the exact
+row-repetition equivalence does not hold.
 
 ```python
 import numpy
@@ -298,9 +300,9 @@ Then render to PNG, PDF, SVG, or GIF:
 tree.to_image("png", "tree.png", feature_names=["feature_1", "feature_2"], response_name="y")
 ```
 
-PNG and PDF additionally require `cairosvg`; SVG needs only the
-Graphviz binary. See `to_image` and `export_graphviz` for the full set
-of display options.
+All four formats are produced directly by the Graphviz binary, with no
+additional system library. See `to_image` and `export_graphviz` for the
+full set of display options.
 
 ### 5.4. Exporting the tree as a SQL CASE expression
 
@@ -416,18 +418,26 @@ when to choose each option.
 | `ci_method` (classification tree) | Confidence interval method for per-class proportions                          |
 | `ci_method` (regression tree)     | Confidence interval method for node mean predictions                          |
 | `ci_method` (ranking tree)        | Confidence interval method for per-item leaf PL-MLE expected-rank predictions |
+| `ci_method` (survival tree)       | Confidence interval method for the median survival time                       |
+| `ci_coverage`                     | Coverage level for node-prediction confidence intervals                       |
+| `ci_replicates` (ranking tree)    | RankingTree bootstrap replicates for the resampling CI methods                |
 | `npseudo`                         | Turner ghost-item pseudo-comparison weight for the per-node PL fit            |
 | `pl_max_iter`                     | Maximum Hunter MM iterations per node's Plackett-Luce fit                     |
 | `pl_tolerance`                    | Convergence tolerance on log-worth for the Hunter MM iteration                |
-| `ci_coverage`                     | Coverage level for node-prediction confidence intervals                       |
+| `pca_components` (ranking tree)   | RankingTree principal components of the per-node log-rank matrix              |
+| `item_names` (ranking tree)       | RankingTree display labels for the ranked items                               |
+| `metrics` (survival tree)         | SurvivalTree per-node metrics to compute and render                           |
+| `response_sample_size`            | RegressionTree response-sample cap for the response plot                      |
 | `transmuter`                      | Per-node data transform with post-hoc split validation                        |
 | `resamples`                       | Number of permutations for `test_type="monte_carlo"`                          |
 | `decorator`                       | Per-node decoration callable rendered by `to_text` / `to_image`               |
+| `reverse_order`                   | Reverse the canonical leaf display order across all renderings                |
 | `random_state`                    | RNG seed for permutation resampling, bootstrap CI methods, and plot jitter    |
 
 ### 6.1. `correlation`
 
-**Default**: `"rank"`.
+**Default**: `"rank"` (`SurvivalTree` defaults to `"normal"`, matching
+partykit's survival behavior).
 
 Score function for the test statistic.
 
@@ -636,14 +646,14 @@ size and $z$ a standard normal quantile.
 **Default**: `"bayesian_bootstrap"`.
 
 Method for the per-item confidence intervals on each node's Plackett-Luce
-expected-rank vector. Both supported methods refit the PL MLE on
-resampled active rows and aggregate the resulting expected-rank vectors
-marginally per item; scalar-mean CI methods (`"normal"`, `"student_t"`)
-and the seven distribution-specific methods of `RegressionTree`
-(`"beta"`, `"exponential"`, `"gamma"`, `"log_normal"`,
-`"log_normal_gci"`, `"poisson"`, `"poisson_jeffreys"`) are rejected at
-construction time because PL expected rank is a non-linear functional of
-a joint MLE rather than a scalar sample mean.
+expected-rank vector. All four methods target the per-item expected rank;
+scalar-mean CI methods (`"normal"`, `"student_t"`) and the seven
+distribution-specific methods of `RegressionTree` (`"beta"`,
+`"exponential"`, `"gamma"`, `"log_normal"`, `"log_normal_gci"`,
+`"poisson"`, `"poisson_jeffreys"`) are rejected at construction time
+because PL expected rank is a non-linear functional of a joint MLE rather
+than a scalar sample mean. The resampling methods draw `ci_replicates`
+replicates each.
 
 - `"bayesian_bootstrap"` (default) draws Dirichlet weights for the
   active rows and refits the PL MLE on each replicate. Nonparametric;
@@ -652,6 +662,14 @@ a joint MLE rather than a scalar sample mean.
   applied to row-resampled PL refits, with the acceleration term
   computed from a leave-one-out jackknife of PL refits. Slower than
   `"bayesian_bootstrap"`; non-deterministic across calls.
+- `"wald"` is a closed-form asymptotic interval from the observed PL
+  Fisher information, propagated onto each per-item expected rank. The
+  cheapest method and the only deterministic one; `ci_replicates` is
+  ignored. Choose when speed matters and node sample sizes are large.
+- `"gaussian_multiplier"` is a multiplier-CLT bootstrap forming
+  percentile intervals from Gaussian-weighted score perturbations
+  linearised through the Fisher information. Non-deterministic across
+  calls.
 
 ### 6.12. `ci_coverage`
 
@@ -678,7 +696,8 @@ child subsets are independently transmuted and a significance test is
 run on the transmuted data; if the p-value exceeds `alpha` the split
 is rejected and the node becomes a leaf. Use cases: survival outcomes
 (Kaplan-Meier-style transformation), rate normalization (impressions
-to click-through rate), de-noising heavy-tailed responses.
+to click-through rate), de-noising heavy-tailed responses. `RankingTree`
+does not support a transmuter and rejects one at construction time.
 
 ### 6.14. `resamples`
 
@@ -711,12 +730,104 @@ for reproducibility; `None` uses an unpredictable seed. Controls:
 - min-P permutation resampling under `test_type="monte_carlo"`;
 - the bootstrap-family CI methods of `RegressionTree`
   (`bayesian_bootstrap`, `bca`, `log_normal_gci`);
-- the bootstrap-family CI methods of `RankingTree`
-  (`bayesian_bootstrap`, `bca`) applied K times per node - once per
-  item;
+- the resampling CI methods of `RankingTree`
+  (`bayesian_bootstrap`, `bca`, `gaussian_multiplier`) applied K times
+  per node - once per item;
 - the jitter of `to_image(kind="response")` raincloud plots
   (`RegressionTree` only; combined with the leaf index so each leaf
   receives a distinct pattern).
+
+### 6.17. `ci_method` (`SurvivalTree` only)
+
+**Default**: `"brookmeyer_crowley"`.
+
+Method for the confidence interval on each node's median survival time.
+`"brookmeyer_crowley"` (default) is the Brookmeyer-Crowley interval and
+the only supported option.
+
+### 6.18. `ci_replicates` (`RankingTree` only)
+
+**Default**: `200`.
+
+Number of bootstrap replicates drawn by the resampling `ci_method`
+choices (`"bayesian_bootstrap"`, `"bca"`, `"gaussian_multiplier"`).
+Ignored when `ci_method="wald"`. Raise for smoother interval estimates
+at higher cost.
+
+### 6.19. `npseudo` (`RankingTree` only)
+
+**Default**: `0.5`.
+
+Weight of the Turner ghost-item pseudo-comparisons added to each item
+during the per-node Plackett-Luce fit. Must be strictly positive. The
+default follows Turner et al. (2020); raise it to regularize nodes with
+few or sparsely overlapping rankings.
+
+### 6.20. `pl_max_iter` (`RankingTree` only)
+
+**Default**: `100`.
+
+Maximum number of Hunter MM iterations for each node's Plackett-Luce
+fit. Must be a positive integer. Raise it if the fit fails to converge
+on large catalogues.
+
+### 6.21. `pl_tolerance` (`RankingTree` only)
+
+**Default**: `1e-6`.
+
+Convergence tolerance on the largest change in log-worth between
+successive MM iterations. Must be strictly positive. Lower it for
+tighter fits at higher cost.
+
+### 6.22. `pca_components` (`RankingTree` only)
+
+**Default**: `10`.
+
+Number of principal components of the per-node log-rank matrix used as
+the influence function for the split tests. Must be at least 1. When it
+is at least the catalogue size, the projection covers the full response
+space; lower it to denoise high-dimensional rankings.
+
+### 6.23. `item_names` (`RankingTree` only)
+
+**Default**: `None`.
+
+Display labels for the ranked items, one per item. When `None` and the
+rankings are a NumPy array, integer indices `0..n_items-1` are used; when
+the rankings are a pandas DataFrame, its column names take precedence
+over this argument.
+
+### 6.24. `metrics` (`SurvivalTree` only)
+
+**Default**: `("median",)`.
+
+Sequence of per-node survival metrics to compute and render. Each entry
+is either a string for parameter-free metrics (`"median"`,
+`"risk_score"`) or a tuple `(kind, value, unit)` for parametrized metrics
+(`"survival"`, `"rmst"`), where `value` is in the response's time units
+and `unit` is the trailing label token. For example,
+`("survival", 5.0, "years")` renders as "Survival at 5 years". Metrics
+render in the given order; the first drives the leaf ordering and the
+value returned by `predict`. The default predicts the median survival
+time.
+
+### 6.25. `response_sample_size` (`RegressionTree` only)
+
+**Default**: `1000`.
+
+Maximum number of response values stored on each leaf for the
+response-distribution overlay in `to_image(kind="response")`. Must be a
+non-negative integer. Set to `0` to store none, yielding smaller fitted
+trees with no raincloud overlay.
+
+### 6.26. `reverse_order`
+
+**Default**: `False`.
+
+When `True`, reverses the canonical leaf ordering used by `leaves_`,
+`to_text`, `to_image`, and `to_sql` (the per-task sort described in
+section 8). Use it to flip the reading direction, for example to list
+the best-prognosis leaf first.
 
 ## 7. Algorithm
 
@@ -791,8 +902,8 @@ covariates are split at midpoints between consecutive unique values.
 Categorical covariates with $K \le 10$ levels use exhaustive enumeration
 of all $2^{K-1} - 1$ partitions; for $K > 10$, categories are ordered
 by weighted mean of the first influence function column and only $K - 1$
-contiguous splits are evaluated (provably optimal for regression,
-heuristic for classification).
+contiguous splits are evaluated (provably optimal for regression; a
+heuristic for classification, survival, and ranking).
 
 ### 7.3. Step 3: Recursion and prediction
 
@@ -802,6 +913,12 @@ repeated recursively on each child node. Terminal nodes predict:
 - **Regression**: the weighted mean of the response.
 - **Classification**: the majority class, with class probabilities
   given by the normalized weighted class counts.
+- **Survival**: the first configured survival metric (the median
+  recurrence-free time by default), with the remaining metrics and their
+  confidence intervals available on the node.
+- **Ranking**: the item with the lowest Plackett-Luce expected rank (the
+  most-preferred item), with the full per-item expected-rank vector
+  available on the node.
 
 ## 8. Partykit compatibility
 
@@ -811,15 +928,17 @@ and per-leaf predictions are empirically verified to match
 `partykit::ctree` on three reference datasets, one per task family:
 
 - **Regression**: the `airquality` dataset (Ozone on Wind/Temp/Month/Day,
-  n=116 after dropping the rows with no Ozone observation). Crosscheck at
-  `tests/test_partykit_equivalence.py:26`.
+  n=116 after dropping the rows with no Ozone observation). Crosscheck:
+  `test_airquality_matches_partykit_reference` in
+  `tests/test_partykit_equivalence.py`.
 - **Classification**: the `GlaucomaM` dataset from R's `TH.data` package
-  (Class on 62 morphology covariates, n=196). Crosscheck at
-  `tests/test_partykit_equivalence.py:75`.
+  (Class on 62 morphology covariates, n=196). Crosscheck:
+  `test_glaucoma_m_matches_partykit_reference` in
+  `tests/test_partykit_equivalence.py`.
 - **Survival**: the `GBSG2` dataset from `lifelines`
   (`Surv(time, cens) ~ horTh + age + menostat + tsize + tgrade + pnodes +
-  progrec + estrec`, n=686). Crosscheck at
-  `tests/test_tree_survival.py:661`.
+  progrec + estrec`, n=686). Crosscheck:
+  `test_gbsg2_matches_partykit_reference` in `tests/test_tree_survival.py`.
 
 Three deliberate deviations from partykit are worth knowing about:
 
@@ -834,7 +953,9 @@ Three deliberate deviations from partykit are worth knowing about:
    values. Rank-transforming both response and continuous covariates
    gives a Spearman-style test that is robust to outliers and skew, at
    the cost of a small loss of power against linear alternatives. Pass
-   `correlation="normal"` to match partykit exactly.
+   `correlation="normal"` to match partykit exactly. `SurvivalTree`
+   already defaults to `"normal"`, so its equivalence holds without
+   changing `correlation`.
 3. **Leaves are reordered for display**: `leaves_` iterates in a
    task-appropriate canonical order, and `to_text` / `to_image` swap
    left and right children of each inner node to match. Sort keys are
