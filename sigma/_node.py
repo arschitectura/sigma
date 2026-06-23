@@ -12,7 +12,7 @@ import typing_extensions
 from . import _extension
 from . import _partition
 
-# TODO XXX check all this code
+# TODO check all this code
 
 _NodeT = typing.TypeVar("_NodeT", bound="Node")
 

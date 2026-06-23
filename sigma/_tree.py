@@ -31,7 +31,7 @@ from . import _types
 if typing.TYPE_CHECKING:
     import pandas
 
-# TODO XXX review all shared data structures
+# TODO review all shared data structures
 
 
 _CategoryLabels: typing.TypeAlias = (

@@ -41,7 +41,7 @@ If your needs exceed this, a paid, non-revocable commercial license is available
 
 Read the [documentation](https://arschitectura.com/products/sigma/).
 
-Have questions, feedback, or need help getting started? We'd love to hear from you - [get in touch](https://arschitectura.com/contact/).
+Have questions, feedback, or need help getting started? I would love to hear from you - [get in touch](https://arschitectura.com/contact/).
 
 <div align="center">
   <a href="https://arschitectura.com/contact/">
