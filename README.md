@@ -357,11 +357,11 @@ END
 ```
 
 For `ClassificationTree`, pass `target_class=` to pick which class
-probability the expression should emit. Categorical values not seen at
-fit time evaluate to the holding node's prediction, mirroring
-`tree.predict`. `NULL` numerical or boolean inputs fall through to
-`ELSE NULL`; wrap in `COALESCE(..., default)` to substitute a fallback
-value.
+probability the expression should emit. Any value a node cannot route -
+an unseen category, or a `NULL` at a node that learned no missing rule -
+evaluates to that node's own prediction, mirroring `tree.predict`. When a
+split learned a missing rule it is emitted as an explicit `... IS NULL`
+branch.
 
 ### 5.5. Collapsing recursive splits with `compact()`
 
@@ -398,6 +398,26 @@ collapses into one node carrying three interval branches:
 
 The original tree is left unchanged; `compact()` produces an independent
 copy whose node ids are renumbered to match its smaller shape.
+
+### 5.6. Missing values (NaN)
+
+Sigma accepts `NaN` in the covariate matrix `X` for numeric, boolean, and
+categorical features. The target `y` must stay finite, and infinities in
+`X` are still rejected. Missingness is treated as signal, not noise, and
+is never imputed:
+
+- Numeric features keep `NaN` as a distinct value. At each split Sigma
+  also considers sending the missing rows to either side of the threshold,
+  or splitting missing-versus-observed on its own, choosing whichever
+  maximizes the test statistic.
+- Categorical features gain a dedicated `N/A` level. A boolean column that
+  contains `NaN` is treated as a three-level categorical (false, true,
+  `N/A`).
+
+At predict time, a value a node never learned to route - a `NaN` in a
+feature that was complete at fit, or an unseen category - falls back to
+that node's own prediction rather than raising. This behavior is identical
+across `predict`, `to_text`, `to_image`, and `to_sql`.
 
 ## 6. Parameters
 

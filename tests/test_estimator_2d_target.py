@@ -237,29 +237,29 @@ class TestSklearnCheckParity(unittest.TestCase):
                 self.assertIs(fitted, estimator)
 
     def test_estimators_nan_inf(self):
-        """NaN or inf in X raises ValueError in fit and predict."""
+        """inf in X raises in fit and predict; NaN in X is accepted (MIA)."""
         for label, factory, target in _estimator_cases():
             with self.subTest(estimator=label):
                 rng = numpy.random.RandomState(0)
                 X_finite = rng.uniform(size=(10, 3))
                 y = target(X_finite)
-                for bad_value in (numpy.nan, numpy.inf):
-                    X_bad = X_finite.copy()
-                    X_bad[0, 0] = bad_value
-                    estimator = factory()
-                    sklearn.utils.estimator_checks.set_random_state(
-                        estimator, 1
-                    )
+                X_inf = X_finite.copy()
+                X_inf[0, 0] = numpy.inf
+                X_nan = X_finite.copy()
+                X_nan[0, 0] = numpy.nan
+                estimator = factory()
+                sklearn.utils.estimator_checks.set_random_state(estimator, 1)
+                with sklearn.utils._testing.raises(
+                    ValueError, match=["inf", "NaN"]
+                ):
+                    estimator.fit(X_inf, y)
+                estimator.fit(X_nan, y)
+                for method in _present_prediction_methods(estimator):
+                    method(X_nan)
                     with sklearn.utils._testing.raises(
                         ValueError, match=["inf", "NaN"]
                     ):
-                        estimator.fit(X_bad, y)
-                    estimator.fit(X_finite, y)
-                    for method in _present_prediction_methods(estimator):
-                        with sklearn.utils._testing.raises(
-                            ValueError, match=["inf", "NaN"]
-                        ):
-                            method(X_bad)
+                        method(X_inf)
 
     def test_estimators_overwrite_params(self):
         """fit mutates no constructor hyperparameter."""
@@ -907,7 +907,7 @@ class TestTwoDimensionalTargetContract(unittest.TestCase):
             ranking_tree.predict_rank(X)
 
     def test_survival_predict_survival_rejects_bad_X(self):
-        """predict_survival rejects a wrong feature count and non-finite X."""
+        """predict_survival rejects a wrong feature count and inf in X."""
         rng = numpy.random.RandomState(0)
         X = rng.uniform(size=(40, 3))
         y = _survival_target(X)
@@ -916,10 +916,10 @@ class TestTwoDimensionalTargetContract(unittest.TestCase):
         X_fewer = X[:, [0]]
         with self.assertRaises(ValueError):
             survival_tree.predict_survival(X_fewer, times)
-        X_nan = X.copy()
-        X_nan[0, 0] = numpy.nan
+        X_inf = X.copy()
+        X_inf[0, 0] = numpy.inf
         with self.assertRaises(ValueError):
-            survival_tree.predict_survival(X_nan, times)
+            survival_tree.predict_survival(X_inf, times)
 
     def test_ranking_predict_rank_rejects_bad_X(self):
         """predict_rank rejects a wrong feature count and non-finite X."""

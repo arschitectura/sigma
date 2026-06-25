@@ -10,12 +10,22 @@ Statistics," *Computational Statistics & Data Analysis*, 43(2), 121-137.
 """
 
 import itertools
+import typing
 
 import numpy
 import numpy.typing
 
 from . import _statistics
 from . import _types
+
+
+class _NumericSplit(typing.NamedTuple):
+    """Chosen numeric split: a threshold (None for a pure-missingness split)
+    and the child that receives missing records (None when the column had no
+    missing records at this node)."""
+
+    threshold: None | float
+    nan_child: None | int
 
 
 def find_best_split_numeric(
@@ -26,11 +36,16 @@ def find_best_split_numeric(
     min_buckets: int,
     is_integer: bool,
     correlation: _types.Correlation = _types.Correlation.RANK,
-) -> None | tuple[float, float]:
-    """Find the optimal numeric split threshold for covariate X_j.
+) -> None | tuple[_NumericSplit, float]:
+    """Find the optimal numeric split for covariate X_j.
+
+    When X_j has missing (NaN) records at this node, three families of split
+    are considered: missing alone versus the observed records, and, for each
+    candidate threshold, missing joining the records at or below the threshold
+    or joining the records above it.
 
     Args:
-        X_j: Numeric covariate values, shape (n,).
+        X_j: Numeric covariate values, shape (n,). May contain NaN.
         h: Influence function values, shape (n, q).
         weights: Case weights, shape (n,).
         test_stat: Type of test statistic.
@@ -40,21 +55,38 @@ def find_best_split_numeric(
         correlation: Correlation type for the test statistic.
 
     Returns:
-        (threshold, test_statistic) if a valid split exists, None otherwise.
+        A pair of the chosen split and its test statistic if a valid split
+        exists, None otherwise.
     """
     h = _maybe_rank_h(h, weights, correlation)
     active = weights > 0
-    unique_values = numpy.unique(X_j[active])
-    if len(unique_values) < 2:
-        return None
-    if is_integer:
-        candidate_thresholds = unique_values[:-1]
-    else:
-        candidate_thresholds = (unique_values[:-1] + unique_values[1:]) / 2.0
+    observed = ~numpy.isnan(X_j)
+    has_nan = bool((active & ~observed).any())
+    unique_values = numpy.unique(X_j[active & observed])
+    candidates: list[
+        tuple[numpy.typing.NDArray[numpy.bool_], _NumericSplit]
+    ] = []
+    if has_nan:
+        candidates.append((observed, _NumericSplit(None, 1)))
+    if len(unique_values) >= 2:
+        if is_integer:
+            thresholds = unique_values[:-1]
+        else:
+            thresholds = (unique_values[:-1] + unique_values[1:]) / 2.0
+        for threshold in thresholds:
+            le_mask = X_j <= threshold
+            if has_nan:
+                candidates.append(
+                    (le_mask | ~observed, _NumericSplit(float(threshold), 0))
+                )
+                candidates.append((le_mask, _NumericSplit(float(threshold), 1)))
+            else:
+                candidates.append(
+                    (le_mask, _NumericSplit(float(threshold), None))
+                )
     best_statistic = -numpy.inf
-    best_threshold = None
-    for threshold in candidate_thresholds:
-        left_mask = X_j <= threshold
+    best_split = None
+    for left_mask, split in candidates:
         left_weight = weights[left_mask].sum()
         right_weight = weights[~left_mask].sum()
         if left_weight < min_buckets or right_weight < min_buckets:
@@ -62,10 +94,10 @@ def find_best_split_numeric(
         statistic = _score_split(left_mask, h, weights, test_stat)
         if statistic > best_statistic:
             best_statistic = statistic
-            best_threshold = threshold
-    if best_threshold is None:
+            best_split = split
+    if best_split is None:
         return None
-    result = (float(best_threshold), float(best_statistic))
+    result = (best_split, float(best_statistic))
     return result
 
 
@@ -166,7 +198,7 @@ def find_best_split(
     test_stat: _types.TestStat,
     min_buckets: int,
     correlation: _types.Correlation = _types.Correlation.RANK,
-) -> None | tuple[float | frozenset | bool, float]:
+) -> None | tuple[_NumericSplit | frozenset | bool, float]:
     """Find the optimal binary split for the given feature.
 
     Args:
@@ -182,11 +214,11 @@ def find_best_split(
     Returns:
         (split_criterion, test_statistic) if a valid split exists, None
         otherwise. split_criterion is the literal True sentinel for boolean
-        features, a float threshold for numeric features, or a frozenset of
-        left categories for categorical features.
+        features, a _NumericSplit (threshold and missing-child) for numeric
+        features, or a frozenset of left categories for categorical features.
     """
     X_j = X[:, feature_index]
-    result: None | tuple[float | frozenset | bool, float]
+    result: None | tuple[_NumericSplit | frozenset | bool, float]
     match feature_types[feature_index]:
         case _types.CovariateType.BOOLEAN:
             result = find_best_split_boolean(

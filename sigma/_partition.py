@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import math
 import typing
 
 import numpy
@@ -118,6 +119,12 @@ class BooleanValue(BranchCondition):
         self.value = value
 
 
+class MissingValue(BranchCondition):
+    """Numeric branch admitting only missing (NaN) values."""
+
+    __slots__ = ()
+
+
 class Partition(_extension.Extension[N], typing.Generic[N]):
     """Routes records reaching an internal tree node to one of its children.
 
@@ -161,15 +168,19 @@ class Partition(_extension.Extension[N], typing.Generic[N]):
 class NumericalPartition(Partition[N], typing.Generic[N]):
     """Partition on a numeric covariate by ascending threshold cut points.
 
-    A record routes to the first branch whose inclusive upper threshold is
-    not exceeded, and to the last branch when it exceeds every threshold.
+    An observed record routes to the first interval branch whose inclusive
+    upper threshold is not exceeded, and to the last interval branch when it
+    exceeds every threshold. A missing (NaN) record routes to the missing
+    branch when one was learned, and is not routable otherwise.
 
     Attributes:
         thresholds: Cut points in strictly ascending order. There is one
-            more child than there are thresholds.
+            interval child more than there are thresholds.
+        nan_child: Index into children of the branch that admits missing
+            (NaN) records, or None when missing records are not routable.
     """
 
-    __slots__ = ("thresholds",)
+    __slots__ = ("thresholds", "nan_child")
 
     def __init__(
         self,
@@ -178,28 +189,40 @@ class NumericalPartition(Partition[N], typing.Generic[N]):
         statistics: None | SplitStatistics,
         children: tuple[N, ...],
         thresholds: tuple[int | float, ...],
+        nan_child: None | int = None,
     ) -> None:
         super().__init__(feature_index, feature_name, statistics, children)
         self.thresholds = thresholds
+        self.nan_child = nan_child
 
     @property
     def branch_conditions(self) -> tuple[BranchCondition, ...]:
-        """Numeric intervals in ascending order, one per child."""
+        """Numeric intervals in ascending order, then a missing-value branch
+        when a dedicated missing child is present.
+        """
         lowers: tuple[None | int | float, ...] = (None,) + self.thresholds
         uppers: tuple[None | int | float, ...] = self.thresholds + (None,)
         conditions: list[BranchCondition] = []
         for lower, upper in zip(lowers, uppers):
             conditions.append(NumericInterval(lower, upper))
+        if len(self.children) > len(self.thresholds) + 1:
+            conditions.append(MissingValue())
         result = tuple(conditions)
         return result
 
-    def route(self, value: object) -> N:
-        """Return the child for the interval that contains value."""
+    def route(self, value: object) -> None | N:
+        """Return the child for the interval that contains value, the missing
+        child for NaN, or None when value is NaN with no missing branch.
+        """
         numeric_value = typing.cast(float, value)
+        if math.isnan(numeric_value):
+            if self.nan_child is None:
+                return None
+            return self.children[self.nan_child]
         for index, threshold in enumerate(self.thresholds):
             if numeric_value <= threshold:
                 return self.children[index]
-        return self.children[-1]
+        return self.children[len(self.thresholds)]
 
 
 class BooleanPartition(Partition[N], typing.Generic[N]):
@@ -217,13 +240,16 @@ class BooleanPartition(Partition[N], typing.Generic[N]):
         result = (BooleanValue(False), BooleanValue(True))
         return result
 
-    def route(self, value: object) -> N:
-        """Return the first child for False / 0.0, the second for True / 1.0.
+    def route(self, value: object) -> None | N:
+        """Return the first child for False / 0.0, the second for True / 1.0,
+        or None for a missing (NaN) value.
 
         Raises:
-            ValueError: When value is neither truthy-1 nor falsy-0.
+            ValueError: When value is neither NaN, truthy-1, nor falsy-0.
         """
         numeric = float(typing.cast(float, value))
+        if math.isnan(numeric):
+            return None
         if numeric == 0.0:
             return self.children[0]
         if numeric == 1.0:

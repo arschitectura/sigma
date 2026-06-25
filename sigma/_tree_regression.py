@@ -183,7 +183,7 @@ class RegressionTree(
         """Validate inputs for regression."""
         sklearn.utils.multiclass.type_of_target(y, raise_unknown=True)
         X_validated, y_validated = sklearn.utils.validation.validate_data(
-            self, X, y, dtype="float64"
+            self, X, y, dtype="float64", ensure_all_finite="allow-nan"
         )
         X_array = typing.cast(numpy.typing.NDArray[numpy.floating], X_validated)
         y_array = typing.cast(numpy.typing.NDArray[numpy.floating], y_validated)

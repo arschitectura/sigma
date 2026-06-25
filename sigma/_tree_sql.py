@@ -20,6 +20,8 @@ def _collect_sql(
     root: _node.Node,
     feature_names: None | numpy.typing.NDArray,
     category_labels: None | dict[int, dict[float, str]],
+    na_codes: None | dict[int, float],
+    promoted_booleans: None | frozenset[int],
     target_class_index: None | int,
     max_depth: None | int,
     best_first: bool,
@@ -29,6 +31,8 @@ def _collect_sql(
         root,
         feature_names,
         category_labels,
+        na_codes,
+        promoted_booleans,
         target_class_index,
         max_depth,
         best_first,
@@ -41,6 +45,8 @@ def _build_sql_case(
     node: _node.Node,
     feature_names: None | numpy.typing.NDArray,
     category_labels: None | dict[int, dict[float, str]],
+    na_codes: None | dict[int, float],
+    promoted_booleans: None | frozenset[int],
     target_class_index: None | int,
     max_depth: None | int,
     best_first: bool,
@@ -59,15 +65,31 @@ def _build_sql_case(
     raw_name = _tree_text._resolve_feature_name(partition, feature_names)
     feature = _format_sql_identifier(raw_name)
     labels = _tree_text._feature_category_labels(partition, category_labels)
+    na_code = (na_codes or {}).get(partition.feature_index)
+    is_promoted = partition.feature_index in (promoted_booleans or frozenset())
+    nan_child_node = None
+    if (
+        isinstance(partition, _partition.NumericalPartition)
+        and partition.nan_child is not None
+    ):
+        nan_child_node = partition.children[partition.nan_child]
     indent = "    " * indent_level
     when_indent = "    " * (indent_level + 1)
     lines: list[str] = [f"{indent}CASE"]
     for condition, child in branches:
-        sql_condition = _format_sql_condition(condition, feature, labels)
+        sql_condition = _format_sql_condition(
+            condition, feature, labels, na_code, is_promoted
+        )
+        if child is nan_child_node and isinstance(
+            condition, _partition.NumericInterval
+        ):
+            sql_condition = f"{sql_condition} OR {feature} IS NULL"
         subexpression = _build_sql_case(
             child,
             feature_names,
             category_labels,
+            na_codes,
+            promoted_booleans,
             target_class_index,
             max_depth,
             best_first,
@@ -75,13 +97,9 @@ def _build_sql_case(
         )
         lines.append(f"{when_indent}WHEN {sql_condition} THEN")
         lines.append(subexpression)
-    if isinstance(partition, _partition.CategoricalPartition):
-        fallback_value = _leaf_numeric_value(node, target_class_index)
-        fallback_literal = _format_sql_numeric_literal(fallback_value)
-        else_clause = f"{when_indent}ELSE {fallback_literal}"
-    else:
-        else_clause = f"{when_indent}ELSE NULL"
-    lines.append(else_clause)
+    fallback_value = _leaf_numeric_value(node, target_class_index)
+    fallback_literal = _format_sql_numeric_literal(fallback_value)
+    lines.append(f"{when_indent}ELSE {fallback_literal}")
     lines.append(f"{indent}END")
     result = "\n".join(lines)
     return result
@@ -138,6 +156,8 @@ def _format_sql_condition(
     condition: _partition.BranchCondition,
     feature: str,
     labels: None | dict[float, str],
+    na_code: None | float,
+    is_promoted: bool,
 ) -> str:
     """Return the SQL predicate fragment for a single branch condition."""
     match condition:
@@ -148,9 +168,13 @@ def _format_sql_condition(
         case _partition.NumericInterval() as interval:
             fragment = _format_sql_interval_condition(feature, interval)
             return fragment
+        case _partition.MissingValue():
+            return f"{feature} IS NULL"
         case _:
             subset = typing.cast(_partition.CategorySubset, condition)
-            fragment = _format_sql_subset_condition(feature, subset, labels)
+            fragment = _format_sql_subset_condition(
+                feature, subset, labels, na_code, is_promoted
+            )
             return fragment
 
 
@@ -160,6 +184,8 @@ def _format_sql_interval_condition(
     """Return the SQL predicate for a numeric interval branch."""
     lower = interval.lower
     upper = interval.upper
+    if lower is None and upper is None:
+        return f"{feature} IS NOT NULL"
     if lower is None:
         upper_literal = _format_sql_numeric_literal(
             typing.cast(int | float, upper)
@@ -177,23 +203,36 @@ def _format_sql_subset_condition(
     feature: str,
     subset: _partition.CategorySubset,
     labels: None | dict[float, str],
+    na_code: None | float,
+    is_promoted: bool,
 ) -> str:
-    """Return the SQL predicate for a categorical subset branch."""
+    """Return the SQL predicate for a categorical subset branch. The N/A code
+    is emitted as IS NULL; a promoted boolean is emitted with boolean
+    literals rather than a string membership test.
+    """
     sorted_cats = sorted(subset.categories)
-    if labels is None:
-        items = [
-            _format_sql_category_literal(category) for category in sorted_cats
-        ]
-    else:
-        items = [
-            _format_sql_category_literal(labels.get(category, category))
-            for category in sorted_cats
-        ]
-    if len(items) == 1:
-        condition = f"{feature} = {items[0]}"
-    else:
-        listing = ", ".join(items)
-        condition = f"{feature} IN ({listing})"
+    real_cats = [category for category in sorted_cats if category != na_code]
+    parts: list[str] = []
+    if is_promoted:
+        for category in real_cats:
+            literal = "TRUE" if category == 1.0 else "FALSE"
+            parts.append(f"{feature} = {literal}")
+    elif real_cats:
+        if labels is None:
+            items = [_format_sql_category_literal(c) for c in real_cats]
+        else:
+            items = [
+                _format_sql_category_literal(labels.get(c, c))
+                for c in real_cats
+            ]
+        if len(items) == 1:
+            parts.append(f"{feature} = {items[0]}")
+        else:
+            listing = ", ".join(items)
+            parts.append(f"{feature} IN ({listing})")
+    if na_code is not None and na_code in subset.categories:
+        parts.append(f"{feature} IS NULL")
+    condition = " OR ".join(parts)
     return condition
 
 

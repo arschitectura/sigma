@@ -158,7 +158,7 @@ class ClassificationTree(
     ]:
         """Validate inputs and encode class labels as integers."""
         X_validated, y_validated = sklearn.utils.validation.validate_data(
-            self, X, y, dtype=None
+            self, X, y, dtype=None, ensure_all_finite="allow-nan"
         )
         X_array = typing.cast(
             numpy.typing.NDArray[numpy.floating],

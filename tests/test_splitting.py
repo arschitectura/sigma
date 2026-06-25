@@ -28,8 +28,8 @@ class TestFindBestSplitNumeric(unittest.TestCase):
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
-        threshold, statistic = result
-        assert threshold == 4
+        split, statistic = result
+        assert split.threshold == 4
         assert statistic > 0
 
     def test_step_function_finds_correct_threshold_real(self):
@@ -47,8 +47,8 @@ class TestFindBestSplitNumeric(unittest.TestCase):
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
-        threshold, statistic = result
-        assert threshold == 4.75
+        split, statistic = result
+        assert split.threshold == 4.75
         assert statistic > 0
 
     def test_integer_with_gap_uses_left_value(self):
@@ -66,8 +66,8 @@ class TestFindBestSplitNumeric(unittest.TestCase):
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
-        threshold, statistic = result
-        assert threshold == 1
+        split, statistic = result
+        assert split.threshold == 1
         assert statistic > 0
 
     def test_returns_none_single_unique_value(self):
@@ -117,8 +117,8 @@ class TestFindBestSplitNumeric(unittest.TestCase):
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
-        threshold, statistic = result
-        assert threshold == 2
+        split, statistic = result
+        assert split.threshold == 2
         assert statistic > 0
 
     def test_works_with_maximum_test_stat(self):
@@ -136,8 +136,8 @@ class TestFindBestSplitNumeric(unittest.TestCase):
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
-        threshold, statistic = result
-        assert threshold == 4
+        split, statistic = result
+        assert split.threshold == 4
         assert statistic > 0
 
 
@@ -359,8 +359,8 @@ class TestFindBestSplit(unittest.TestCase):
         )
         assert result is not None
         split_value, statistic = result
-        assert isinstance(split_value, float)
-        assert split_value == 4
+        assert isinstance(split_value, sigma._splitting._NumericSplit)
+        assert split_value.threshold == 4
 
     def test_dispatches_to_real(self):
         """Routes real-valued features to the midpoint branch."""
@@ -382,8 +382,8 @@ class TestFindBestSplit(unittest.TestCase):
         )
         assert result is not None
         split_value, statistic = result
-        assert isinstance(split_value, float)
-        assert split_value == 4.75
+        assert isinstance(split_value, sigma._splitting._NumericSplit)
+        assert split_value.threshold == 4.75
 
     def test_dispatches_to_categorical(self):
         """Routes to categorical split for categorical features."""
@@ -427,8 +427,8 @@ class TestFindBestSplitNumericRank(unittest.TestCase):
             correlation=sigma._types.Correlation.RANK,
         )
         assert result is not None
-        threshold, statistic = result
-        assert threshold == 4
+        split, statistic = result
+        assert split.threshold == 4
         assert statistic > 0
 
     def test_robust_to_response_outlier(self):
@@ -456,4 +456,4 @@ class TestFindBestSplitNumericRank(unittest.TestCase):
         )
         assert result_rank is not None
         assert result_normal is not None
-        assert result_rank[0] == 4
+        assert result_rank[0].threshold == 4

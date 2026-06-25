@@ -866,6 +866,8 @@ def _format_condition(
         case _partition.NumericInterval() as interval:
             label = _format_interval_label(name, interval, precision)
             return label
+        case _partition.MissingValue():
+            return f"{name} is missing"
         case _:
             subset = typing.cast(_partition.CategorySubset, condition)
             label = _format_subset_label(name, subset, labels)
@@ -878,6 +880,8 @@ def _format_interval_label(
     """Return the label for a numeric interval branch."""
     lower = interval.lower
     upper = interval.upper
+    if lower is None and upper is None:
+        return f"{name} is not missing"
     if lower is None:
         upper_text = _format_threshold(
             typing.cast(int | float, upper), precision

@@ -393,8 +393,8 @@ class TestBooleanColumnDetection(unittest.TestCase):
         regression_tree.fit(X, y)
         self.assertIsNone(regression_tree.boolean_features_in_)
 
-    def test_boolean_dtype_with_na_raises(self):
-        """A pandas BooleanDtype column with pd.NA raises ValueError at fit."""
+    def test_boolean_dtype_with_na_promotes_to_categorical(self):
+        """A pandas BooleanDtype column with pd.NA is promoted to a categorical with an N/A level."""
         signal, noise, y = self._two_level_design()
         signal_with_na = pandas.array(list(signal), dtype="boolean")
         signal_with_na[0] = pandas.NA
@@ -402,10 +402,16 @@ class TestBooleanColumnDetection(unittest.TestCase):
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
-        with self.assertRaises(ValueError) as context:
-            regression_tree.fit(X, y)
-        self.assertIn("flag", str(context.exception))
-        self.assertIn("boolean", str(context.exception))
+        regression_tree.fit(X, y)
+        self.assertEqual(
+            regression_tree.promoted_boolean_features_in_, frozenset({0})
+        )
+        self.assertEqual(
+            regression_tree.category_labels_in_,
+            {0: {0.0: "False", 1.0: "True", 2.0: "N/A"}},
+        )
+        predictions = regression_tree.predict(X)
+        self.assertTrue(numpy.all(numpy.isfinite(predictions)))
 
     def test_mixed_dataframe_assigns_each_kind(self):
         """A mix of bool / categorical / numeric assigns the right type to each."""
@@ -641,8 +647,8 @@ class TestPolarsConsumption(unittest.TestCase):
         predictions = regression_tree.predict(X)
         self.assertEqual(predictions.shape, (len(y),))
 
-    def test_polars_unseen_level_at_predict_raises(self):
-        """Predicting on a polars frame with an unseen level raises."""
+    def test_polars_unseen_level_at_predict_routes_to_node_average(self):
+        """An unseen polars level at predict routes to the holding node's prediction rather than raising."""
         signal, noise, y = self._signal_design()
         X = polars.DataFrame(
             {
@@ -661,9 +667,9 @@ class TestPolarsConsumption(unittest.TestCase):
                 "noise": noise,
             }
         )
-        with self.assertRaises(ValueError) as context:
-            regression_tree.predict(X_unseen)
-        self.assertIn("green", str(context.exception))
+        predictions = regression_tree.predict(X_unseen)
+        self.assertEqual(predictions.shape, (len(y),))
+        self.assertTrue(numpy.all(numpy.isfinite(predictions)))
 
 
 if __name__ == "__main__":

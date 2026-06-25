@@ -1847,14 +1847,14 @@ class TestExportSql(unittest.TestCase):
         self.assertNotRegex(result, r"\bIF\s*\(")
         self.assertNotRegex(result, r"\bIIF\s*\(")
 
-    def test_export_sql_numerical_tree_every_level_has_else_null(self):
-        """A numerical-only tree carries ELSE NULL on every internal CASE."""
+    def test_export_sql_numerical_tree_else_carries_node_prediction(self):
+        """A numerical-only tree emits ELSE <node prediction> on every internal CASE, never ELSE NULL."""
         regression_tree = _helpers._fit_three_step_regression_tree()
         result = sigma.export_sql(regression_tree)
         case_count = result.count("CASE")
-        else_null_count = result.count("ELSE NULL")
         self.assertGreater(case_count, 0)
-        self.assertEqual(else_null_count, case_count)
+        self.assertNotIn("ELSE NULL", result)
+        self.assertEqual(result.count("ELSE "), case_count)
 
     def test_export_sql_categorical_split_else_carries_internal_node_prediction(
         self,

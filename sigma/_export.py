@@ -232,12 +232,12 @@ def export_sql(
       predicted at each leaf; calling export_sql on a fitted RankingTree
       raises NotImplementedError.
 
-    Categorical values not seen during training evaluate to the holding
-    node's prediction, mirroring tree.predict. Other unmatched inputs
-    (e.g. NULL at a numerical or boolean split) fall through to ELSE
-    NULL, so the result is NULL rather than a silent misprediction.
-    Branch ordering follows the tree's reverse_order attribute exactly
-    like to_text and to_image.
+    Any value a node cannot route - an unseen category, or a missing
+    value (NULL) at a node that learned no missing rule - evaluates to
+    that node's own prediction, mirroring tree.predict. A learned missing
+    rule is emitted as an explicit "col" IS NULL branch. Branch ordering
+    follows the tree's reverse_order attribute exactly like to_text and
+    to_image.
 
     Args:
         tree: A fitted Tree estimator (ClassificationTree, RegressionTree,
@@ -302,6 +302,8 @@ def export_sql(
         tree.content_,
         names,
         resolved_category_labels,
+        tree.na_codes_in_,
+        tree.promoted_boolean_features_in_,
         target_class_index,
         max_depth,
         not tree.reverse_order,

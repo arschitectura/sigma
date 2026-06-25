@@ -153,6 +153,14 @@ class Tree(
         boolean_features_in_: Frozenset of column indices flagged as boolean
             at fit time. None when X is a numpy array or contains no boolean
             columns.
+        promoted_boolean_features_in_: Frozenset of column indices that were
+            boolean with missing values at fit time and are therefore handled
+            as categorical (levels false, true, N/A). None when no boolean
+            column had missing values.
+        na_codes_in_: Mapping from column index to the float code that
+            represents a missing value for categorical and promoted-boolean
+            columns that had missing values at fit time. None when no column
+            learned an N/A level.
     """
 
     # sklearn.base.BaseEstimator forbids __slots__ on subclasses (its
@@ -167,6 +175,8 @@ class Tree(
     response_name_in_: None | str
     category_labels_in_: None | dict[int, dict[float, str]]
     boolean_features_in_: None | frozenset[int]
+    promoted_boolean_features_in_: None | frozenset[int]
+    na_codes_in_: None | dict[int, float]
     correlation_enum_: _types.Correlation
     test_stat_enum_: _types.TestStat
     test_type_enum_: _types.TestType
@@ -213,6 +223,12 @@ class Tree(
         self.random_state = random_state
         self.reverse_order = reverse_order
         self._fit_with_offset = False
+
+    def __sklearn_tags__(self):
+        """Declare that NaN is accepted in the covariate matrix X."""
+        tags = super().__sklearn_tags__()
+        tags.input_tags.allow_nan = True
+        return tags
 
     def fit(
         self,
@@ -273,6 +289,8 @@ class Tree(
                 X,
                 self.category_labels_in_,
                 self.boolean_features_in_,
+                self.promoted_boolean_features_in_,
+                self.na_codes_in_,
             ) = _preprocess_dataframe_X(X)
             X, y = self._validate_fit_params(X, y)
             n_rows = X.shape[0]
@@ -286,6 +304,7 @@ class Tree(
             weights = self._validate_sample_weight(sample_weight, n_rows)
             names = self._effective_feature_names()
             self.feature_types_ = self._build_feature_types(X, weights, names)
+            X = self._encode_categorical_missing(X, reset=True)
             self.correlation_enum_ = _types.Correlation(self.correlation)
             self.test_stat_enum_ = _types.TestStat(self.test_stat)
             test_type_enum = _types.TestType(self.test_type)
@@ -350,7 +369,8 @@ class Tree(
         types = numpy.empty(n_features, dtype=object)
         for j in range(n_features):
             column = X[active, j]
-            if column.size > 0 and numpy.all(numpy.mod(column, 1) == 0):
+            observed = column[~numpy.isnan(column)]
+            if observed.size > 0 and numpy.all(numpy.mod(observed, 1) == 0):
                 types[j] = _types.CovariateType.INTEGER
             else:
                 types[j] = _types.CovariateType.REAL
@@ -368,6 +388,37 @@ class Tree(
             for index in boolean_features_in:
                 types[index] = _types.CovariateType.BOOLEAN
         return types
+
+    def _encode_categorical_missing(
+        self, X: numpy.typing.NDArray[numpy.floating], reset: bool
+    ) -> numpy.typing.NDArray[numpy.floating]:
+        """Map NaN in numeric-coded categorical columns to an N/A code. At fit
+        the code is one past the largest observed code and is recorded; at
+        predict the recorded code is reused, or an unroutable sentinel when the
+        column had no missing values at fit. DataFrame categoricals are already
+        coded by _preprocess_dataframe_X, so only numpy categorical_features
+        columns are affected here.
+        """
+        categorical = numpy.flatnonzero(
+            self.feature_types_ == _types.CovariateType.CATEGORICAL
+        )
+        columns = [int(j) for j in categorical if numpy.isnan(X[:, j]).any()]
+        if not columns:
+            return X
+        na_codes = dict(self.na_codes_in_ or {})
+        X = numpy.array(X, copy=True)
+        for j in columns:
+            missing = numpy.isnan(X[:, j])
+            if reset:
+                observed = X[~missing, j]
+                code = float(observed.max()) + 1.0 if observed.size else 0.0
+                na_codes[j] = code
+            else:
+                code = na_codes.get(j, -1.0)
+            X[missing, j] = code
+        if reset:
+            self.na_codes_in_ = na_codes if na_codes else None
+        return X
 
     @staticmethod
     def _resolve_categorical_entry(
@@ -486,11 +537,14 @@ class Tree(
             descendant leaf.
         """
         sklearn.utils.validation.check_is_fitted(self, "content_")
-        X = _apply_categorical_encoding(X, self.category_labels_in_)
+        X = _apply_categorical_encoding(
+            X, self.category_labels_in_, self.na_codes_in_
+        )
         X_validated = sklearn.utils.validation.validate_data(
-            self, X, reset=False, dtype="float64"
+            self, X, reset=False, dtype="float64", ensure_all_finite="allow-nan"
         )
         X_array = typing.cast(numpy.typing.NDArray[numpy.floating], X_validated)
+        X_array = self._encode_categorical_missing(X_array, reset=False)
         n_samples = X_array.shape[0]
         indices = numpy.empty(n_samples, dtype=numpy.intp)
         for i in range(n_samples):
@@ -546,11 +600,14 @@ class Tree(
             internal node, the path ends at that holding node.
         """
         sklearn.utils.validation.check_is_fitted(self, "content_")
-        X = _apply_categorical_encoding(X, self.category_labels_in_)
+        X = _apply_categorical_encoding(
+            X, self.category_labels_in_, self.na_codes_in_
+        )
         X_validated = sklearn.utils.validation.validate_data(
-            self, X, reset=False, dtype="float64"
+            self, X, reset=False, dtype="float64", ensure_all_finite="allow-nan"
         )
         X_array = typing.cast(numpy.typing.NDArray[numpy.floating], X_validated)
+        X_array = self._encode_categorical_missing(X_array, reset=False)
         n_samples = X_array.shape[0]
         indptr = numpy.empty(n_samples + 1, dtype=numpy.intp)
         indptr[0] = 0
@@ -743,7 +800,8 @@ class Tree(
             self._apply_decorator(leaf, X, y, weights, side_data, offset)
             return leaf
         split_criterion, _test_statistic = split_result
-        split_threshold: None | int | float = None
+        numeric_thresholds: None | tuple[int | float, ...] = None
+        numeric_nan_child: None | int = None
         left_categories: None | frozenset = None
         right_categories: None | frozenset = None
         match self.feature_types_[feature_index]:
@@ -760,14 +818,28 @@ class Tree(
                     numpy.unique(X[active, feature_index]).tolist()
                 )
                 right_categories = observed - left_categories
-            case _types.CovariateType.INTEGER:
-                integer_criterion = typing.cast(float, split_criterion)
-                left_mask = X[:, feature_index] <= integer_criterion
-                split_threshold = int(integer_criterion)
-            case _types.CovariateType.REAL:
-                real_criterion = typing.cast(float, split_criterion)
-                left_mask = X[:, feature_index] <= real_criterion
-                split_threshold = float(real_criterion)
+            case _types.CovariateType.INTEGER | _types.CovariateType.REAL:
+                numeric_split = typing.cast(
+                    _splitting._NumericSplit, split_criterion
+                )
+                column = X[:, feature_index]
+                isnan_column = numpy.isnan(column)
+                numeric_nan_child = numeric_split.nan_child
+                if numeric_split.threshold is None:
+                    left_mask = ~isnan_column
+                    numeric_thresholds = ()
+                else:
+                    threshold = numeric_split.threshold
+                    if numeric_nan_child == 0:
+                        left_mask = (column <= threshold) | isnan_column
+                    else:
+                        left_mask = column <= threshold
+                    is_integer = (
+                        self.feature_types_[feature_index]
+                        == _types.CovariateType.INTEGER
+                    )
+                    typed = int(threshold) if is_integer else float(threshold)
+                    numeric_thresholds = (typed,)
         left_weights = weights * left_mask.astype(float)
         right_weights = weights * (~left_mask).astype(float)
         if self.transmuter is None:
@@ -883,13 +955,15 @@ class Tree(
                     category_groups=category_groups,
                 )
             case _types.CovariateType.INTEGER | _types.CovariateType.REAL:
-                thresholds = (typing.cast(int | float, split_threshold),)
                 partition = _partition.NumericalPartition(
                     feature_index=feature_index,
                     feature_name=split_name,
                     statistics=statistics,
                     children=children,
-                    thresholds=thresholds,
+                    thresholds=typing.cast(
+                        "tuple[int | float, ...]", numeric_thresholds
+                    ),
+                    nan_child=numeric_nan_child,
                 )
         payload = _NodePayload(
             depth=depth,
@@ -1555,11 +1629,12 @@ class Tree(
         The emitted expression routes each input row to its leaf and
         returns the leaf's numeric prediction (regression mean, or
         target_class probability for classification, or the first
-        survival metric value). Categorical values not seen during
-        training evaluate to the holding node's prediction, mirroring
-        predict. Other unmatched inputs (e.g. NULL at a numerical or
-        boolean split) fall through to ELSE NULL. Branch ordering
-        follows tree.reverse_order exactly like to_text and to_image.
+        survival metric value). Any value a node cannot route - an unseen
+        category, or a missing value (NULL) at a node that learned no
+        missing rule - evaluates to that node's own prediction, mirroring
+        predict; a learned missing rule emits an explicit IS NULL branch.
+        Branch ordering follows tree.reverse_order exactly like to_text
+        and to_image.
 
         Args:
             out_file: Where to write the SQL. When None (the default), the
@@ -1837,27 +1912,50 @@ def _merge_numeric_chain(
     """Build the merged numeric partition for a same-feature chain at node."""
     feature_index = partition.feature_index
     threshold_values: set[int | float] = set()
+    has_nan = False
     for chain_partition in chain_partitions:
         numeric_partition = typing.cast(
             _partition.NumericalPartition, chain_partition
         )
         for threshold in numeric_partition.thresholds:
             threshold_values.add(threshold)
+        if numeric_partition.nan_child is not None:
+            has_nan = True
     sorted_thresholds = sorted(threshold_values)
     probes: list[int | float] = list(sorted_thresholds)
     probes.append(numpy.inf)
+    probe_frontiers: list[_node.Node] = []
     children: list[_node.Node] = []
     for probe in probes:
         frontier_node = _route_same_feature(node, feature_index, probe)
+        probe_frontiers.append(frontier_node)
         children.append(_compact_node(frontier_node, depth + 1))
+    nan_child: None | int = None
+    if has_nan:
+        nan_frontier = _route_same_feature(node, feature_index, numpy.nan)
+        nan_child = _index_by_identity(probe_frontiers, nan_frontier)
+        if nan_child is None:
+            children.append(_compact_node(nan_frontier, depth + 1))
+            nan_child = len(children) - 1
     merged = _partition.NumericalPartition(
         feature_index=feature_index,
         feature_name=partition.feature_name,
         statistics=None,
         children=tuple(children),
         thresholds=tuple(sorted_thresholds),
+        nan_child=nan_child,
     )
     return merged
+
+
+def _index_by_identity(
+    nodes: list[_node.Node], target: _node.Node
+) -> None | int:
+    """Return the index of target within nodes by identity, or None."""
+    for index, node in enumerate(nodes):
+        if node is target:
+            return index
+    return None
 
 
 def _merge_categorical_chain(
@@ -1951,29 +2049,45 @@ def _preprocess_dataframe_X(
     typing.Any,
     None | dict[int, dict[float, str]],
     None | frozenset[int],
+    None | frozenset[int],
+    None | dict[int, float],
 ]:
-    """Encode boolean and categorical DataFrame columns of X to float codes, raising on string, object, or otherwise unsupported column dtypes."""
+    """Encode boolean and categorical DataFrame columns of X to float codes, raising on string, object, or otherwise unsupported column dtypes. Missing values become a dedicated N/A level; a boolean column with missing values is promoted to a categorical."""
     columns = getattr(X, "columns", None)
     if columns is None:
-        return X, None, None
+        return X, None, None, None, None
     labels: dict[int, dict[float, str]] = {}
     boolean_indices: set[int] = set()
+    promoted_indices: set[int] = set()
+    na_codes: dict[int, float] = {}
     encoded_data: dict[typing.Any, typing.Any] = {}
     changed = False
     for index, name in enumerate(columns):
         column = X[name]
         kind = _column_kind(column)
         match kind:
+            case "boolean" if _has_missing(column):
+                codes, label_map = _encode_promoted_boolean(column)
+                encoded_data[name] = codes
+                labels[index] = label_map
+                promoted_indices.add(index)
+                na_codes[index] = 2.0
+                changed = True
             case "boolean":
-                encoded_data[name] = _encode_boolean_column(column, name)
+                encoded_data[name] = _encode_boolean_column(column)
                 boolean_indices.add(index)
                 changed = True
             case "categorical":
-                levels, codes = _categorical_levels_and_codes(column, name)
+                levels, codes, na_label = _categorical_levels_and_codes(column)
                 encoded_data[name] = codes
-                labels[index] = {
+                label_map = {
                     float(code): str(level) for code, level in enumerate(levels)
                 }
+                if na_label is not None:
+                    na_code = float(len(levels))
+                    label_map[na_code] = na_label
+                    na_codes[index] = na_code
+                labels[index] = label_map
                 changed = True
             case "numeric":
                 encoded_data[name] = numpy.asarray(column)
@@ -1981,23 +2095,27 @@ def _preprocess_dataframe_X(
                 message = _unsupported_column_message(name, column)
                 raise ValueError(message)
     if not changed:
-        return X, None, None
+        return X, None, None, None, None
     new_X = _rebuild_dataframe(X, encoded_data)
     labels_out = labels if labels else None
     booleans_out = frozenset(boolean_indices) if boolean_indices else None
-    return new_X, labels_out, booleans_out
+    promoted_out = frozenset(promoted_indices) if promoted_indices else None
+    na_codes_out = na_codes if na_codes else None
+    return new_X, labels_out, booleans_out, promoted_out, na_codes_out
 
 
 def _apply_categorical_encoding(
     X: typing.Any,
     category_labels_in: None | dict[int, dict[float, str]],
+    na_codes_in: None | dict[int, float],
 ) -> typing.Any:
-    """Re-encode predict-time categorical columns to float codes using the fit-time category label map."""
+    """Re-encode predict-time categorical columns to float codes using the fit-time category label map. A missing value maps to the column's N/A code when one was learned; any other unseen value maps to an unroutable sentinel code so it falls through to the holding node's prediction."""
     if category_labels_in is None:
         return X
     columns = getattr(X, "columns", None)
     if columns is None:
         return X
+    na_codes = na_codes_in or {}
     encoded_data: dict[typing.Any, typing.Any] = {}
     for index, name in enumerate(columns):
         column = X[name]
@@ -2005,27 +2123,18 @@ def _apply_categorical_encoding(
         if labels is None:
             encoded_data[name] = numpy.asarray(column)
             continue
-        n_levels = len(labels)
-        ordered_levels = [labels[float(code)] for code in range(n_levels)]
+        na_code = na_codes.get(index)
         level_to_code = {
-            level: float(code) for code, level in enumerate(ordered_levels)
+            label: code for code, label in labels.items() if code != na_code
         }
+        missing = _missing_mask(column)
         values = _column_values(column)
         codes = numpy.empty(len(values), dtype=numpy.float64)
-        unknown_values: set[str] = set()
         for position, value in enumerate(values):
-            key = str(value)
-            code = level_to_code.get(key)
-            if code is None:
-                unknown_values.add(key)
+            if missing[position]:
+                codes[position] = -1.0 if na_code is None else na_code
             else:
-                codes[position] = code
-        if unknown_values:
-            sorted_unknown = sorted(unknown_values)
-            raise ValueError(
-                f"column {name!r} contains values not seen at fit time:"
-                f" {sorted_unknown}"
-            )
+                codes[position] = level_to_code.get(str(value), -1.0)
         encoded_data[name] = codes
     new_X = _rebuild_dataframe(X, encoded_data)
     return new_X
@@ -2057,53 +2166,83 @@ def _column_kind(column: typing.Any) -> str:
 
 
 def _encode_boolean_column(
-    column: typing.Any, name: typing.Any
+    column: typing.Any,
 ) -> numpy.typing.NDArray[numpy.float64]:
-    """Cast a boolean column to float 0/1, raising if it has missing values."""
-    if _has_missing(column):
-        raise ValueError(
-            f"column {name!r} contains missing values; sigma's Tree"
-            f" estimators do not support NaN in boolean columns"
-        )
+    """Cast a boolean column with no missing values to float 0.0 / 1.0."""
     array = numpy.asarray(column)
     boolean_array = array.astype(bool)
     float_array = boolean_array.astype(numpy.float64)
     return float_array
 
 
+def _encode_promoted_boolean(
+    column: typing.Any,
+) -> tuple[numpy.typing.NDArray[numpy.float64], dict[float, str]]:
+    """Encode a boolean column with missing values as categorical float codes (False=0, True=1, missing=2) with a collision-free N/A label."""
+    missing = _missing_mask(column)
+    values = _column_values(column)
+    codes = numpy.empty(len(values), dtype=numpy.float64)
+    for position, value in enumerate(values):
+        if missing[position]:
+            codes[position] = 2.0
+        elif bool(value):
+            codes[position] = 1.0
+        else:
+            codes[position] = 0.0
+    na_label = _free_na_label(["False", "True"])
+    label_map = {0.0: "False", 1.0: "True", 2.0: na_label}
+    return codes, label_map
+
+
 def _categorical_levels_and_codes(
-    column: typing.Any, name: typing.Any
-) -> tuple[list[typing.Any], numpy.typing.NDArray[numpy.float64]]:
-    """Return a categorical column's ordered levels and its float codes, raising if it has missing values."""
-    if _has_missing(column):
-        raise ValueError(
-            f"column {name!r} contains missing values; sigma's Tree"
-            f" estimators do not support NaN in categorical columns"
-        )
+    column: typing.Any,
+) -> tuple[list[typing.Any], numpy.typing.NDArray[numpy.float64], None | str]:
+    """Return a categorical column's real levels, its float codes (missing rows mapped to a new trailing N/A code), and the N/A label (None when the column has no missing values)."""
     pandas = sys.modules.get("pandas")
     if pandas is not None and isinstance(column, pandas.Series):
         categorical = column.cat
         levels = categorical.categories.tolist()
         codes = numpy.asarray(categorical.codes, dtype=numpy.float64)
-        return levels, codes
-    levels_series = column.cat.get_categories()
-    levels = levels_series.to_list()
-    physical = column.to_physical()
-    codes = numpy.asarray(physical, dtype=numpy.float64)
-    return levels, codes
+    else:
+        levels = column.cat.get_categories().to_list()
+        codes = numpy.asarray(column.to_physical(), dtype=numpy.float64)
+    missing = _missing_mask(column)
+    na_label = None
+    if missing.any():
+        codes = numpy.where(missing, float(len(levels)), codes)
+        na_label = _free_na_label([str(level) for level in levels])
+    return levels, codes, na_label
+
+
+def _free_na_label(used: list[str]) -> str:
+    """Return "N/A", or "N/A 2", "N/A 3", ... - the first not already used."""
+    used_labels = set(used)
+    if "N/A" not in used_labels:
+        return "N/A"
+    suffix = 2
+    while f"N/A {suffix}" in used_labels:
+        suffix += 1
+    label = f"N/A {suffix}"
+    return label
 
 
 def _has_missing(column: typing.Any) -> bool:
     """Whether a pandas or polars column contains any missing value."""
+    mask = _missing_mask(column)
+    return bool(mask.any())
+
+
+def _missing_mask(column: typing.Any) -> numpy.typing.NDArray[numpy.bool_]:
+    """Per-element missing-value mask for a pandas or polars column."""
     if hasattr(column, "isna"):
-        pandas_mask = column.isna()
-        return bool(pandas_mask.any())
+        mask = numpy.asarray(column.isna(), dtype=bool)
+        return mask
     if hasattr(column, "is_null"):
-        polars_mask = column.is_null()
-        return bool(polars_mask.any())
+        mask = numpy.asarray(column.is_null(), dtype=bool)
+        return mask
     array = numpy.asarray(column)
-    nan_mask = array != array
-    return bool(nan_mask.any())
+    mask = array != array
+    return mask
 
 
 def _column_values(column: typing.Any) -> list[typing.Any]:

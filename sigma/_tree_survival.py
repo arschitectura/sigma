@@ -470,7 +470,12 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         self.__dict__.pop("_metrics", None)
         y_coerced = y if y is None else _coerce_survival_y(y)
         X_validated, y_validated = sklearn.utils.validation.validate_data(
-            self, X, y_coerced, dtype="float64", multi_output=True
+            self,
+            X,
+            y_coerced,
+            dtype="float64",
+            multi_output=True,
+            ensure_all_finite="allow-nan",
         )
         X_array = typing.cast(numpy.typing.NDArray[numpy.floating], X_validated)
         y_array = typing.cast(numpy.typing.NDArray[numpy.floating], y_validated)

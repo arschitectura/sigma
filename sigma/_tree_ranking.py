@@ -400,7 +400,11 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             )
         column_names = self._capture_y_column_names(y)
         X_validated = sklearn.utils.validation.validate_data(
-            self, X, y="no_validation", dtype=numpy.float64
+            self,
+            X,
+            y="no_validation",
+            dtype=numpy.float64,
+            ensure_all_finite="allow-nan",
         )
         X_array = typing.cast(
             numpy.typing.NDArray[numpy.floating],

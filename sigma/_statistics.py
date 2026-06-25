@@ -242,9 +242,7 @@ def select_variable(
                 continue
             g_j = X[:, j : j + 1]
         else:
-            g_j = X[:, j : j + 1]
-            if is_rank:
-                g_j = _rank_transform(g_j, weights)
+            g_j = _numeric_selection_design(X[:, j], weights, is_rank)
         g_list.append(g_j)
         T = compute_linear_statistic(g_j, h, weights)
         mu = compute_conditional_expectation(g_j, h, weights)
@@ -377,16 +375,54 @@ def _adjust_p_values_monte_carlo(
     return result
 
 
+def _numeric_selection_design(
+    column: numpy.typing.NDArray[numpy.floating],
+    weights: numpy.typing.NDArray[numpy.floating],
+    is_rank: bool,
+) -> numpy.typing.NDArray[numpy.floating]:
+    """Build the selection design for a numeric covariate column."""
+    mask = ~numpy.isnan(column)
+    g_value = column.reshape(-1, 1)
+    if is_rank:
+        g_value = _rank_transform(g_value, weights)
+    if mask.all():
+        return g_value
+    g_value = _fill_missing_observed_mean(g_value, mask, weights)
+    indicator = (~mask).astype(float).reshape(-1, 1)
+    g_j = numpy.hstack([g_value, indicator])
+    return g_j
+
+
+def _fill_missing_observed_mean(
+    column: numpy.typing.NDArray[numpy.floating],
+    mask: numpy.typing.NDArray[numpy.bool_],
+    weights: numpy.typing.NDArray[numpy.floating],
+) -> numpy.typing.NDArray[numpy.floating]:
+    """Fill the missing rows of a single-column design with the weighted mean
+    of its observed positive-weight rows."""
+    observed = mask & (weights > 0)
+    w_observed = weights[observed]
+    w_sum = w_observed.sum()
+    if w_sum > 0:
+        mean_value = (column[observed, 0] * w_observed).sum() / w_sum
+    else:
+        mean_value = 0.0
+    filled = column.copy()
+    filled[~mask, 0] = mean_value
+    return filled
+
+
 def _rank_transform(
     matrix: numpy.typing.NDArray[numpy.floating],
     weights: numpy.typing.NDArray[numpy.floating],
 ) -> numpy.typing.NDArray[numpy.floating]:
-    """Rank-transform columns among active (weight > 0) samples."""
+    """Rank-transform columns among active (weight > 0) observed samples."""
     active = weights > 0
     ranked = numpy.zeros_like(matrix)
-    active_rows = matrix[active]
     for column_index in range(matrix.shape[1]):
-        ranked[active, column_index] = scipy.stats.rankdata(
-            active_rows[:, column_index], method="average"
+        column = matrix[:, column_index]
+        rows = active & ~numpy.isnan(column)
+        ranked[rows, column_index] = scipy.stats.rankdata(
+            column[rows], method="average"
         )
     return ranked
