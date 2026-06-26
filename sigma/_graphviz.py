@@ -131,6 +131,8 @@ def _build_digraph(
     reverse_order: bool = False,
     top_displayed_items: None | int = None,
     max_branch_length: int = 60,
+    na_codes: None | dict[int, float] = None,
+    promoted_booleans: None | frozenset[int] = None,
 ) -> graphviz.Digraph:
     """Build a graphviz Digraph from a fitted tree."""
     natural_dot = _emit_digraph(
@@ -153,6 +155,8 @@ def _build_digraph(
         uniform_width=None,
         top_displayed_items=top_displayed_items,
         max_branch_length=max_branch_length,
+        na_codes=na_codes,
+        promoted_booleans=promoted_booleans,
     )
     uniform_width = _max_content_node_width(natural_dot)
     if uniform_width is None:
@@ -177,6 +181,8 @@ def _build_digraph(
         uniform_width=uniform_width,
         top_displayed_items=top_displayed_items,
         max_branch_length=max_branch_length,
+        na_codes=na_codes,
+        promoted_booleans=promoted_booleans,
     )
     return final_dot
 
@@ -201,6 +207,8 @@ def _emit_digraph(
     uniform_width: None | float = None,
     top_displayed_items: None | int = None,
     max_branch_length: int = 60,
+    na_codes: None | dict[int, float] = None,
+    promoted_booleans: None | frozenset[int] = None,
 ) -> graphviz.Digraph:
     """Emit a graphviz Digraph in a single pass, optionally forcing a width."""
     display_reverse = reverse_order ^ (orientation == "left-to-right")
@@ -289,10 +297,26 @@ def _emit_digraph(
                     branch_labels = _tree_text._feature_category_labels(
                         partition, category_labels
                     )
+                    promoted = promoted_booleans or frozenset()
+                    is_promoted = partition.feature_index in promoted
+                    na_code = (na_codes or {}).get(partition.feature_index)
+                    nan_child_node = _tree_text._numeric_nan_child(partition)
                     for condition, child in branches:
                         edge_label = _tree_text._format_condition(
-                            condition, branch_name, branch_labels, precision
+                            condition,
+                            branch_name,
+                            branch_labels,
+                            precision,
+                            na_code,
+                            is_promoted,
                         )
+                        rides_along = child is nan_child_node and isinstance(
+                            condition, _partition.NumericInterval
+                        )
+                        if rides_along:
+                            edge_label = (
+                                f"{edge_label} or {branch_name} is missing"
+                            )
                         edge_label = _tree_text._ellipsize(
                             edge_label, max_branch_length
                         )

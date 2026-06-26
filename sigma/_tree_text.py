@@ -684,6 +684,8 @@ def _pad_cell(text: str, width: int, column_index: int) -> str:
 def _collect_text_rows(
     root: _node.Node,
     category_labels: None | dict[int, dict[float, str]],
+    na_codes: None | dict[int, float],
+    promoted_booleans: None | frozenset[int],
     feature_names: None | numpy.typing.NDArray,
     prediction_formatter: None | typing.Callable[[float], str],
     max_depth: None | int,
@@ -705,6 +707,8 @@ def _collect_text_rows(
     _append_child_text_rows(
         root,
         category_labels,
+        na_codes,
+        promoted_booleans,
         feature_names,
         prediction_formatter,
         max_depth,
@@ -752,6 +756,8 @@ def _append_text_row(
 def _append_child_text_rows(
     node: _node.Node,
     category_labels: None | dict[int, dict[float, str]],
+    na_codes: None | dict[int, float],
+    promoted_booleans: None | frozenset[int],
     feature_names: None | numpy.typing.NDArray,
     prediction_formatter: None | typing.Callable[[float], str],
     max_depth: None | int,
@@ -783,10 +789,21 @@ def _append_child_text_rows(
     branches = _node.display_branches(node, partition, best_first)
     name = _resolve_feature_name(partition, feature_names)
     labels = _feature_category_labels(partition, category_labels)
+    promoted = promoted_booleans or frozenset()
+    is_promoted = partition.feature_index in promoted
+    na_code = (na_codes or {}).get(partition.feature_index)
+    nan_child_node = _numeric_nan_child(partition)
     branch_count = len(branches)
     for index, (condition, child) in enumerate(branches):
         is_last = index == branch_count - 1
-        branch_label = _format_condition(condition, name, labels, precision)
+        branch_label = _format_condition(
+            condition, name, labels, precision, na_code, is_promoted
+        )
+        rides_along = child is nan_child_node and isinstance(
+            condition, _partition.NumericInterval
+        )
+        if rides_along:
+            branch_label = f"{branch_label} or {name} is missing"
         connector = "└──" if is_last else "├──"
         prefix = f"{indent}{connector} {branch_label}"
         _append_text_row(
@@ -801,6 +818,8 @@ def _append_child_text_rows(
         _append_child_text_rows(
             child,
             category_labels,
+            na_codes,
+            promoted_booleans,
             feature_names,
             prediction_formatter,
             max_depth,
@@ -852,11 +871,23 @@ def _feature_category_labels(
     return labels
 
 
+def _numeric_nan_child(partition: _partition.Partition) -> None | _node.Node:
+    """Return a numeric partition's dedicated missing-routing child, or None."""
+    if (
+        isinstance(partition, _partition.NumericalPartition)
+        and partition.nan_child is not None
+    ):
+        return partition.children[partition.nan_child]
+    return None
+
+
 def _format_condition(
     condition: _partition.BranchCondition,
     name: str,
     labels: None | dict[float, str],
     precision: int,
+    na_code: None | float,
+    is_promoted: bool,
 ) -> str:
     """Return the display label for a single branch condition."""
     match condition:
@@ -870,7 +901,9 @@ def _format_condition(
             return f"{name} is missing"
         case _:
             subset = typing.cast(_partition.CategorySubset, condition)
-            label = _format_subset_label(name, subset, labels)
+            label = _format_subset_label(
+                name, subset, labels, na_code, is_promoted
+            )
             return label
 
 
@@ -899,12 +932,31 @@ def _format_subset_label(
     name: str,
     subset: _partition.CategorySubset,
     labels: None | dict[float, str],
+    na_code: None | float,
+    is_promoted: bool,
 ) -> str:
     """Return the label for a categorical subset branch."""
     sorted_cats = sorted(subset.categories)
-    if labels is None:
-        items = [_format_repr(c) for c in sorted_cats]
-    else:
-        items = [_format_repr(labels.get(c, str(c))) for c in sorted_cats]
+    if is_promoted:
+        parts = []
+        for category in sorted_cats:
+            if category == na_code:
+                parts.append(f"{name} is missing")
+            else:
+                truth = "true" if category == 1.0 else "false"
+                parts.append(f"{name} is {truth}")
+        label = " or ".join(parts)
+        return label
+    items = []
+    for category in sorted_cats:
+        if category == na_code and labels is None:
+            items.append("missing")
+        elif labels is None:
+            item = _format_repr(category)
+            items.append(item)
+        else:
+            label_value = labels.get(category, str(category))
+            item = _format_repr(label_value)
+            items.append(item)
     label = _format_categorical_condition(name, items)
     return label

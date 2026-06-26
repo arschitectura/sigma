@@ -302,6 +302,9 @@ def _active_unique_levels(
 ) -> numpy.typing.NDArray[numpy.floating]:
     """Return the distinct values of column j over positive-weight rows."""
     active = weights > 0
+    # Callers pass NaN-free columns only (categorical missing is already coded
+    # to the N/A level, clean booleans carry no NaN), so numpy.unique needs no
+    # missing-value filter here.
     levels = numpy.unique(X[active, j])
     return levels
 

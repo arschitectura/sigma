@@ -68,8 +68,7 @@ class Node(abc.ABC):
 
         Returns:
             The leaf node reached when traversal completes; otherwise the
-            internal node holding the categorical partition whose route
-            did not match the sample's value.
+            internal node whose partition did not route the value.
         """
         path = self.traverse_path(x)
         node = path[-1]
@@ -84,8 +83,8 @@ class Node(abc.ABC):
         Returns:
             The visited nodes ordered from the root to the deepest reached
             node. The final entry is the leaf reached when traversal
-            completes, or the internal node holding the categorical
-            partition whose route did not match the sample's value.
+            completes, or the internal node whose partition did not route
+            the value.
         """
         path: list[_NodeT] = []
         node = self

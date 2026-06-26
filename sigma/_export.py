@@ -142,6 +142,8 @@ def export_text(
     text_rows = _tree_text._collect_text_rows(
         root,
         resolved_category_labels,
+        tree.na_codes_in_,
+        tree.promoted_boolean_features_in_,
         names,
         prediction_formatter,
         max_depth,
@@ -507,6 +509,8 @@ def export_graphviz(
         orientation=orientation,
         reverse_order=tree.reverse_order,
         max_branch_length=max_branch_length,
+        na_codes=tree.na_codes_in_,
+        promoted_booleans=tree.promoted_boolean_features_in_,
     )
     dot_source = dot.source.rstrip("\n")
     emitted = _write_text_output(dot_source, out_file)
@@ -776,6 +780,8 @@ def export_image(
         reverse_order=tree.reverse_order,
         top_displayed_items=effective_top_displayed_items,
         max_branch_length=max_branch_length,
+        na_codes=tree.na_codes_in_,
+        promoted_booleans=tree.promoted_boolean_features_in_,
     )
     payload = dot.pipe(format=format)
     emitted = _write_bytes_output(payload, out_file)

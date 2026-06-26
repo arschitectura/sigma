@@ -161,6 +161,10 @@ class Tree(
             represents a missing value for categorical and promoted-boolean
             columns that had missing values at fit time. None when no column
             learned an N/A level.
+        observed_codes_in_: Mapping from column index to the real category
+            codes observed at fit time, for numpy categorical_features columns
+            that had missing values. None when no numpy categorical column
+            learned an N/A code.
     """
 
     # sklearn.base.BaseEstimator forbids __slots__ on subclasses (its
@@ -177,6 +181,7 @@ class Tree(
     boolean_features_in_: None | frozenset[int]
     promoted_boolean_features_in_: None | frozenset[int]
     na_codes_in_: None | dict[int, float]
+    observed_codes_in_: None | dict[int, frozenset[float]]
     correlation_enum_: _types.Correlation
     test_stat_enum_: _types.TestStat
     test_type_enum_: _types.TestType
@@ -304,6 +309,7 @@ class Tree(
             weights = self._validate_sample_weight(sample_weight, n_rows)
             names = self._effective_feature_names()
             self.feature_types_ = self._build_feature_types(X, weights, names)
+            self.observed_codes_in_ = None
             X = self._encode_categorical_missing(X, reset=True)
             self.correlation_enum_ = _types.Correlation(self.correlation)
             self.test_stat_enum_ = _types.TestStat(self.test_stat)
@@ -392,20 +398,33 @@ class Tree(
     def _encode_categorical_missing(
         self, X: numpy.typing.NDArray[numpy.floating], reset: bool
     ) -> numpy.typing.NDArray[numpy.floating]:
-        """Map NaN in numeric-coded categorical columns to an N/A code. At fit
-        the code is one past the largest observed code and is recorded; at
-        predict the recorded code is reused, or an unroutable sentinel when the
-        column had no missing values at fit. DataFrame categoricals are already
-        coded by _preprocess_dataframe_X, so only numpy categorical_features
-        columns are affected here.
+        """Map NaN in numeric-coded categorical columns to an N/A code and send
+        unseen values to an unroutable sentinel. At fit the N/A code is one past
+        the largest observed code, and the observed codes are recorded. At
+        predict a missing value reuses the recorded N/A code (or an unroutable
+        sentinel when the column was complete at fit), and any value not observed
+        at fit becomes the unroutable sentinel so it falls back to the holding
+        node's prediction. DataFrame categoricals are already coded by
+        _preprocess_dataframe_X, so only numpy categorical_features columns are
+        affected here.
         """
         categorical = numpy.flatnonzero(
             self.feature_types_ == _types.CovariateType.CATEGORICAL
         )
-        columns = [int(j) for j in categorical if numpy.isnan(X[:, j]).any()]
+        na_codes = dict(self.na_codes_in_ or {})
+        observed_codes = dict(self.observed_codes_in_ or {})
+        if reset:
+            columns = [
+                int(j) for j in categorical if numpy.isnan(X[:, j]).any()
+            ]
+        else:
+            columns = [
+                int(j)
+                for j in categorical
+                if numpy.isnan(X[:, j]).any() or int(j) in observed_codes
+            ]
         if not columns:
             return X
-        na_codes = dict(self.na_codes_in_ or {})
         X = numpy.array(X, copy=True)
         for j in columns:
             missing = numpy.isnan(X[:, j])
@@ -413,11 +432,21 @@ class Tree(
                 observed = X[~missing, j]
                 code = float(observed.max()) + 1.0 if observed.size else 0.0
                 na_codes[j] = code
+                observed_codes[j] = frozenset(
+                    float(value) for value in numpy.unique(observed)
+                )
             else:
                 code = na_codes.get(j, -1.0)
+                known = observed_codes.get(j)
+                if known is not None:
+                    known_array = numpy.fromiter(known, dtype=float)
+                    seen = numpy.isin(X[:, j], known_array)
+                    unroutable = ~missing & ~seen
+                    X[unroutable, j] = -1.0
             X[missing, j] = code
         if reset:
             self.na_codes_in_ = na_codes if na_codes else None
+            self.observed_codes_in_ = observed_codes if observed_codes else None
         return X
 
     @staticmethod

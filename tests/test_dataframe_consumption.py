@@ -672,5 +672,80 @@ class TestPolarsConsumption(unittest.TestCase):
         self.assertTrue(numpy.all(numpy.isfinite(predictions)))
 
 
+class TestNaNDataFrameConsumption(unittest.TestCase):
+    """NaN handling specific to pandas and polars DataFrame columns."""
+
+    __slots__ = ()
+
+    def test_boolean_promotion_pins_codes_when_truth_value_unobserved(self):
+        """Promotion pins False=0/True=1/N-A=2 even when one truth value is unobserved."""
+        rng = numpy.random.default_rng(0)
+        n = 60
+        observed = numpy.full(n, True)
+        flag = pandas.array(observed, dtype="boolean")
+        flag[rng.random(n) < 0.4] = pandas.NA
+        y = numpy.where(pandas.isna(flag), 9.0, 1.0) + rng.normal(0.0, 0.2, n)
+        X = pandas.DataFrame({"flag": flag})
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        regression_tree.fit(X, y)
+        self.assertEqual(
+            regression_tree.promoted_boolean_features_in_, frozenset({0})
+        )
+        self.assertEqual(
+            regression_tree.category_labels_in_,
+            {0: {0.0: "False", 1.0: "True", 2.0: "N/A"}},
+        )
+
+    def test_literal_na_string_routes_to_node_average(self):
+        """A literal "N/A" string at predict routes to the node average, not the missing branch."""
+        rng = numpy.random.default_rng(1)
+        n = 120
+        category = numpy.where(rng.random(n) < 0.5, "a", "b").astype(object)
+        category[rng.random(n) < 0.3] = None
+        frame = pandas.DataFrame(
+            {"cat": pandas.Series(category, dtype="category")}
+        )
+        y = pandas.isna(pandas.Series(category)).to_numpy() * 4.0
+        regression_tree = sigma._tree_regression.RegressionTree(
+            min_splits=4, min_buckets=2
+        )
+        regression_tree.fit(frame, y)
+        missing_probe = pandas.DataFrame(
+            {"cat": pandas.Series([None], dtype="category")}
+        )
+        literal_probe = pandas.DataFrame(
+            {"cat": pandas.Series(["N/A"], dtype="category")}
+        )
+        unseen_probe = pandas.DataFrame(
+            {"cat": pandas.Series(["zzz"], dtype="category")}
+        )
+        literal_value = regression_tree.predict(literal_probe)[0]
+        unseen_value = regression_tree.predict(unseen_probe)[0]
+        missing_value = regression_tree.predict(missing_probe)[0]
+        self.assertAlmostEqual(literal_value, unseen_value, places=6)
+        self.assertNotAlmostEqual(literal_value, missing_value, places=3)
+
+    def test_polars_categorical_with_null_at_fit(self):
+        """A polars categorical with null at fit learns an N/A level and predicts finitely."""
+        rng = numpy.random.default_rng(2)
+        n = 120
+        category = numpy.where(rng.random(n) < 0.5, "a", "b").astype(object)
+        category[rng.random(n) < 0.3] = None
+        X = polars.DataFrame(
+            {"cat": polars.Series(list(category), dtype=polars.Categorical)}
+        )
+        y = pandas.isna(pandas.Series(category)).to_numpy() * 4.0 + rng.normal(
+            0.0, 0.2, n
+        )
+        regression_tree = sigma._tree_regression.RegressionTree(
+            min_splits=4, min_buckets=2
+        )
+        regression_tree.fit(X, y)
+        self.assertEqual(regression_tree.na_codes_in_, {0: 2.0})
+        self.assertTrue(numpy.all(numpy.isfinite(regression_tree.predict(X))))
+
+
 if __name__ == "__main__":
     unittest.main()

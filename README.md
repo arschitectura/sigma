@@ -412,12 +412,13 @@ is never imputed:
   maximizes the test statistic.
 - Categorical features gain a dedicated `N/A` level. A boolean column that
   contains `NaN` is treated as a three-level categorical (false, true,
-  `N/A`).
+  `N/A`) and renders as `is true`, `is false`, or `is missing` in every
+  exporter.
 
 At predict time, a value a node never learned to route - a `NaN` in a
 feature that was complete at fit, or an unseen category - falls back to
-that node's own prediction rather than raising. This behavior is identical
-across `predict`, `to_text`, `to_image`, and `to_sql`.
+that node's own prediction rather than raising. `predict`, `to_text`,
+`to_image`, and `to_sql` all reflect this same routing.
 
 ## 6. Parameters
 
