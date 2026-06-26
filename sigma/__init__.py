@@ -13,13 +13,7 @@ Example:
     report = sigma.export_text(tree)
     print(report)
 
-References:
-    Hothorn, Hornik, and Zeileis (2006), "Unbiased Recursive Partitioning:
-    A Conditional Inference Framework," *Journal of Computational and
-    Graphical Statistics*, 15(3), 651-674, reproducing the reference
-    implementation in Hothorn and Zeileis (2015), "partykit: A Modular
-    Toolkit for Recursive Partytioning in R," *Journal of Machine Learning
-    Research*, 16, 3905-3909.
+Documentation and source: https://github.com/arschitectura/sigma
 """
 
 # TODO verify the pickling
