@@ -1,14 +1,30 @@
 """Conditional inference trees for Python.
 
-Implements the algorithm from Hothorn, Hornik, and Zeileis (2006), "Unbiased
-Recursive Partitioning: A Conditional Inference Framework," *Journal of
-Computational and Graphical Statistics*, 15(3), 651-674, reproducing the
-reference implementation in Hothorn and Zeileis (2015), "partykit: A Modular
-Toolkit for Recursive Partytioning in R," *Journal of Machine Learning
-Research*, 16, 3905-3909.
+Provides four scikit-learn compatible estimators: ClassificationTree,
+RegressionTree, SurvivalTree, and RankingTree. Each is trained with fit,
+queried with predict, and rendered with export_text, export_sql,
+export_graphviz, or export_image.
+
+Example:
+    import sigma
+    tree = sigma.ClassificationTree(random_state=123)
+    tree.fit(X, y)
+    predictions = tree.predict(X)
+    report = sigma.export_text(tree)
+    print(report)
+
+References:
+    Hothorn, Hornik, and Zeileis (2006), "Unbiased Recursive Partitioning:
+    A Conditional Inference Framework," *Journal of Computational and
+    Graphical Statistics*, 15(3), 651-674, reproducing the reference
+    implementation in Hothorn and Zeileis (2015), "partykit: A Modular
+    Toolkit for Recursive Partytioning in R," *Journal of Machine Learning
+    Research*, 16, 3905-3909.
 """
 
 # TODO verify the pickling
+
+import importlib.metadata
 
 from ._export import export_graphviz, export_image, export_sql, export_text
 from ._extension import Extension, Leaf
@@ -37,6 +53,8 @@ from ._tree_classification import ClassificationTree
 from ._tree_ranking import RankingTree
 from ._tree_regression import RegressionTree
 from ._tree_survival import SurvivalTree
+
+__version__ = importlib.metadata.version("ars-sigma")
 
 __all__ = [
     "BooleanPartition",
