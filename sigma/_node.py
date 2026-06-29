@@ -323,7 +323,11 @@ class SurvivalNode(Node):
         components: list[float] = []
         for metric in self.metrics:
             sign = 1.0 if metric.better_is == "higher" else -1.0
-            components.append(sign * metric.value)
+            if numpy.isnan(metric.value):
+                component = float("inf")
+            else:
+                component = sign * metric.value
+            components.append(component)
         key = tuple(components)
         return key
 

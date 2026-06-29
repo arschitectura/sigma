@@ -2114,6 +2114,38 @@ class TestExportSql(unittest.TestCase):
             expected = _format_sql_numeric(leaf.prediction)
             self.assertIn(expected, result)
 
+    def test_export_sql_survival_undefined_median_matches_predict(self):
+        """An undefined-median survival leaf predicts NaN and emits SQL NULL,
+        matched row-for-row when the SQL is evaluated in SQLite."""
+        import sqlite3
+
+        X = numpy.array([[0.0]] * 8 + [[10.0]] * 8)
+        time = numpy.array([5] * 8 + [1, 1, 1, 1, 1, 1, 3, 3], dtype=float)
+        event = numpy.array([0] * 8 + [1] * 8, dtype=float)
+        survival_tree = sigma._tree_survival.SurvivalTree(
+            min_splits=2, min_buckets=3, max_depth=1, random_state=0
+        )
+        survival_tree.fit(X, numpy.column_stack([time, event]))
+        query = numpy.array([[0.0], [10.0]])
+        predictions = survival_tree.predict(query)
+        self.assertTrue(numpy.isnan(predictions[0]))
+        self.assertTrue(numpy.isfinite(predictions[1]))
+        sql_expression = survival_tree.to_sql()
+        self.assertIn("NULL", sql_expression)
+        connection = sqlite3.connect(":memory:")
+        try:
+            cursor = connection.cursor()
+            cursor.execute('CREATE TABLE points ("X[0]" REAL)')
+            cursor.execute("INSERT INTO points VALUES (?)", (0.0,))
+            cursor.execute("INSERT INTO points VALUES (?)", (10.0,))
+            connection.commit()
+            cursor.execute(f"SELECT {sql_expression} FROM points")
+            sql_predictions = [row[0] for row in cursor.fetchall()]
+        finally:
+            connection.close()
+        self.assertIsNone(sql_predictions[0])
+        self.assertEqual(sql_predictions[1], predictions[1])
+
     def test_export_sql_no_trailing_newline(self):
         """The emitted SQL does not end with a trailing newline."""
         regression_tree = _helpers._fit_three_step_regression_tree()

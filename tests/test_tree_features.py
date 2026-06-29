@@ -791,8 +791,8 @@ class TestNonFiniteRendering(unittest.TestCase):
         )
         self.assertEqual(rendered, " (unknown bounds)")
 
-    def test_survival_root_inf_median_renders_unknown(self):
-        """A SurvivalTree leaf whose median is +inf renders 'unknown' (not 'inf') in to_text."""
+    def test_survival_root_unreached_median_renders_unknown(self):
+        """An unreached survival median renders as 'unknown' in to_text."""
         rng = numpy.random.default_rng(0)
         n = 80
         time = rng.uniform(1.0, 5.0, n)

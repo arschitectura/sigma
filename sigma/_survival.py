@@ -96,20 +96,20 @@ def compute_median_survival(
     """Return the median survival time read from a Kaplan-Meier curve.
 
     The median is the smallest time t at which the survival curve drops to
-    0.5 or below. When the curve never reaches 0.5, +inf is returned.
+    0.5 or below. When the curve never reaches 0.5, NaN is returned.
 
     Args:
         times: Strictly-increasing observed times, shape (n,).
         surv: Survival probabilities at those times, shape (n,).
 
     Returns:
-        Median survival time, or +inf when the curve never reaches 0.5.
+        Median survival time, or NaN when the curve never reaches 0.5.
     """
     if len(times) == 0:
-        return float("inf")
+        return float("nan")
     below = numpy.where(surv <= 0.5)[0]
     if len(below) == 0:
-        return float("inf")
+        return float("nan")
     median = float(times[below[0]])
     return median
 

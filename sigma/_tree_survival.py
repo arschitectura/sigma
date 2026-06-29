@@ -270,7 +270,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
                 along the time axis with values in (0, 1].
 
         Returns:
-            Predicted scalar metric, shape (n_samples,).
+            Predicted scalar metric, shape (n_samples,). An undefined median
+            survival (the leaf Kaplan-Meier curve never reaching 0.5) is
+            returned as NaN.
         """
         indices = self.predict_index(X)
         if offset is None and not self._fit_with_offset:

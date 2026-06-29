@@ -675,9 +675,10 @@ class TestSklearnCheckParity(unittest.TestCase):
                         self.assertEqual(
                             prediction_weighted.shape, expected_shape
                         )
-                        nan_mask = numpy.isnan(prediction_weighted)
-                        has_nan = nan_mask.any()
-                        self.assertFalse(has_nan)
+                        is_nan = numpy.isnan(prediction_weighted)
+                        is_finite = numpy.isfinite(prediction_weighted)
+                        finite_or_nan = (is_nan | is_finite).all()
+                        self.assertTrue(finite_or_nan)
 
     def test_sample_weights_list(self):
         """sample_weight may be supplied as a Python list."""

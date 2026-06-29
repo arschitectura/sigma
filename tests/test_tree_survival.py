@@ -111,8 +111,12 @@ class TestSurvivalTreeFit(unittest.TestCase):
         estimator.fit(X, y)
         predictions = estimator.predict(X[:6])
         leaf_medians = [leaf.prediction for leaf in estimator.leaves_]
+        any_leaf_nan = any(numpy.isnan(median) for median in leaf_medians)
         for prediction in predictions:
-            self.assertIn(prediction, leaf_medians)
+            if numpy.isnan(prediction):
+                self.assertTrue(any_leaf_nan)
+            else:
+                self.assertIn(prediction, leaf_medians)
 
     def test_predict_survival_shape_and_monotonicity(self):
         """predict_survival returns non-increasing rows in [0, 1]."""
@@ -282,7 +286,12 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
             assert leaf.metrics is not None
             self.assertEqual(len(leaf.metrics), 1)
             self.assertEqual(leaf.metrics[0].label, "Median survival")
-            self.assertEqual(leaf.metrics[0].value, leaf.prediction)
+            value = leaf.metrics[0].value
+            prediction = leaf.prediction
+            if numpy.isnan(value):
+                self.assertTrue(numpy.isnan(prediction))
+            else:
+                self.assertEqual(value, prediction)
 
     def test_multiple_metrics_render_each_on_own_line(self):
         """Multi-metric leaves expose one record per configured metric."""
@@ -433,8 +442,12 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
         estimator.fit(X, y)
         assert len(estimator.leaves_) >= 2
         medians = [leaf.prediction for leaf in estimator.leaves_]
-        for k in range(len(medians) - 1):
-            self.assertLessEqual(medians[k], medians[k + 1])
+        ordered = [
+            float("inf") if numpy.isnan(median) else median
+            for median in medians
+        ]
+        for k in range(len(ordered) - 1):
+            self.assertLessEqual(ordered[k], ordered[k + 1])
 
     def test_set_params_metrics_invalidates_cached_parse(self):
         """set_params(metrics=...) followed by re-fit honors the new metric."""
@@ -697,6 +710,6 @@ class TestSurvivalTreeLiteratureCrosscheck(unittest.TestCase):
         self.assertEqual(right_partition.thresholds[0], 20)
         leaves_by_n = {leaf.n_samples: leaf for leaf in estimator.leaves_}
         self.assertEqual(leaves_by_n[248].prediction, 2093.0)
-        self.assertEqual(leaves_by_n[128].prediction, float("inf"))
+        self.assertTrue(numpy.isnan(leaves_by_n[128].prediction))
         self.assertEqual(leaves_by_n[144].prediction, 624.0)
         self.assertEqual(leaves_by_n[166].prediction, 1701.0)

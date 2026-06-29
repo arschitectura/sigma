@@ -152,22 +152,22 @@ class TestComputeMedianSurvival(unittest.TestCase):
             sigma._survival.compute_median_survival(times, surv), 2.0
         )
 
-    def test_curve_never_crosses_half_returns_inf(self):
-        """Returns +inf when the survival curve never reaches 0.5."""
+    def test_curve_never_crosses_half_returns_nan(self):
+        """Returns NaN when the survival curve never reaches 0.5."""
         times = numpy.array([1.0, 2.0, 3.0])
         surv = numpy.array([0.9, 0.8, 0.7])
-        self.assertEqual(
-            sigma._survival.compute_median_survival(times, surv),
-            float("inf"),
+        self.assertTrue(
+            numpy.isnan(sigma._survival.compute_median_survival(times, surv))
         )
 
-    def test_empty_returns_inf(self):
-        """Returns +inf for an empty curve."""
-        self.assertEqual(
-            sigma._survival.compute_median_survival(
-                numpy.empty(0), numpy.empty(0)
-            ),
-            float("inf"),
+    def test_empty_returns_nan(self):
+        """Returns NaN for an empty curve."""
+        self.assertTrue(
+            numpy.isnan(
+                sigma._survival.compute_median_survival(
+                    numpy.empty(0), numpy.empty(0)
+                )
+            )
         )
 
 
