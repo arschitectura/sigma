@@ -89,8 +89,8 @@ class Node(abc.ABC):
         path: list[_NodeT] = []
         node = self
         while True:
-            path.append(node)
-            match node.extension:
+            path.append(node)  # ty: ignore[invalid-argument-type]
+            match node.extension:  # ty: ignore[unresolved-attribute]
                 case _partition.Partition() as partition:
                     value = x[partition.feature_index]
                     child = partition.route(value)
@@ -107,7 +107,7 @@ class Node(abc.ABC):
             case _partition.Partition() as partition:
                 result: list[_NodeT] = []
                 for child in partition.children:
-                    result.extend(child.leaves())
+                    result.extend(child.leaves())  # ty: ignore[unresolved-attribute]
             case _:
                 result = [self]
         return result
@@ -442,7 +442,7 @@ def _assign_share(node: Node, total: int) -> None:
     match node.extension:
         case _partition.Partition() as partition:
             for child in partition.children:
-                _assign_share(child, total)
+                _assign_share(child, total)  # ty: ignore[invalid-argument-type]
 
 
 def display_branches(
