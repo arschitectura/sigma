@@ -9,6 +9,7 @@ van de Wiel, and Zeileis (2006), "A Lego System for Conditional Inference,"
 *The American Statistician*, 60(3), 257-263.
 """
 
+import collections.abc
 import typing
 
 import numpy
@@ -276,7 +277,9 @@ def select_variable(
                 resamples,
                 rng,
             )
-            adjusted_p_values = numpy.ones(m)
+            adjusted_p_values: numpy.typing.NDArray[numpy.floating] = (
+                numpy.ones(m)
+            )
             for k, j in enumerate(valid_indices):
                 adjusted_p_values[j] = adjusted_valid[k]
         case _:
@@ -343,11 +346,11 @@ def _adjust_p_values(
 
 def _adjust_p_values_monte_carlo(
     observed_p_values: numpy.typing.NDArray[numpy.floating],
-    g_list: list[numpy.typing.NDArray[numpy.floating]],
+    g_list: collections.abc.Sequence[numpy.typing.NDArray[numpy.floating]],
     h: numpy.typing.NDArray[numpy.floating],
     weights: numpy.typing.NDArray[numpy.floating],
-    mu_list: list[numpy.typing.NDArray[numpy.floating]],
-    Sigma_list: list[numpy.typing.NDArray[numpy.floating]],
+    mu_list: collections.abc.Sequence[numpy.typing.NDArray[numpy.floating]],
+    Sigma_list: collections.abc.Sequence[numpy.typing.NDArray[numpy.floating]],
     test_stat: _types.TestStat,
     resamples: int,
     rng: numpy.random.Generator,

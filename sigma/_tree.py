@@ -278,15 +278,16 @@ class Tree(
         Raises:
             ValueError: If side_data has a different number of rows than X; if
                 sample_weight is not 1D, has the wrong length, contains
-                non-finite or negative values; if resamples is not a positive
-                integer; if test_type="monte_carlo" and resamples is None; if
-                categorical_features contains a string label without a
-                DataFrame name source, or a string label that is not among the
-                DataFrame columns; if any response value violates the domain
-                required by the chosen ci_method (y > 0 for "log_normal", y >= 0
-                for "gamma" / "poisson" / "exponential", y in [0, 1] for
-                "beta"); or if offset has the wrong shape, contains non-finite
-                values, or violates the per-task domain.
+                non-finite or negative values, or is all zero; if resamples is
+                not a positive integer; if test_type="monte_carlo" and
+                resamples is None; if categorical_features contains a string
+                label without a DataFrame name source, or a string label that
+                is not among the DataFrame columns; if any response value
+                violates the domain required by the chosen ci_method (y > 0
+                for "log_normal", y >= 0 for "gamma" / "poisson" /
+                "exponential", y in [0, 1] for "beta"); or if offset has the
+                wrong shape, contains non-finite values, or violates the
+                per-task domain.
         """
         with numpy.errstate(divide="ignore", invalid="ignore", over="ignore"):
             self.response_name_in_ = _extract_response_name(y)
@@ -545,6 +546,8 @@ class Tree(
             raise ValueError("sample_weight values must be finite")
         if numpy.any(sample_weight < 0):
             raise ValueError("sample_weight values must be non-negative")
+        if not numpy.any(sample_weight > 0):
+            raise ValueError("sample_weight values must not be all zero")
         weights = sample_weight.copy()
         return weights
 

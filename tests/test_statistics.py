@@ -1,5 +1,6 @@
 """Unit tests for the statistical engine."""
 
+import collections.abc
 import itertools
 import unittest
 
@@ -20,7 +21,7 @@ import sigma._types
 
 
 def _moments(
-    g_list: list[numpy.typing.NDArray[numpy.floating]],
+    g_list: collections.abc.Sequence[numpy.typing.NDArray[numpy.floating]],
     h: numpy.typing.NDArray[numpy.floating],
     weights: numpy.typing.NDArray[numpy.floating],
 ) -> tuple[

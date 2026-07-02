@@ -16,6 +16,7 @@ Covers three behaviors derived from pandas metadata at fit time:
 """
 
 import unittest
+import warnings
 
 import numpy
 import pandas
@@ -670,6 +671,29 @@ class TestPolarsConsumption(unittest.TestCase):
         predictions = regression_tree.predict(X_unseen)
         self.assertEqual(predictions.shape, (len(y),))
         self.assertTrue(numpy.all(numpy.isfinite(predictions)))
+
+    def test_polars_fit_predict_emits_no_interchange_deprecation(self):
+        """Fitting and predicting on polars input does not emit the dataframe interchange protocol DeprecationWarning."""
+        signal, noise, y = self._signal_design()
+        X = polars.DataFrame(
+            {
+                "color": polars.Series(signal, dtype=polars.Categorical),
+                "noise": noise,
+            }
+        )
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            regression_tree.fit(X, y)
+            regression_tree.predict(X)
+        interchange_count = 0
+        for entry in caught:
+            message_text = str(entry.message)
+            if "dataframe interchange protocol" in message_text:
+                interchange_count += 1
+        self.assertEqual(interchange_count, 0)
 
 
 class TestNaNDataFrameConsumption(unittest.TestCase):

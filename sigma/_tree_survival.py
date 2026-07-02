@@ -282,7 +282,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         n_indices = len(indices)
         n_event_grid = len(event_grid)
         if offset is None:
-            offset_grid = numpy.ones((n_indices, n_event_grid))
+            offset_grid: numpy.typing.NDArray[numpy.floating] = numpy.ones(
+                (n_indices, n_event_grid)
+            )
         else:
             offset_grid = self._validate_predict_offset_grid(
                 offset, n_indices, n_event_grid

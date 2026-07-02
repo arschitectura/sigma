@@ -1,8 +1,10 @@
 """Unit tests for sklearn estimator compliance."""
 
 import unittest
+import warnings
 
 import numpy
+import sklearn.exceptions
 import sklearn.pipeline
 import sklearn.preprocessing
 import sklearn.utils.estimator_checks
@@ -70,15 +72,22 @@ _RANKING_EXPECTED_FAILED_CHECKS = {
     **dict.fromkeys(
         _SURVIVAL_Y_SHAPE_FAILED_CHECKS, _RANKING_Y_SHAPE_FAILURE_REASON
     ),
+    "check_all_zero_sample_weights_error": _RANKING_Y_SHAPE_FAILURE_REASON,
 }
 
 
 def _run_check_estimator(estimator, expected_failed_checks):
     """Run the scikit-learn estimator checks for the given estimator."""
-    sklearn.utils.estimator_checks.check_estimator(
-        estimator,
-        expected_failed_checks=expected_failed_checks,
-    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="Skipping check check_array_api_input",
+            category=sklearn.exceptions.SkipTestWarning,
+        )
+        sklearn.utils.estimator_checks.check_estimator(
+            estimator,
+            expected_failed_checks=expected_failed_checks,
+        )
 
 
 class TestSklearnCompliance(unittest.TestCase):

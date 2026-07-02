@@ -1,9 +1,9 @@
 """Reproduce scikit-learn's target-dependent estimator checks for the trees
 whose target is two-dimensional (SurvivalTree, RankingTree).
 
-scikit-learn's check_estimator feeds a one-dimensional y, so the 28 checks
-that fit the estimator cannot run against these estimators and are declared
-expected failures in test_estimator.py. This module re-runs each of those 28
+scikit-learn's check_estimator feeds a one-dimensional y, so the checks that
+fit the estimator cannot run against these estimators and are declared
+expected failures in test_estimator.py. This module re-runs each of those
 checks with a valid two-dimensional target, reproducing scikit-learn's own
 setup and assertions (and reusing its assertion helpers), then adds the
 checks specific to the survival and ranking targets.
@@ -760,6 +760,21 @@ class TestSklearnCheckParity(unittest.TestCase):
                 matrix_weight = numpy.ones((n_samples, 2))
                 with sklearn.utils._testing.raises(ValueError):
                     estimator.fit(X, y, sample_weight=matrix_weight)
+
+    def test_all_zero_sample_weights_error(self):
+        """An all-zero sample_weight raises a ValueError naming zero weights."""
+        for label, factory, target in _estimator_cases():
+            with self.subTest(estimator=label):
+                rng = numpy.random.RandomState(0)
+                X = rng.uniform(size=(16, 2))
+                y = target(X)
+                estimator = factory()
+                sklearn.utils.estimator_checks.set_random_state(estimator, 0)
+                n_samples = len(y)
+                zero_weight = numpy.zeros(n_samples)
+                pattern = r"(.*weight.*zero.*)|(.*zero.*weight.*)"
+                with sklearn.utils._testing.raises(ValueError, match=pattern):
+                    estimator.fit(X, y, sample_weight=zero_weight)
 
 
 class TestTwoDimensionalTargetContract(unittest.TestCase):

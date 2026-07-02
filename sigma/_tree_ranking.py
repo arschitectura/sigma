@@ -627,7 +627,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         ci_coverage = self.ci_coverage
         if ci_coverage is None:
             return None, None
-        n_active = y_full_active.shape[0]
+        n_active = int(y_full_active.shape[0])
         n_items = self.n_items_
         if n_active == 0:
             empty = numpy.full(n_items, numpy.nan, dtype=float)
