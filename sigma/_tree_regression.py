@@ -672,6 +672,12 @@ class RegressionTree(
 
         Returns:
             Predicted values, shape (n_samples,).
+
+        Raises:
+            ValueError: If a column's type kind differs from its fit-time
+                kind, or if X is a plain array or list that carries
+                boolean values or predicts into a model fit with boolean
+                or categorical columns.
         """
         indices = self.predict_index(X)
         base = self._gather_node_predictions(indices)

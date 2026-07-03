@@ -302,6 +302,12 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             when no names were provided at fit, else the supplied labels.
             A sample reaching a node whose items all have an undefined
             expected rank receives the first item (index 0).
+
+        Raises:
+            ValueError: If a column's type kind differs from its fit-time
+                kind, or if X is a plain array or list that carries
+                boolean values or predicts into a model fit with boolean
+                or categorical columns.
         """
         indices = self.predict_index(X)
         node_predictions = numpy.array(
@@ -326,6 +332,12 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             Per-sample expected-rank matrix, shape (n_samples, n_items).
             Each finite entry lies in [1, n_items_]; nodes with no active
             rows report NaN for every item.
+
+        Raises:
+            ValueError: If a column's type kind differs from its fit-time
+                kind, or if X is a plain array or list that carries
+                boolean values or predicts into a model fit with boolean
+                or categorical columns.
         """
         indices = self.predict_index(X)
         node_mean_ranks = numpy.array(

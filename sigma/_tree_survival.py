@@ -273,6 +273,12 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             Predicted scalar metric, shape (n_samples,). An undefined median
             survival (the leaf Kaplan-Meier curve never reaching 0.5) is
             returned as NaN.
+
+        Raises:
+            ValueError: If a column's type kind differs from its fit-time
+                kind, or if X is a plain array or list that carries
+                boolean values or predicts into a model fit with boolean
+                or categorical columns.
         """
         indices = self.predict_index(X)
         if offset is None and not self._fit_with_offset:
@@ -319,6 +325,12 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
 
         Returns:
             Survival probabilities, shape (n_samples, n_times).
+
+        Raises:
+            ValueError: If a column's type kind differs from its fit-time
+                kind, or if X is a plain array or list that carries
+                boolean values or predicts into a model fit with boolean
+                or categorical columns.
         """
         node_indices = self.predict_index(X)
         times_array = numpy.asarray(times, dtype=float)

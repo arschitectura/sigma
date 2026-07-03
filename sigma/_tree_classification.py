@@ -409,6 +409,12 @@ class ClassificationTree(
 
         Returns:
             Predicted class labels, shape (n_samples,).
+
+        Raises:
+            ValueError: If a column's type kind differs from its fit-time
+                kind, or if X is a plain array or list that carries
+                boolean values or predicts into a model fit with boolean
+                or categorical columns.
         """
         if offset is None and not self._fit_with_offset:
             node_indices = self.predict_index(X)
@@ -440,6 +446,12 @@ class ClassificationTree(
 
         Returns:
             Predicted class probabilities, shape (n_samples, n_classes).
+
+        Raises:
+            ValueError: If a column's type kind differs from its fit-time
+                kind, or if X is a plain array or list that carries
+                boolean values or predicts into a model fit with boolean
+                or categorical columns.
         """
         node_indices = self.predict_index(X)
         nodes = self.nodes_

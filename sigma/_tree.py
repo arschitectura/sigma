@@ -282,7 +282,8 @@ class Tree(
                 not a positive integer; if test_type="monte_carlo" and
                 resamples is None; if categorical_features contains a string
                 label without a DataFrame name source, or a string label that
-                is not among the DataFrame columns; if any response value
+                is not among the DataFrame columns; if X is a plain array or
+                list carrying boolean values; if any response value
                 violates the domain required by the chosen ci_method (y > 0
                 for "log_normal", y >= 0 for "gamma" / "poisson" /
                 "exponential", y in [0, 1] for "beta"); or if offset has the
@@ -298,6 +299,9 @@ class Tree(
                 self.promoted_boolean_features_in_,
                 self.na_codes_in_,
             ) = _preprocess_dataframe_X(X)
+            input_columns = getattr(X, "columns", None)
+            if input_columns is None:
+                _reject_boolean_bare_values(X)
             X, y = self._validate_fit_params(X, y)
             n_rows = X.shape[0]
             if side_data is not None:
@@ -567,8 +571,15 @@ class Tree(
             sample's categorical value is not routable at an internal
             node, the index is that of the holding node rather than a
             descendant leaf.
+
+        Raises:
+            ValueError: If a column's type kind differs from its fit-time
+                kind, if X is a plain array or list while the model was
+                fit with boolean or categorical columns, or if a plain
+                array or list carries boolean values.
         """
         sklearn.utils.validation.check_is_fitted(self, "content_")
+        self._validate_predict_column_types(X)
         X = _apply_categorical_encoding(
             X, self.category_labels_in_, self.na_codes_in_
         )
@@ -610,6 +621,12 @@ class Tree(
             the id is that leaf's; for samples whose categorical value
             is not routable at an internal node, the id is that of the
             holding node.
+
+        Raises:
+            ValueError: If a column's type kind differs from its fit-time
+                kind, or if X is a plain array or list that carries
+                boolean values or predicts into a model fit with boolean
+                or categorical columns.
         """
         ids = self.predict_index(X)
         return ids
@@ -630,8 +647,15 @@ class Tree(
             dtype numpy.intp, with 1s on visited nodes and 0s elsewhere.
             For samples whose categorical value is not routable at an
             internal node, the path ends at that holding node.
+
+        Raises:
+            ValueError: If a column's type kind differs from its fit-time
+                kind, or if X is a plain array or list that carries
+                boolean values or predicts into a model fit with boolean
+                or categorical columns.
         """
         sklearn.utils.validation.check_is_fitted(self, "content_")
+        self._validate_predict_column_types(X)
         X = _apply_categorical_encoding(
             X, self.category_labels_in_, self.na_codes_in_
         )
@@ -657,6 +681,74 @@ class Tree(
             dtype=numpy.intp,
         )
         return path
+
+    def _validate_predict_column_types(
+        self,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
+    ) -> None:
+        """Reject predict input whose column types differ from the fit-time column types."""
+        columns = getattr(X, "columns", None)
+        if columns is None:
+            listing = self._typed_column_listing()
+            if listing is not None:
+                raise ValueError(
+                    f"predict input is a plain array or list without column"
+                    f" types, but the model was fit with typed columns"
+                    f" ({listing}); supply a pandas or polars DataFrame with"
+                    f" the fit-time column types"
+                )
+            _reject_boolean_bare_values(X)
+            return
+        sklearn.utils.validation.validate_data(
+            self, X, reset=False, skip_check_array=True
+        )
+        for index, name in enumerate(columns):
+            expected = self._fit_column_kind(index)
+            column = X[name]
+            actual = _column_kind(column)
+            if actual == expected:
+                continue
+            dtype = column.dtype
+            raise ValueError(
+                f"column {name!r} was fit as {expected} but supplied as"
+                f" {actual} (dtype {dtype}) at predict; supply each column"
+                f" with its fit-time type"
+            )
+
+    def _fit_column_kind(self, index: int) -> str:
+        """Fit-time type kind of a column: boolean, categorical, or numeric."""
+        boolean_indices = self.boolean_features_in_ or frozenset()
+        promoted_indices = self.promoted_boolean_features_in_ or frozenset()
+        if index in boolean_indices or index in promoted_indices:
+            return "boolean"
+        label_indices = self.category_labels_in_ or {}
+        if index in label_indices:
+            return "categorical"
+        return "numeric"
+
+    def _typed_column_listing(self) -> None | str:
+        """Comma-separated name (kind) listing of the boolean and categorical fit columns, or None."""
+        boolean_indices = self.boolean_features_in_ or frozenset()
+        promoted_indices = self.promoted_boolean_features_in_ or frozenset()
+        label_map = self.category_labels_in_ or {}
+        label_keys = label_map.keys()
+        label_indices = frozenset(label_keys)
+        typed_indices = boolean_indices | promoted_indices | label_indices
+        if not typed_indices:
+            return None
+        names = getattr(self, "feature_names_in_", None)
+        parts: list[str] = []
+        for index in sorted(typed_indices):
+            kind = self._fit_column_kind(index)
+            if names is None:
+                label = f"X[{index}]"
+            else:
+                label = str(names[index])
+            parts.append(f"{label!r} ({kind})")
+        listing = ", ".join(parts)
+        return listing
 
     def compact(self) -> typing_extensions.Self:
         """Return a new tree with recursive same-feature splits merged.
@@ -1666,7 +1758,10 @@ class Tree(
         missing rule - evaluates to that node's own prediction, mirroring
         predict; a learned missing rule emits an explicit IS NULL branch.
         Branch ordering follows tree.reverse_order exactly like to_text
-        and to_image.
+        and to_image. The first line is a SQL comment naming each
+        referenced column and the column type the expression expects
+        (numeric, boolean, or text); the expression assumes every column
+        keeps its fit-time type.
 
         Args:
             out_file: Where to write the SQL. When None (the default), the
@@ -2195,6 +2290,23 @@ def _column_kind(column: typing.Any) -> str:
             return "numeric"
         return "unsupported"
     return "unsupported"
+
+
+def _reject_boolean_bare_values(X: typing.Any) -> None:
+    """Raise when a plain array or list of X carries boolean values."""
+    array = numpy.asarray(X)
+    has_boolean = array.dtype.kind == "b"
+    if not has_boolean and array.dtype.kind == "O":
+        for value in array.flat:
+            if isinstance(value, (bool, numpy.bool_)):
+                has_boolean = True
+                break
+    if has_boolean:
+        raise ValueError(
+            "X contains boolean values in a plain array or list; supply"
+            " numbers only, or use a pandas or polars DataFrame with typed"
+            " boolean columns"
+        )
 
 
 def _encode_boolean_column(

@@ -317,6 +317,7 @@ print(sql_expression)
 ```
 
 ```sql
+-- Expects: "Passenger class" text, "Sex" text, "Age" numeric
 CASE
     WHEN "Passenger class" IN ('1st', '2nd') THEN
         CASE
@@ -361,7 +362,11 @@ probability the expression should emit. Any value a node cannot route -
 an unseen category, or a `NULL` at a node that learned no missing rule -
 evaluates to that node's own prediction, mirroring `tree.predict`. When a
 split learned a missing rule it is emitted as an explicit `... IS NULL`
-branch.
+branch. The leading `-- Expects:` comment names each referenced column
+and the SQL column type the expression compares against (`text` for
+label categoricals, `boolean` for boolean columns, `numeric` otherwise);
+a SQL expression cannot verify column types itself, so the expression
+assumes every column keeps its fit-time type.
 
 ### 5.5. Collapsing recursive splits with `compact()`
 
@@ -419,6 +424,15 @@ At predict time, a value a node never learned to route - a `NaN` in a
 feature that was complete at fit, or an unseen category - falls back to
 that node's own prediction rather than raising. `predict`, `to_text`,
 `to_image`, and `to_sql` all reflect this same routing.
+
+Predict input must present each column with the same type it had at fit.
+Numeric columns accept any numeric width (int, float32, float64,
+nullable, or null-carrying) in a list, numpy array, pandas DataFrame, or
+polars DataFrame, while boolean and categorical columns must again be
+supplied as boolean and categorical DataFrame columns. Any other
+combination raises `ValueError` instead of silently reinterpreting the
+values, and plain arrays or lists - which carry no column types - are
+accepted only when the model was fit on numeric data.
 
 ## 6. Parameters
 

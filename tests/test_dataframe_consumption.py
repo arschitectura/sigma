@@ -452,7 +452,7 @@ class TestBooleanColumnDetection(unittest.TestCase):
         self.assertIsInstance(partition, sigma._partition.BooleanPartition)
 
     def test_predict_roundtrip_with_bool_column(self):
-        """``predict`` accepts numpy bool, pandas BooleanDtype, and 0/1 floats."""
+        """``predict`` accepts numpy bool and pandas BooleanDtype columns and rejects 0/1 floats."""
         signal, noise, y = self._two_level_design()
         X_fit = pandas.DataFrame({"flag": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
@@ -467,12 +467,14 @@ class TestBooleanColumnDetection(unittest.TestCase):
             }
         )
         preds_nullable = regression_tree.predict(X_nullable)
+        numpy.testing.assert_array_equal(preds_bool, preds_nullable)
         X_floats = pandas.DataFrame(
             {"flag": signal.astype(float), "noise": noise}
         )
-        preds_floats = regression_tree.predict(X_floats)
-        numpy.testing.assert_array_equal(preds_bool, preds_nullable)
-        numpy.testing.assert_array_equal(preds_bool, preds_floats)
+        with self.assertRaisesRegex(
+            ValueError, "was fit as boolean but supplied as numeric"
+        ):
+            regression_tree.predict(X_floats)
 
 
 class TestStrictColumnTyping(unittest.TestCase):

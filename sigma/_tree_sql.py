@@ -26,8 +26,8 @@ def _collect_sql(
     max_depth: None | int,
     best_first: bool,
 ) -> str:
-    """Build the SQL CASE expression for the tree rooted at root."""
-    result = _build_sql_case(
+    """Build the expectations comment and SQL CASE expression for the tree rooted at root."""
+    body = _build_sql_case(
         root,
         feature_names,
         category_labels,
@@ -38,7 +38,80 @@ def _collect_sql(
         best_first,
         indent_level=0,
     )
+    header = _format_sql_expectations(
+        root, feature_names, category_labels, promoted_booleans, max_depth
+    )
+    if header is None:
+        return body
+    result = f"{header}\n{body}"
     return result
+
+
+def _format_sql_expectations(
+    root: _node.Node,
+    feature_names: None | numpy.typing.NDArray,
+    category_labels: None | dict[int, dict[float, str]],
+    promoted_booleans: None | frozenset[int],
+    max_depth: None | int,
+) -> None | str:
+    """Build the leading comment listing each referenced column and the SQL
+    column type the expression expects, or None when the rendered expression
+    references no column."""
+    partitions: dict[int, _partition.Partition] = {}
+    _collect_rendered_partitions(root, max_depth, partitions)
+    if not partitions:
+        return None
+    parts: list[str] = []
+    for index in sorted(partitions):
+        partition = partitions[index]
+        raw_name = _tree_text._resolve_feature_name(partition, feature_names)
+        identifier = _format_sql_identifier(raw_name)
+        kind = _expected_sql_kind(partition, category_labels, promoted_booleans)
+        parts.append(f"{identifier} {kind}")
+    listing = ", ".join(parts)
+    line = f"-- Expects: {listing}"
+    return line
+
+
+def _collect_rendered_partitions(
+    node: _node.Node,
+    max_depth: None | int,
+    partitions: dict[int, _partition.Partition],
+) -> None:
+    """Record the partition of each internal node rendered within max_depth."""
+    extension = node.extension
+    if isinstance(extension, _extension.Leaf):
+        return
+    if max_depth is not None and node.depth >= max_depth:
+        return
+    partition = typing.cast(_partition.Partition, extension)
+    if partition.feature_index not in partitions:
+        partitions[partition.feature_index] = partition
+    for child in partition.children:
+        _collect_rendered_partitions(child, max_depth, partitions)
+
+
+def _expected_sql_kind(
+    partition: _partition.Partition,
+    category_labels: None | dict[int, dict[float, str]],
+    promoted_booleans: None | frozenset[int],
+) -> str:
+    """SQL column kind the partition's rendered conditions compare against."""
+    promoted = promoted_booleans or frozenset()
+    if partition.feature_index in promoted:
+        return "boolean"
+    match partition:
+        case _partition.BooleanPartition():
+            return "boolean"
+        case _partition.CategoricalPartition():
+            labels = _tree_text._feature_category_labels(
+                partition, category_labels
+            )
+            if labels is None:
+                return "numeric"
+            return "text"
+        case _:
+            return "numeric"
 
 
 def _build_sql_case(

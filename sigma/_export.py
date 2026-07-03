@@ -239,7 +239,10 @@ def export_sql(
     that node's own prediction, mirroring tree.predict. A learned missing
     rule is emitted as an explicit "col" IS NULL branch. Branch ordering
     follows the tree's reverse_order attribute exactly like to_text and
-    to_image.
+    to_image. The first line is a SQL comment naming each referenced
+    column and the column type the expression expects (numeric, boolean,
+    or text); the expression assumes every column keeps its fit-time
+    type.
 
     Args:
         tree: A fitted Tree estimator (ClassificationTree, RegressionTree,
