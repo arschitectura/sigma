@@ -11,7 +11,6 @@ from __future__ import annotations
 import abc
 import collections.abc
 import copy
-import dataclasses
 import sys
 import typing
 
@@ -33,8 +32,6 @@ if typing.TYPE_CHECKING:
     import pandas
     import polars
 
-# TODO review all shared data structures
-
 
 _CategoryLabels: typing.TypeAlias = (
     dict[int, dict[float, str]]
@@ -46,39 +43,16 @@ _OFFSET_EPS = 1e-15
 
 
 N = typing.TypeVar("N", bound=_node.Node)
+S = typing.TypeVar("S", bound=_node._EstimatorStatistics)
 
 
-@dataclasses.dataclass(frozen=True)
-class _NodePayload:
-    """Per-task computed values passed to a subclass _make_node."""
-
-    depth: int
-    n_samples: int
-    extension: _extension.Extension
-    prediction: float
-    ci_low: None | float
-    ci_high: None | float
-    ci_low_per_class: None | numpy.typing.NDArray[numpy.floating]
-    ci_high_per_class: None | numpy.typing.NDArray[numpy.floating]
-    class_distribution: None | numpy.typing.NDArray[numpy.floating]
-    survival_function: (
-        None
-        | tuple[
-            numpy.typing.NDArray[numpy.floating],
-            numpy.typing.NDArray[numpy.floating],
-        ]
-    )
-    survival_log_variance: None | numpy.typing.NDArray[numpy.floating]
-    survival_metrics: None | list[_node.SurvivalMetric]
-    ranking_metrics: None | list[_node.RankingMetric]
-    mean_offset_proba: None | numpy.typing.NDArray[numpy.floating]
-    response_samples: None | numpy.typing.NDArray[numpy.floating]
+# TODO review all shared data structures
 
 
 class Tree(
     sklearn.base.BaseEstimator,
     abc.ABC,
-    typing.Generic[N],
+    typing.Generic[N, S],
 ):
     """Abstract base class for conditional inference trees.
 
@@ -852,15 +826,6 @@ class Tree(
             Root of the constructed subtree.
         """
         w_sum = float(w_transmuted.sum())
-        prediction = self._compute_prediction(
-            y_transmuted, w_transmuted, offset_transmuted
-        )
-        ci_low, ci_high = self._compute_ci(
-            y_transmuted, w_transmuted, offset_transmuted
-        )
-        ci_low_per_class, ci_high_per_class = self._compute_per_class_ci(
-            y_transmuted, w_transmuted
-        )
         n_samples = int(numpy.count_nonzero(w_transmuted))
         is_constant = self._is_constant_response(
             y_transmuted, w_transmuted, offset_transmuted
@@ -874,7 +839,6 @@ class Tree(
                 depth,
                 y_transmuted,
                 w_transmuted,
-                weights,
                 offset_transmuted,
             )
             self._apply_decorator(leaf, X, y, weights, side_data, offset)
@@ -896,7 +860,6 @@ class Tree(
                 depth,
                 y_transmuted,
                 w_transmuted,
-                weights,
                 offset_transmuted,
             )
             self._apply_decorator(leaf, X, y, weights, side_data, offset)
@@ -918,7 +881,6 @@ class Tree(
                 depth,
                 y_transmuted,
                 w_transmuted,
-                weights,
                 offset_transmuted,
             )
             self._apply_decorator(leaf, X, y, weights, side_data, offset)
@@ -997,12 +959,14 @@ class Tree(
                     depth,
                     y_transmuted,
                     w_transmuted,
-                    weights,
                     offset_transmuted,
                 )
                 self._apply_decorator(leaf, X, y, weights, side_data, offset)
                 return leaf
             p_value = max(p_value, transmuted_p)
+        statistics = self._compute_statistics(
+            y_transmuted, w_transmuted, offset_transmuted, is_leaf=False
+        )
         left_child = self._build_tree(
             X,
             y,
@@ -1031,26 +995,8 @@ class Tree(
             offset=offset,
             offset_transmuted=offset_right_transmuted,
         )
-        class_distribution = self._compute_class_distribution(
-            y_transmuted, w_transmuted
-        )
-        survival_function = self._compute_survival_function(
-            y_transmuted, w_transmuted
-        )
-        survival_log_variance = self._compute_survival_log_variance(
-            y_transmuted, w_transmuted
-        )
-        survival_metrics = self._compute_survival_metrics(
-            y_transmuted, w_transmuted
-        )
-        ranking_metrics = self._compute_ranking_metrics(
-            y_transmuted, w_transmuted
-        )
-        mean_offset_proba = self._compute_mean_offset_proba(
-            w_transmuted, offset_transmuted
-        )
         split_name = None if names is None else str(names[feature_index])
-        statistics = _partition.SplitStatistics(
+        split_statistics = _partition.SplitStatistics(
             p_value=p_value,
             T=selection.T,
             mu=selection.mu,
@@ -1063,7 +1009,7 @@ class Tree(
                 partition = _partition.BooleanPartition(
                     feature_index=feature_index,
                     feature_name=split_name,
-                    statistics=statistics,
+                    statistics=split_statistics,
                     children=children,
                 )
             case _types.CovariateType.CATEGORICAL:
@@ -1074,7 +1020,7 @@ class Tree(
                 partition = _partition.CategoricalPartition(
                     feature_index=feature_index,
                     feature_name=split_name,
-                    statistics=statistics,
+                    statistics=split_statistics,
                     children=children,
                     category_groups=category_groups,
                 )
@@ -1082,46 +1028,36 @@ class Tree(
                 partition = _partition.NumericalPartition(
                     feature_index=feature_index,
                     feature_name=split_name,
-                    statistics=statistics,
+                    statistics=split_statistics,
                     children=children,
                     thresholds=typing.cast(
                         "tuple[int | float, ...]", numeric_thresholds
                     ),
                     nan_child=numeric_nan_child,
                 )
-        payload = _NodePayload(
-            depth=depth,
-            n_samples=n_samples,
-            extension=partition,
-            prediction=prediction,
-            ci_low=ci_low,
-            ci_high=ci_high,
-            ci_low_per_class=ci_low_per_class,
-            ci_high_per_class=ci_high_per_class,
-            class_distribution=class_distribution,
-            survival_function=survival_function,
-            survival_log_variance=survival_log_variance,
-            survival_metrics=survival_metrics,
-            ranking_metrics=ranking_metrics,
-            mean_offset_proba=mean_offset_proba,
-            response_samples=None,
-        )
-        node = self._make_node(payload)
+        node = self._make_node(depth, n_samples, partition, statistics)
         self._apply_decorator(node, X, y, weights, side_data, offset)
         return node
 
     @abc.abstractmethod
-    def _make_node(self, payload: _NodePayload) -> N:
-        """Construct a task-specific Node from the per-task computed payload."""
-
-    def _compute_response_samples_for_leaf(
+    def _compute_statistics(
         self,
         y_transmuted: numpy.typing.NDArray[numpy.floating],
         w_transmuted: numpy.typing.NDArray[numpy.floating],
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Compute the per-leaf response sample array."""
-        return None
+        is_leaf: bool,
+    ) -> S:
+        """Compute the node's summary values from its own active samples."""
+
+    @abc.abstractmethod
+    def _make_node(
+        self,
+        depth: int,
+        n_samples: int,
+        extension: _extension.Extension,
+        statistics: S,
+    ) -> N:
+        """Assemble the task's Node from its computed statistics."""
 
     @abc.abstractmethod
     def _validate_fit_params(
@@ -1174,23 +1110,6 @@ class Tree(
         """Compute the influence function h from the target."""
 
     @abc.abstractmethod
-    def _compute_prediction(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-        offset: None | numpy.typing.NDArray[numpy.floating],
-    ) -> float:
-        """Compute the node prediction value."""
-
-    def _compute_mean_offset_proba(
-        self,
-        weights: numpy.typing.NDArray[numpy.floating],
-        offset: None | numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Compute the weighted mean of offset probability rows for a node."""
-        return None
-
-    @abc.abstractmethod
     def _is_constant_response(
         self,
         y: numpy.typing.NDArray[numpy.floating],
@@ -1206,72 +1125,6 @@ class Tree(
             return None
         alpha = (1.0 - ci_coverage) / 2.0
         return alpha
-
-    def _compute_ci(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-        offset: None | numpy.typing.NDArray[numpy.floating],
-    ) -> tuple[None | float, None | float]:
-        """Node-prediction CI; (None, None) unless the task overrides it."""
-        return None, None
-
-    def _compute_per_class_ci(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> tuple[
-        None | numpy.typing.NDArray[numpy.floating],
-        None | numpy.typing.NDArray[numpy.floating],
-    ]:
-        """Per-class CI bounds; (None, None) unless the task overrides it."""
-        return None, None
-
-    def _compute_class_distribution(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Node class distribution; None unless the task overrides it."""
-        return None
-
-    def _compute_survival_function(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> (
-        None
-        | tuple[
-            numpy.typing.NDArray[numpy.floating],
-            numpy.typing.NDArray[numpy.floating],
-        ]
-    ):
-        """Node survival function; None unless the task overrides it."""
-        return None
-
-    def _compute_survival_log_variance(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
-        """Greenwood log S(t) variance; None unless the task overrides it."""
-        return None
-
-    def _compute_survival_metrics(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | list[_node.SurvivalMetric]:
-        """Per-node survival metrics; None unless the task overrides it."""
-        return None
-
-    def _compute_ranking_metrics(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | list[_node.RankingMetric]:
-        """Per-item ranking metrics; None unless the task overrides it."""
-        return None
 
     @staticmethod
     def _offset_active_slice(
@@ -1553,59 +1406,14 @@ class Tree(
         depth: int,
         y_transmuted: numpy.typing.NDArray[numpy.floating],
         w_transmuted: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
     ) -> N:
         """Build a leaf node from transmuted data."""
-        prediction = self._compute_prediction(
-            y_transmuted, w_transmuted, offset_transmuted
-        )
         n_samples = int(numpy.count_nonzero(w_transmuted))
-        ci_low, ci_high = self._compute_ci(
-            y_transmuted, w_transmuted, offset_transmuted
+        statistics = self._compute_statistics(
+            y_transmuted, w_transmuted, offset_transmuted, is_leaf=True
         )
-        ci_low_per_class, ci_high_per_class = self._compute_per_class_ci(
-            y_transmuted, w_transmuted
-        )
-        class_distribution = self._compute_class_distribution(
-            y_transmuted, w_transmuted
-        )
-        survival_function = self._compute_survival_function(
-            y_transmuted, w_transmuted
-        )
-        survival_log_variance = self._compute_survival_log_variance(
-            y_transmuted, w_transmuted
-        )
-        survival_metrics = self._compute_survival_metrics(
-            y_transmuted, w_transmuted
-        )
-        ranking_metrics = self._compute_ranking_metrics(
-            y_transmuted, w_transmuted
-        )
-        mean_offset_proba = self._compute_mean_offset_proba(
-            w_transmuted, offset_transmuted
-        )
-        response_samples = self._compute_response_samples_for_leaf(
-            y_transmuted, w_transmuted, offset_transmuted
-        )
-        payload = _NodePayload(
-            depth=depth,
-            n_samples=n_samples,
-            extension=_extension.Leaf(),
-            prediction=prediction,
-            ci_low=ci_low,
-            ci_high=ci_high,
-            ci_low_per_class=ci_low_per_class,
-            ci_high_per_class=ci_high_per_class,
-            class_distribution=class_distribution,
-            survival_function=survival_function,
-            survival_log_variance=survival_log_variance,
-            survival_metrics=survival_metrics,
-            ranking_metrics=ranking_metrics,
-            mean_offset_proba=mean_offset_proba,
-            response_samples=response_samples,
-        )
-        leaf = self._make_node(payload)
+        leaf = self._make_node(depth, n_samples, _extension.Leaf(), statistics)
         return leaf
 
     def _apply_decorator(

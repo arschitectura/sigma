@@ -10,6 +10,7 @@ import numpy.typing
 import sklearn.utils
 import sklearn.utils.validation
 
+from . import _extension
 from . import _node
 from . import _survival
 from . import _tree
@@ -39,7 +40,7 @@ class _Metric:
         self.unit = unit
 
 
-class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
+class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
     """Conditional inference tree for right-censored survival outcomes.
 
     Uses permutation-based conditional inference for unbiased variable selection
@@ -540,28 +541,45 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             )
         return y_out_shape[0]
 
-    def _make_node(self, payload: _tree._NodePayload) -> _node.SurvivalNode:
-        """Construct a SurvivalNode with the survival-function and metrics payload."""
+    def _compute_statistics(
+        self,
+        y_transmuted: numpy.typing.NDArray[numpy.floating],
+        w_transmuted: numpy.typing.NDArray[numpy.floating],
+        offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
+        is_leaf: bool,
+    ) -> _node._SurvivalStatistics:
+        """Compute the node's Kaplan-Meier curve, log-variance, and metrics."""
+        survival_function = self._compute_survival_function(
+            y_transmuted, w_transmuted
+        )
+        survival_log_variance = self._compute_survival_log_variance(
+            y_transmuted, w_transmuted
+        )
+        metrics = self._compute_survival_metrics(y_transmuted, w_transmuted)
+        statistics = _node._SurvivalStatistics(
+            survival_function=survival_function,
+            survival_log_variance=survival_log_variance,
+            metrics=metrics,
+        )
+        return statistics
+
+    def _make_node(
+        self,
+        depth: int,
+        n_samples: int,
+        extension: _extension.Extension,
+        statistics: _node._SurvivalStatistics,
+    ) -> _node.SurvivalNode:
+        """Assemble a SurvivalNode from its computed statistics."""
         node = _node.SurvivalNode(
-            depth=payload.depth,
-            n_samples=payload.n_samples,
+            depth=depth,
+            n_samples=n_samples,
             share=0.0,
             decoration=None,
-            extension=payload.extension,
-            survival_function=typing.cast(
-                tuple[
-                    numpy.typing.NDArray[numpy.floating],
-                    numpy.typing.NDArray[numpy.floating],
-                ],
-                payload.survival_function,
-            ),
-            survival_log_variance=typing.cast(
-                numpy.typing.NDArray[numpy.floating],
-                payload.survival_log_variance,
-            ),
-            metrics=typing.cast(
-                list[_node.SurvivalMetric], payload.survival_metrics
-            ),
+            extension=extension,
+            survival_function=statistics.survival_function,
+            survival_log_variance=statistics.survival_log_variance,
+            metrics=statistics.metrics,
         )
         return node
 
@@ -582,16 +600,6 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         martingale = event_column - cum_hazard
         result = martingale.reshape(-1, 1)
         return result
-
-    def _compute_prediction(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-        offset: None | numpy.typing.NDArray[numpy.floating],
-    ) -> float:
-        """Compute the value of the first configured metric."""
-        record = self._compute_metric_record(self._get_metrics()[0], y, weights)
-        return record.value
 
     def _is_constant_response(
         self,
@@ -617,27 +625,14 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         single_time = bool(numpy.ptp(time_active) == 0.0)
         return single_time
 
-    def _compute_ci(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-        offset: None | numpy.typing.NDArray[numpy.floating],
-    ) -> tuple[None | float, None | float]:
-        """Compute the CI of the first configured metric."""
-        record = self._compute_metric_record(self._get_metrics()[0], y, weights)
-        return record.ci_low, record.ci_high
-
     def _compute_survival_function(
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
-    ) -> (
-        None
-        | tuple[
-            numpy.typing.NDArray[numpy.floating],
-            numpy.typing.NDArray[numpy.floating],
-        ]
-    ):
+    ) -> tuple[
+        numpy.typing.NDArray[numpy.floating],
+        numpy.typing.NDArray[numpy.floating],
+    ]:
         """Compute the weighted Kaplan-Meier curve for the active samples."""
         time_column = y[:, 0]
         event_column = y[:, 1]
@@ -651,7 +646,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
+    ) -> numpy.typing.NDArray[numpy.floating]:
         """Compute the Greenwood variance of log S(t) for the active samples."""
         time_column = y[:, 0]
         event_column = y[:, 1]
@@ -664,7 +659,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | list[_node.SurvivalMetric]:
+    ) -> list[_node.SurvivalMetric]:
         """Compute the full per-node metric stack."""
         records = [
             self._compute_metric_record(resolved, y, weights)

@@ -13,6 +13,7 @@ import sklearn.base
 import sklearn.utils.multiclass
 import sklearn.utils.validation
 
+from . import _extension
 from . import _node
 from . import _tree
 from . import _types
@@ -23,7 +24,8 @@ if typing.TYPE_CHECKING:
 
 
 class ClassificationTree(
-    sklearn.base.ClassifierMixin, _tree.Tree[_node.ClassificationNode]
+    sklearn.base.ClassifierMixin,
+    _tree.Tree[_node.ClassificationNode, _node._ClassificationStatistics],
 ):
     """Conditional inference classification tree.
 
@@ -228,23 +230,53 @@ class ClassificationTree(
             )
         return y_out_shape[0]
 
+    def _compute_statistics(
+        self,
+        y_transmuted: numpy.typing.NDArray[numpy.floating],
+        w_transmuted: numpy.typing.NDArray[numpy.floating],
+        offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
+        is_leaf: bool,
+    ) -> _node._ClassificationStatistics:
+        """Compute the node's class, distribution, CI, and offset mean."""
+        prediction = self._compute_prediction(
+            y_transmuted, w_transmuted, offset_transmuted
+        )
+        class_distribution = self._compute_class_distribution(
+            y_transmuted, w_transmuted
+        )
+        ci_low, ci_high = self._compute_per_class_ci(y_transmuted, w_transmuted)
+        mean_offset_proba = self._compute_mean_offset_proba(
+            w_transmuted, offset_transmuted
+        )
+        prediction_index = int(prediction)
+        statistics = _node._ClassificationStatistics(
+            prediction=prediction_index,
+            class_distribution=class_distribution,
+            ci_low=ci_low,
+            ci_high=ci_high,
+            mean_offset_proba=mean_offset_proba,
+        )
+        return statistics
+
     def _make_node(
-        self, payload: _tree._NodePayload
+        self,
+        depth: int,
+        n_samples: int,
+        extension: _extension.Extension,
+        statistics: _node._ClassificationStatistics,
     ) -> _node.ClassificationNode:
-        """Construct a ClassificationNode with the per-class CI payload."""
+        """Assemble a ClassificationNode from its computed statistics."""
         node = _node.ClassificationNode(
-            depth=payload.depth,
-            n_samples=payload.n_samples,
+            depth=depth,
+            n_samples=n_samples,
             share=0.0,
             decoration=None,
-            extension=payload.extension,
-            prediction=int(payload.prediction),
-            class_distribution=typing.cast(
-                numpy.typing.NDArray[numpy.floating], payload.class_distribution
-            ),
-            ci_low=payload.ci_low_per_class,
-            ci_high=payload.ci_high_per_class,
-            mean_offset_proba=payload.mean_offset_proba,
+            extension=extension,
+            prediction=statistics.prediction,
+            class_distribution=statistics.class_distribution,
+            ci_low=statistics.ci_low,
+            ci_high=statistics.ci_high,
+            mean_offset_proba=statistics.mean_offset_proba,
         )
         return node
 
@@ -381,7 +413,7 @@ class ClassificationTree(
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
+    ) -> numpy.typing.NDArray[numpy.floating]:
         """Compute the weighted class probability distribution."""
         y_int = y.astype(int)
         counts = numpy.bincount(

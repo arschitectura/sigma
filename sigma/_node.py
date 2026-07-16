@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import dataclasses
 import typing
 
 import numpy
@@ -122,6 +123,20 @@ class Node(abc.ABC):
         """The node's point prediction for its task."""
 
 
+class _EstimatorStatistics:
+    """Base for a node's per-task summary values, built before node assembly."""
+
+
+@dataclasses.dataclass(frozen=True)
+class _RegressionStatistics(_EstimatorStatistics):
+    """Regression node's prediction, confidence bounds, and response samples."""
+
+    prediction: float
+    ci_low: None | float
+    ci_high: None | float
+    response_samples: numpy.typing.NDArray[numpy.floating]
+
+
 class RegressionNode(Node):
     """Node of a fitted RegressionTree.
 
@@ -165,6 +180,17 @@ class RegressionNode(Node):
         """Sort key: ascending by predicted mean."""
         key = (self.prediction,)
         return key
+
+
+@dataclasses.dataclass(frozen=True)
+class _ClassificationStatistics(_EstimatorStatistics):
+    """Classification node's class, distribution, per-class CI, and offset mean."""
+
+    prediction: int
+    class_distribution: numpy.typing.NDArray[numpy.floating]
+    ci_low: None | numpy.typing.NDArray[numpy.floating]
+    ci_high: None | numpy.typing.NDArray[numpy.floating]
+    mean_offset_proba: None | numpy.typing.NDArray[numpy.floating]
 
 
 class ClassificationNode(Node):
@@ -266,6 +292,18 @@ class SurvivalMetric:
         self.ci_high = ci_high
         self.style = style
         self.better_is = better_is
+
+
+@dataclasses.dataclass(frozen=True)
+class _SurvivalStatistics(_EstimatorStatistics):
+    """Survival node's Kaplan-Meier curve, log-variance, and per-node metrics."""
+
+    survival_function: tuple[
+        numpy.typing.NDArray[numpy.floating],
+        numpy.typing.NDArray[numpy.floating],
+    ]
+    survival_log_variance: numpy.typing.NDArray[numpy.floating]
+    metrics: list[SurvivalMetric]
 
 
 class SurvivalNode(Node):
@@ -370,6 +408,13 @@ class RankingMetric:
         self.ci_high = ci_high
         self.style: typing.Literal["value", "probability"] = "value"
         self.better_is: typing.Literal["higher", "lower"] = "lower"
+
+
+@dataclasses.dataclass(frozen=True)
+class _RankingStatistics(_EstimatorStatistics):
+    """Ranking node's per-item expected-rank metrics."""
+
+    metrics: list[RankingMetric]
 
 
 class RankingNode(Node):

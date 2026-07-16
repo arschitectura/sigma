@@ -12,6 +12,7 @@ import sklearn.base
 import sklearn.utils.multiclass
 import sklearn.utils.validation
 
+from . import _extension
 from . import _node
 from . import _tree
 from . import _tree_classification
@@ -23,7 +24,8 @@ if typing.TYPE_CHECKING:
 
 
 class RegressionTree(
-    sklearn.base.RegressorMixin, _tree.Tree[_node.RegressionNode]
+    sklearn.base.RegressorMixin,
+    _tree.Tree[_node.RegressionNode, _node._RegressionStatistics],
 ):
     """Conditional inference regression tree.
 
@@ -213,23 +215,52 @@ class RegressionTree(
             )
         return y_out_shape[0]
 
-    def _make_node(self, payload: _tree._NodePayload) -> _node.RegressionNode:
-        """Construct a RegressionNode with the regression-relevant payload."""
-        response_samples = payload.response_samples
+    def _compute_statistics(
+        self,
+        y_transmuted: numpy.typing.NDArray[numpy.floating],
+        w_transmuted: numpy.typing.NDArray[numpy.floating],
+        offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
+        is_leaf: bool,
+    ) -> _node._RegressionStatistics:
+        """Compute the node's prediction, CI, and leaf response samples."""
+        prediction = self._compute_prediction(
+            y_transmuted, w_transmuted, offset_transmuted
+        )
+        ci_low, ci_high = self._compute_ci(
+            y_transmuted, w_transmuted, offset_transmuted
+        )
+        if is_leaf:
+            response_samples = self._compute_response_samples_for_leaf(
+                y_transmuted, w_transmuted, offset_transmuted
+            )
+        else:
+            response_samples = numpy.empty(0, dtype=float)
+        statistics = _node._RegressionStatistics(
+            prediction=prediction,
+            ci_low=ci_low,
+            ci_high=ci_high,
+            response_samples=response_samples,
+        )
+        return statistics
+
+    def _make_node(
+        self,
+        depth: int,
+        n_samples: int,
+        extension: _extension.Extension,
+        statistics: _node._RegressionStatistics,
+    ) -> _node.RegressionNode:
+        """Assemble a RegressionNode from its computed statistics."""
         node = _node.RegressionNode(
-            depth=payload.depth,
-            n_samples=payload.n_samples,
+            depth=depth,
+            n_samples=n_samples,
             share=0.0,
             decoration=None,
-            extension=payload.extension,
-            prediction=payload.prediction,
-            ci_low=payload.ci_low,
-            ci_high=payload.ci_high,
-            response_samples=(
-                response_samples
-                if response_samples is not None
-                else numpy.empty(0, dtype=float)
-            ),
+            extension=extension,
+            prediction=statistics.prediction,
+            ci_low=statistics.ci_low,
+            ci_high=statistics.ci_high,
+            response_samples=statistics.response_samples,
         )
         return node
 
@@ -238,7 +269,7 @@ class RegressionTree(
         y_transmuted: numpy.typing.NDArray[numpy.floating],
         w_transmuted: numpy.typing.NDArray[numpy.floating],
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
-    ) -> None | numpy.typing.NDArray[numpy.floating]:
+    ) -> numpy.typing.NDArray[numpy.floating]:
         """Subsample post-transmutation residuals from a leaf's active rows."""
         size = self.response_sample_size
         if size == 0:

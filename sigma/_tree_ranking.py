@@ -15,6 +15,7 @@ import sklearn.base
 import sklearn.utils.extmath
 import sklearn.utils.validation
 
+from . import _extension
 from . import _node
 from . import _ranking
 from . import _tree
@@ -25,7 +26,7 @@ if typing.TYPE_CHECKING:
     import polars
 
 
-class RankingTree(_tree.Tree[_node.RankingNode]):
+class RankingTree(_tree.Tree[_node.RankingNode, _node._RankingStatistics]):
     """Conditional inference tree for full and partial rankings of items.
 
     Uses permutation-based conditional inference for unbiased variable
@@ -499,17 +500,33 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             )
         return y_out_shape[0]
 
-    def _make_node(self, payload: _tree._NodePayload) -> _node.RankingNode:
-        """Construct a RankingNode with the per-item metric payload."""
+    def _compute_statistics(
+        self,
+        y_transmuted: numpy.typing.NDArray[numpy.floating],
+        w_transmuted: numpy.typing.NDArray[numpy.floating],
+        offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
+        is_leaf: bool,
+    ) -> _node._RankingStatistics:
+        """Compute the node's per-item expected-rank metrics."""
+        metrics = self._compute_ranking_metrics(y_transmuted, w_transmuted)
+        statistics = _node._RankingStatistics(metrics=metrics)
+        return statistics
+
+    def _make_node(
+        self,
+        depth: int,
+        n_samples: int,
+        extension: _extension.Extension,
+        statistics: _node._RankingStatistics,
+    ) -> _node.RankingNode:
+        """Assemble a RankingNode from its computed statistics."""
         node = _node.RankingNode(
-            depth=payload.depth,
-            n_samples=payload.n_samples,
+            depth=depth,
+            n_samples=n_samples,
             share=0.0,
             decoration=None,
-            extension=payload.extension,
-            metrics=typing.cast(
-                list[_node.RankingMetric], payload.ranking_metrics
-            ),
+            extension=extension,
+            metrics=statistics.metrics,
         )
         return node
 
@@ -520,30 +537,6 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
     ) -> numpy.typing.NDArray[numpy.floating]:
         """Return y unchanged; the PCA-projected response is the influence."""
         return y
-
-    def _compute_prediction(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-        offset: None | numpy.typing.NDArray[numpy.floating],
-    ) -> float:
-        """Return the catalogue index of the favorite item as a float."""
-        active = weights > 0
-        if not numpy.any(active):
-            return 0.0
-        y_full_active = self._y_full_[active]
-        w_active = weights[active]
-        alpha = _ranking.compute_pl_mle(
-            y_full_active,
-            w_active,
-            npseudo=self.npseudo,
-            tolerance=self.pl_tolerance,
-            max_iter=self.pl_max_iter,
-        )
-        expected_rank = _ranking.pl_expected_rank(alpha)
-        favorite_index = _argmin_with_nan(expected_rank)
-        prediction = float(favorite_index)
-        return prediction
 
     def _is_constant_response(
         self,
@@ -575,7 +568,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
-    ) -> None | list[_node.RankingMetric]:
+    ) -> list[_node.RankingMetric]:
         """Compute the per-item RankingMetric list over the full catalogue."""
         active = weights > 0
         y_full_active = self._y_full_[active]
@@ -747,16 +740,6 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                     self.pl_max_iter,
                 )
         return ci_low_vec, ci_high_vec
-
-
-def _argmin_with_nan(values: numpy.typing.NDArray[numpy.floating]) -> int:
-    """Return argmin ignoring NaN; if all NaN, return 0."""
-    nan_mask = numpy.isnan(values)
-    if numpy.all(nan_mask):
-        return 0
-    safe = numpy.where(nan_mask, numpy.inf, values)
-    index = int(numpy.argmin(safe))
-    return index
 
 
 def _bca_per_item_quantiles(
