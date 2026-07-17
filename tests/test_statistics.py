@@ -504,24 +504,19 @@ def _build_one_hot_sigma_and_correlation(
     numpy.typing.NDArray[numpy.floating],
 ]:
     """Build a singular one-hot Sigma plus its standardized correlation R."""
-    # TODO LATER remove this workaround once this is fixed:
-    # https://github.com/numpy/numpy/issues/28687
-    with numpy.errstate(divide="ignore", invalid="ignore", over="ignore"):
-        rng = numpy.random.default_rng(seed)
-        samples_per_level = 6
-        n = num_levels * samples_per_level
-        cat = numpy.repeat(numpy.arange(num_levels), samples_per_level).astype(
-            float
-        )
-        rng.shuffle(cat)
-        g_j = (cat[:, None] == numpy.arange(num_levels)).astype(float)
-        h = rng.standard_normal((n, 1))
-        weights = numpy.ones(n)
-        Sigma = sigma._statistics.compute_conditional_covariance(
-            g_j, h, weights
-        )
-        sd = numpy.sqrt(numpy.diag(Sigma))
-        R = Sigma / numpy.outer(sd, sd)
+    rng = numpy.random.default_rng(seed)
+    samples_per_level = 6
+    n = num_levels * samples_per_level
+    cat = numpy.repeat(numpy.arange(num_levels), samples_per_level).astype(
+        float
+    )
+    rng.shuffle(cat)
+    g_j = (cat[:, None] == numpy.arange(num_levels)).astype(float)
+    h = rng.standard_normal((n, 1))
+    weights = numpy.ones(n)
+    Sigma = sigma._statistics.compute_conditional_covariance(g_j, h, weights)
+    sd = numpy.sqrt(numpy.diag(Sigma))
+    R = Sigma / numpy.outer(sd, sd)
     return Sigma, R
 
 
@@ -534,8 +529,7 @@ def _sample_singular_mvn(
     eigenvalues_clipped = numpy.maximum(eigenvalues, 0.0)
     sqrt_factor = eigenvectors * numpy.sqrt(eigenvalues_clipped)
     standard_samples = rng.standard_normal((n_samples, R.shape[0]))
-    with numpy.errstate(over="ignore", invalid="ignore", divide="ignore"):
-        samples = standard_samples @ sqrt_factor.T
+    samples = standard_samples @ sqrt_factor.T
     return samples
 
 
