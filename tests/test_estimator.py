@@ -13,6 +13,16 @@ import sigma._tree_classification
 import sigma._tree_ranking
 import sigma._tree_regression
 import sigma._tree_survival
+import sigma._types
+
+_POSITIVE_ONLY_CI_METHODS = (
+    "exponential",
+    "gamma",
+    "log_normal",
+    "log_normal_gci",
+    "poisson",
+    "poisson_jeffreys",
+)
 
 _EXPECTED_FAILED_CHECKS = {
     "check_do_not_raise_errors_in_init_or_set_params": (
@@ -122,6 +132,62 @@ class TestSklearnCompliance(unittest.TestCase):
             sigma._tree_ranking.RankingTree(),
             _RANKING_EXPECTED_FAILED_CHECKS,
         )
+
+    def test_check_regression_tree_positive_only_ci_methods(self):
+        """RegressionTree passes the checks under each constrained ci_method."""
+        for ci_method in _POSITIVE_ONLY_CI_METHODS:
+            with self.subTest(ci_method=ci_method):
+                _run_check_estimator(
+                    sigma._tree_regression.RegressionTree(ci_method=ci_method),
+                    _EXPECTED_FAILED_CHECKS,
+                )
+
+
+class TestTargetTags(unittest.TestCase):
+    """Tests for the target_tags declared by each estimator."""
+
+    __slots__ = ()
+
+    def test_regression_tree_positive_only_follows_ci_method(self):
+        """positive_only is True exactly for domain-constrained ci_methods."""
+        for ci_method in sigma._types.CiMethodRegressionTree:
+            expected = ci_method.value in _POSITIVE_ONLY_CI_METHODS
+            with self.subTest(ci_method=ci_method.value):
+                estimator = sigma._tree_regression.RegressionTree(
+                    ci_method=ci_method.value
+                )
+                tags = estimator.__sklearn_tags__()
+                self.assertEqual(tags.target_tags.positive_only, expected)
+
+    def test_regression_tree_positive_only_false_without_ci(self):
+        """ci_coverage=None disables the CI, so no ci_method constrains y."""
+        for ci_method in _POSITIVE_ONLY_CI_METHODS:
+            with self.subTest(ci_method=ci_method):
+                estimator = sigma._tree_regression.RegressionTree(
+                    ci_method=ci_method, ci_coverage=None
+                )
+                tags = estimator.__sklearn_tags__()
+                self.assertFalse(tags.target_tags.positive_only)
+
+    def test_ranking_tree_rejects_single_output(self):
+        """RankingTree advertises multi-output-only y, rejecting 1D y."""
+        estimator = sigma._tree_ranking.RankingTree()
+        tags = estimator.__sklearn_tags__()
+        self.assertTrue(tags.target_tags.multi_output)
+        self.assertFalse(tags.target_tags.single_output)
+
+    def test_estimators_do_not_declare_positive_only_x(self):
+        """No estimator constrains X to be positive."""
+        estimators = (
+            sigma._tree_regression.RegressionTree(ci_method="log_normal"),
+            sigma._tree_classification.ClassificationTree(),
+            sigma._tree_survival.SurvivalTree(),
+            sigma._tree_ranking.RankingTree(),
+        )
+        for estimator in estimators:
+            with self.subTest(estimator=type(estimator).__name__):
+                tags = estimator.__sklearn_tags__()
+                self.assertFalse(tags.input_tags.positive_only)
 
 
 class TestPipelineIntegration(unittest.TestCase):

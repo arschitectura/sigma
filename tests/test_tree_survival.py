@@ -532,12 +532,18 @@ class TestSurvivalTreeSklearnTags(unittest.TestCase):
 
     __slots__ = ()
 
-    def test_target_tags_reflect_required_two_dimensional_y(self):
-        """target_tags advertises that y is required and multi-output."""
+    def test_target_tags_reflect_required_single_target_y(self):
+        """target_tags advertises that y is required and carries one target."""
         estimator = sigma._tree_survival.SurvivalTree()
         tags = estimator.__sklearn_tags__()
         self.assertTrue(tags.target_tags.required)
-        self.assertTrue(tags.target_tags.multi_output)
+        self.assertFalse(tags.target_tags.multi_output)
+        self.assertTrue(tags.target_tags.single_output)
+
+    def test_no_legacy_estimator_type_attribute(self):
+        """SurvivalTree carries no pre-1.6 _estimator_type class attribute."""
+        estimator = sigma._tree_survival.SurvivalTree()
+        self.assertFalse(hasattr(estimator, "_estimator_type"))
 
 
 class TestSurvivalTreeScore(unittest.TestCase):

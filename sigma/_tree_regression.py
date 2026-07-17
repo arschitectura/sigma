@@ -22,6 +22,21 @@ if typing.TYPE_CHECKING:
     import pandas
     import polars
 
+# CI methods that reject a response outside a lower-bounded domain at fit
+# time. BETA is excluded on purpose: its [0, 1] domain is bounded above too,
+# which no sklearn target tag can express, so it stays untagged rather than
+# claiming a constraint sklearn would read as unbounded.
+_POSITIVE_ONLY_CI_METHODS = frozenset(
+    {
+        _types.CiMethodRegressionTree.EXPONENTIAL,
+        _types.CiMethodRegressionTree.GAMMA,
+        _types.CiMethodRegressionTree.LOG_NORMAL,
+        _types.CiMethodRegressionTree.LOG_NORMAL_GCI,
+        _types.CiMethodRegressionTree.POISSON,
+        _types.CiMethodRegressionTree.POISSON_JEFFREYS,
+    }
+)
+
 
 class RegressionTree(
     sklearn.base.RegressorMixin,
@@ -166,6 +181,15 @@ class RegressionTree(
             random_state=random_state,
             reverse_order=reverse_order,
         )
+
+    def __sklearn_tags__(self):
+        """Declare whether the ci_method restricts y to positive values."""
+        tags = super().__sklearn_tags__()
+        alpha = self._ci_alpha()
+        ci_method_enum = _types.CiMethodRegressionTree(self.ci_method)
+        constrained = ci_method_enum in _POSITIVE_ONLY_CI_METHODS
+        tags.target_tags.positive_only = alpha is not None and constrained
+        return tags
 
     def _validate_fit_params(
         self,

@@ -135,7 +135,6 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
         feature_types_: Per-feature CovariateType, shape (n_features,).
     """
 
-    _estimator_type = "survival"
     _metrics: list[_Metric]
     event_grid_: numpy.typing.NDArray[numpy.floating]
 
@@ -189,11 +188,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
         return state
 
     def __sklearn_tags__(self):
-        """Mark y as required and 2D for sklearn meta-estimator routing."""
+        """Declare that y is required."""
         tags = super().__sklearn_tags__()
-        target_tags = tags.target_tags
-        target_tags.required = True
-        target_tags.multi_output = True
+        tags.target_tags.required = True
         return tags
 
     def _get_metrics(self) -> list[_Metric]:

@@ -276,11 +276,12 @@ class RankingTree(_tree.Tree[_node.RankingNode, _node._RankingStatistics]):
         )
 
     def __sklearn_tags__(self):
-        """Mark y as required and 2D for sklearn meta-estimator routing."""
+        """Declare that y is required and accepted only as multi-output."""
         tags = super().__sklearn_tags__()
         target_tags = tags.target_tags
         target_tags.required = True
         target_tags.multi_output = True
+        target_tags.single_output = False
         return tags
 
     def predict(
