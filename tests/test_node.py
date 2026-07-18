@@ -406,14 +406,6 @@ class TestPartitionTypes(unittest.TestCase):
             partition.observed_categories, frozenset({"a", "b", "c"})
         )
 
-    def test_unknown_category_error_carries_feature_and_value(self):
-        """UnknownCategoryError exposes the offending feature_name and value."""
-        error = sigma._partition.UnknownCategoryError("x", 42)
-        self.assertEqual(error.feature_name, "x")
-        self.assertEqual(error.value, 42)
-        self.assertIn("42", str(error))
-        self.assertIn("x", str(error))
-
     def test_boolean_route_directs_false_left_and_true_right(self):
         """BooleanPartition.route returns left for False / 0.0 and right for True / 1.0."""
         left = _leaf_regression(1.0)
@@ -556,7 +548,6 @@ class TestWeakReferenceable(unittest.TestCase):
             extension=sigma._extension.Leaf(),
             metrics=[ranking_metric],
         )
-        error = sigma._partition.UnknownCategoryError("x", 42)
         instances: list[object] = [
             leaf.extension,
             leaf,
@@ -568,7 +559,6 @@ class TestWeakReferenceable(unittest.TestCase):
             ranking,
             survival_metric,
             ranking_metric,
-            error,
             _split_statistics(0.01),
             sigma._partition.NumericInterval(None, 5.0),
             sigma._partition.CategorySubset(frozenset({0.0})),

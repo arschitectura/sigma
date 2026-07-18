@@ -41,7 +41,6 @@ from ._partition import (
     NumericInterval,
     Partition,
     SplitStatistics,
-    UnknownCategoryError,
 )
 from ._tree_classification import ClassificationTree
 from ._tree_ranking import RankingTree
@@ -73,7 +72,6 @@ __all__ = [
     "SurvivalMetric",
     "SurvivalNode",
     "SurvivalTree",
-    "UnknownCategoryError",
     "export_graphviz",
     "export_image",
     "export_sql",

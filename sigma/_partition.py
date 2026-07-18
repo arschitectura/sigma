@@ -17,30 +17,6 @@ if typing.TYPE_CHECKING:
 N = typing.TypeVar("N", bound="_node.Node")
 
 
-# TODO use it
-class UnknownCategoryError(ValueError):
-    """Raised when a CategoricalPartition.route receives a category value
-    that was not observed at the partition's node during training.
-
-    Attributes:
-        feature_name: Display name of the split feature, or None when no
-            name source was available at fit time.
-        value: The unobserved category value supplied to route().
-    """
-
-    __slots__ = ("feature_name", "value", "__weakref__")
-
-    def __init__(self, feature_name: None | str, value: object) -> None:
-        feature_label = "<unnamed>" if feature_name is None else feature_name
-        message = (
-            f"unknown category {value!r} for feature {feature_label}"
-            " (not observed at this node during training)"
-        )
-        super().__init__(message)
-        self.feature_name = feature_name
-        self.value = value
-
-
 class SplitStatistics:
     """Conditional-inference test backing a single binary split.
 
