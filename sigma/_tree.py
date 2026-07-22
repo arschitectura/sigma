@@ -2151,13 +2151,21 @@ def _categorical_levels_and_codes(
 ) -> tuple[list[typing.Any], numpy.typing.NDArray[numpy.float64], None | str]:
     """Return a categorical column's real levels, its float codes (missing rows mapped to a new trailing N/A code), and the N/A label (None when the column has no missing values)."""
     pandas = sys.modules.get("pandas")
+    polars = sys.modules.get("polars")
     if pandas is not None and isinstance(column, pandas.Series):
         categorical = column.cat
         levels = categorical.categories.tolist()
         codes = numpy.asarray(categorical.codes, dtype=numpy.float64)
-    else:
-        levels = column.cat.get_categories().to_list()
+    elif polars is not None and column.dtype == polars.Enum:
+        levels = column.dtype.categories.to_list()
         codes = numpy.asarray(column.to_physical(), dtype=numpy.float64)
+    else:
+        levels = column.unique(maintain_order=True).drop_nulls().to_list()
+        code_of = {level: float(index) for index, level in enumerate(levels)}
+        values = _column_values(column)
+        codes = numpy.empty(len(values), dtype=numpy.float64)
+        for position, value in enumerate(values):
+            codes[position] = code_of.get(value, numpy.nan)
     missing = _missing_mask(column)
     na_label = None
     if missing.any():

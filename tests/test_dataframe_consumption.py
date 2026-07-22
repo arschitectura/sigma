@@ -697,6 +697,54 @@ class TestPolarsConsumption(unittest.TestCase):
                 interchange_count += 1
         self.assertEqual(interchange_count, 0)
 
+    def test_polars_categorical_fit_emits_no_get_categories_deprecation(self):
+        """Fitting on a polars Categorical column does not emit the cat.get_categories DeprecationWarning."""
+        signal, noise, y = self._signal_design()
+        X = polars.DataFrame(
+            {
+                "color": polars.Series(signal, dtype=polars.Categorical),
+                "noise": noise,
+            }
+        )
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            regression_tree.fit(X, y)
+        get_categories_count = 0
+        for entry in caught:
+            message_text = str(entry.message)
+            if "get_categories" in message_text:
+                get_categories_count += 1
+        self.assertEqual(get_categories_count, 0)
+
+    def test_polars_categorical_labels_ignore_global_category_cache(self):
+        """A polars Categorical column's labels cover only its own present levels regardless of other categoricals registered in the process."""
+        pollutant = polars.Series(
+            ["pollutant_1", "pollutant_2", "red", "blue"],
+            dtype=polars.Categorical,
+        )
+        signal, noise, y = self._signal_design()
+        X = polars.DataFrame(
+            {
+                "color": polars.Series(signal, dtype=polars.Categorical),
+                "noise": noise,
+            }
+        )
+        regression_tree = sigma._tree_regression.RegressionTree(
+            correlation="normal", min_splits=2, min_buckets=1
+        )
+        regression_tree.fit(X, y)
+        self.assertEqual(
+            regression_tree.category_labels_in_,
+            {0: {0.0: "red", 1.0: "blue"}},
+        )
+        pollutant_levels = pollutant.to_list()
+        self.assertEqual(
+            pollutant_levels, ["pollutant_1", "pollutant_2", "red", "blue"]
+        )
+
 
 class TestNaNDataFrameConsumption(unittest.TestCase):
     """NaN handling specific to pandas and polars DataFrame columns."""
