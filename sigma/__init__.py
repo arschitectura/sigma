@@ -16,8 +16,6 @@ Example:
 Documentation and source: https://github.com/arschitectura/sigma
 """
 
-# TODO verify the pickling
-
 import importlib.metadata
 
 from ._export import export_graphviz, export_image, export_sql, export_text

@@ -16,5 +16,5 @@ __pycache__/
 *.pyc
 
 # Project
-development_plans/
+plans/
 demo_*

@@ -13,8 +13,6 @@ import typing_extensions
 from . import _extension
 from . import _partition
 
-# TODO check all this code
-
 _NodeT = typing.TypeVar("_NodeT", bound="Node")
 
 
