@@ -13,6 +13,9 @@ import typing_extensions
 from . import _extension
 from . import _partition
 
+if typing.TYPE_CHECKING:
+    import polars
+
 _NodeT = typing.TypeVar("_NodeT", bound="Node")
 
 
@@ -29,6 +32,8 @@ class Node(abc.ABC):
         extension: Partition on internal nodes, Leaf on leaves.
         node_id: Zero-based index of this node in Tree.nodes_. Set by
             Tree.fit; defaults to 0 in unfitted nodes.
+        parent: Parent node, or None on the root. Set by Tree.fit;
+            defaults to None in unfitted nodes.
     """
 
     __slots__ = (
@@ -38,11 +43,13 @@ class Node(abc.ABC):
         "decoration",
         "extension",
         "node_id",
+        "parent",
         "__weakref__",
     )
 
     extension: _extension.Extension[typing_extensions.Self]
     node_id: int
+    parent: None | Node
 
     def __init__(
         self,
@@ -58,6 +65,7 @@ class Node(abc.ABC):
         self.decoration = decoration
         self.extension = extension
         self.node_id = 0
+        self.parent = None
 
     def traverse(self: _NodeT, x: numpy.typing.NDArray) -> _NodeT:
         """Walk a single sample down the tree to its deepest reached node.
@@ -110,6 +118,36 @@ class Node(abc.ABC):
             case _:
                 result = [self]
         return result
+
+    def polars_expression(self) -> polars.Expr:
+        """Build the polars filter expression selecting this node's rows.
+
+        The expression AND-combines the branch conditions leading from the
+        root to this node, so filtering the fit DataFrame with it keeps
+        exactly the rows that reach this node or one of its descendants.
+        The root node returns a literal true expression. Conditions
+        reference columns by their fit-time feature names (X[i] when the
+        fit input carried no names), categorical conditions compare
+        against the fit-time category labels when the tree captured them,
+        and missing-value branches test for null.
+
+        Returns:
+            A polars expression selecting this node's observations.
+
+        Raises:
+            ImportError: If polars is not installed.
+        """
+        import polars
+
+        parent = self.parent
+        if parent is None:
+            expression = polars.lit(True)
+            return expression
+        parent_expression = parent.polars_expression()
+        partition = typing.cast(_partition.Partition, parent.extension)
+        condition = partition._polars_condition(self)
+        expression = parent_expression & condition
+        return expression
 
     @abc.abstractmethod
     def leaf_sort_key(self) -> tuple[float, ...]:

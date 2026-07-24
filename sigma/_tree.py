@@ -762,9 +762,11 @@ class Tree(
             leaf_extension.leaf_id = index
 
     def _assign_node_ids(self) -> None:
-        """Pre-order DFS: assign node_id to every node and populate nodes_."""
+        """Pre-order DFS: assign node_id and parent to every node and populate nodes_."""
         collected: list[_node.Node] = []
-        stack: list[_node.Node] = [self.content_]
+        root: _node.Node = self.content_
+        root.parent = None
+        stack: list[_node.Node] = [root]
         while stack:
             node = stack.pop()
             node.node_id = len(collected)
@@ -772,6 +774,7 @@ class Tree(
             match node.extension:
                 case _partition.Partition() as partition:
                     for child in reversed(partition.children):
+                        child.parent = node  # ty: ignore[unresolved-attribute]
                         stack.append(child)  # ty: ignore[invalid-argument-type]
         self.nodes_ = typing.cast(list[N], collected)
 
@@ -1017,12 +1020,21 @@ class Tree(
                     typing.cast(frozenset, left_categories),
                     typing.cast(frozenset, right_categories),
                 )
+                labels_map = self.category_labels_in_ or {}
+                category_labels = labels_map.get(feature_index)
+                na_map = self.na_codes_in_ or {}
+                na_code = na_map.get(feature_index)
+                promoted_set = self.promoted_boolean_features_in_ or frozenset()
+                promoted_boolean = feature_index in promoted_set
                 partition = _partition.CategoricalPartition(
                     feature_index=feature_index,
                     feature_name=split_name,
                     statistics=split_statistics,
                     children=children,
                     category_groups=category_groups,
+                    category_labels=category_labels,
+                    na_code=na_code,
+                    promoted_boolean=promoted_boolean,
                 )
             case _types.CovariateType.INTEGER | _types.CovariateType.REAL:
                 partition = _partition.NumericalPartition(
@@ -1921,6 +1933,9 @@ def _merge_categorical_chain(
         statistics=None,
         children=tuple(children),
         category_groups=tuple(category_groups),
+        category_labels=categorical.category_labels,
+        na_code=categorical.na_code,
+        promoted_boolean=categorical.promoted_boolean,
     )
     return merged
 

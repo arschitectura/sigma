@@ -12,6 +12,8 @@ import numpy.typing
 from . import _extension
 
 if typing.TYPE_CHECKING:
+    import polars
+
     from . import _node
 
 N = typing.TypeVar("N", bound="_node.Node")
@@ -140,6 +142,28 @@ class Partition(_extension.Extension[N], typing.Generic[N]):
         or None when the value is not routable from this partition.
         """
 
+    @abc.abstractmethod
+    def _polars_condition(self, child: N) -> polars.Expr:
+        """Polars predicate admitting the records routed to child."""
+
+    def _child_index(self, child: N) -> int:
+        """Index of child among children, matched by identity."""
+        for index, candidate in enumerate(self.children):
+            if candidate is child:
+                return index
+        raise ValueError("child is not one of this partition's children")
+
+    def _polars_column(self) -> polars.Expr:
+        """Polars column reference for this partition's feature."""
+        import polars
+
+        if self.feature_name is None:
+            name = f"X[{self.feature_index}]"
+        else:
+            name = self.feature_name
+        column = polars.col(name)
+        return column
+
 
 class NumericalPartition(Partition[N], typing.Generic[N]):
     """Partition on a numeric covariate by ascending threshold cut points.
@@ -200,6 +224,37 @@ class NumericalPartition(Partition[N], typing.Generic[N]):
                 return self.children[index]
         return self.children[len(self.thresholds)]
 
+    def _polars_condition(self, child: N) -> polars.Expr:
+        """Polars predicate for the interval or missing branch routing to child."""
+        index = self._child_index(child)
+        column = self._polars_column()
+        if index > len(self.thresholds):
+            expression = column.is_null()
+            return expression
+        if index == 0:
+            lower = None
+        else:
+            lower = self.thresholds[index - 1]
+        if index == len(self.thresholds):
+            upper = None
+        else:
+            upper = self.thresholds[index]
+        match (lower, upper):
+            case (None, None):
+                expression = column.is_not_null()
+            case (None, _):
+                expression = column <= upper
+            case (_, None):
+                expression = column > lower
+            case _:
+                above = column > lower
+                below = column <= upper
+                expression = above & below
+        if self.nan_child == index:
+            missing = column.is_null()
+            expression = expression | missing
+        return expression
+
 
 class BooleanPartition(Partition[N], typing.Generic[N]):
     """Binary partition on a boolean covariate.
@@ -235,6 +290,16 @@ class BooleanPartition(Partition[N], typing.Generic[N]):
             f" predict-time value {value!r}"
         )
 
+    def _polars_condition(self, child: N) -> polars.Expr:
+        """Polars predicate for the false or true branch routing to child."""
+        index = self._child_index(child)
+        column = self._polars_column()
+        if index == 0:
+            expression = ~column
+        else:
+            expression = column
+        return expression
+
 
 class CategoricalPartition(Partition[N], typing.Generic[N]):
     """Partition on a categorical covariate by category membership.
@@ -242,9 +307,21 @@ class CategoricalPartition(Partition[N], typing.Generic[N]):
     Attributes:
         category_groups: Disjoint category sets in branch order, one per
             child. A value outside every set is not routable.
+        category_labels: Mapping from category code to display label for
+            this feature, or None when the fit input carried no labels.
+        na_code: Category code standing for a missing value, or None
+            when the feature learned no missing level.
+        promoted_boolean: Whether this partition covers a boolean
+            feature handled as categorical because it carried missing
+            values at fit time.
     """
 
-    __slots__ = ("category_groups",)
+    __slots__ = (
+        "category_groups",
+        "category_labels",
+        "na_code",
+        "promoted_boolean",
+    )
 
     def __init__(
         self,
@@ -253,9 +330,15 @@ class CategoricalPartition(Partition[N], typing.Generic[N]):
         statistics: None | SplitStatistics,
         children: tuple[N, ...],
         category_groups: tuple[frozenset, ...],
+        category_labels: None | dict[float, str] = None,
+        na_code: None | float = None,
+        promoted_boolean: bool = False,
     ) -> None:
         super().__init__(feature_index, feature_name, statistics, children)
         self.category_groups = category_groups
+        self.category_labels = category_labels
+        self.na_code = na_code
+        self.promoted_boolean = promoted_boolean
 
     @property
     def observed_categories(self) -> frozenset:
@@ -282,3 +365,38 @@ class CategoricalPartition(Partition[N], typing.Generic[N]):
             if value in group:
                 return child
         return None
+
+    def _polars_condition(self, child: N) -> polars.Expr:
+        """Polars predicate for the category subset routing to child."""
+        index = self._child_index(child)
+        column = self._polars_column()
+        group = self.category_groups[index]
+        sorted_codes = sorted(group)
+        real_codes = [code for code in sorted_codes if code != self.na_code]
+        parts: list[polars.Expr] = []
+        if self.promoted_boolean:
+            for code in real_codes:
+                if code == 1.0:
+                    parts.append(column)
+                else:
+                    negated = ~column
+                    parts.append(negated)
+        elif real_codes:
+            labels = self.category_labels
+            values: list[float] | list[str]
+            if labels is None:
+                values = list(real_codes)
+            else:
+                values = [labels[code] for code in real_codes]
+            if len(values) == 1:
+                condition = column == values[0]
+            else:
+                condition = column.is_in(values)
+            parts.append(condition)
+        if self.na_code is not None and self.na_code in group:
+            missing = column.is_null()
+            parts.append(missing)
+        expression = parts[0]
+        for part in parts[1:]:
+            expression = expression | part
+        return expression

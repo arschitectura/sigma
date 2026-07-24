@@ -106,7 +106,7 @@ All records                           59.6% (55.9% to 63.1%) 40.4% (36.9% to 44.
 Predicting one-year disease progression with a Bayesian-bootstrap 95%
 confidence interval at each node - surfaces BMI, triglycerides, and blood
 pressure. BMI splits recursively, so the example calls `compact()` (see
-section 5.5) to fold that chain into one multi-way node.
+section 5.6) to fold that chain into one multi-way node.
 
 ```python
 tree = sigma.RegressionTree(
@@ -368,7 +368,28 @@ label categoricals, `boolean` for boolean columns, `numeric` otherwise);
 a SQL expression cannot verify column types itself, so the expression
 assumes every column keeps its fit-time type.
 
-### 5.5. Collapsing recursive splits with `compact()`
+### 5.5. Selecting a node's observations with polars
+
+Every node of a fitted tree exposes `polars_expression()`, which returns
+a [polars](https://pola.rs) expression AND-combining the branch
+conditions leading from the root to that node. Filtering the fit
+DataFrame with it keeps exactly the rows that reach the node or one of
+its descendants; the root node returns a literal true expression:
+
+```python
+best_leaf = tree.leaves_[-1]
+expression = best_leaf.polars_expression()
+rows = frame.filter(expression)
+```
+
+Conditions reference columns by their fit-time feature names (`X[i]`
+when the fit input carried no names), categorical branches compare the
+fit-time category labels, boolean branches test the column directly, and
+missing-value branches test for null. Nodes are reachable through
+`tree.content_` (the root), `tree.nodes_`, and `tree.leaves_`, and each
+node links back to its parent through `node.parent` (None on the root).
+
+### 5.6. Collapsing recursive splits with `compact()`
 
 When the same feature is split over several consecutive levels, a binary
 tree repeats that feature down a chain. `compact()` returns a new tree in
@@ -404,7 +425,7 @@ collapses into one node carrying three interval branches:
 The original tree is left unchanged; `compact()` produces an independent
 copy whose node ids are renumbered to match its smaller shape.
 
-### 5.6. Missing values (NaN)
+### 5.7. Missing values (NaN)
 
 Sigma accepts `NaN` in the covariate matrix `X` for numeric, boolean, and
 categorical features. The target `y` must stay finite, and infinities in
