@@ -3,6 +3,7 @@
 import typing
 import unittest
 
+import _helpers
 import numpy
 import numpy.testing
 
@@ -15,8 +16,6 @@ import sigma._tree_regression
 import sigma._tree_survival
 import sigma._tree_text
 import sigma._types
-
-import _helpers
 
 
 class TestTransmuterRegressionTree(unittest.TestCase):
@@ -868,7 +867,6 @@ class TestOffsetDecoratorPropagation(unittest.TestCase):
         def decorator(X_sub, y_sub, w_sub, offset_sub, sd_sub):
             """Record offset_sub for each node."""
             seen.append(offset_sub)
-            return None
 
         X, y = _helpers._step_X_y_regression()
         baseline = numpy.arange(len(y), dtype=float)
@@ -892,7 +890,6 @@ class TestOffsetDecoratorPropagation(unittest.TestCase):
         def decorator(X_sub, y_sub, w_sub, offset_sub, sd_sub):
             """Record offset_sub for each node."""
             seen.append(offset_sub)
-            return None
 
         X, y = _helpers._step_X_y_regression()
         tree = sigma._tree_regression.RegressionTree(

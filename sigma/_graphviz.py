@@ -8,11 +8,7 @@ import graphviz
 import numpy
 import numpy.typing
 
-from . import _extension
-from . import _node
-from . import _palette
-from . import _partition
-from . import _tree_text
+from . import _extension, _node, _palette, _partition, _tree_text
 
 _DEFAULT_ROOT_COLORS = ("white", "black", "black")
 _DEFAULT_SPLIT_COLORS = ("black", "lightgray", "black")

@@ -14,7 +14,6 @@ import sigma._partition
 import sigma._tree_classification
 import sigma._tree_regression
 
-
 _DATA_DIRECTORY = os.path.join(os.path.dirname(__file__), "data")
 
 

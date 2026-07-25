@@ -3,6 +3,7 @@
 import importlib.util
 import unittest
 
+import _helpers
 import numpy
 
 import sigma._extension
@@ -10,8 +11,6 @@ import sigma._partition
 import sigma._tree_classification
 import sigma._tree_regression
 import sigma._tree_survival
-
-import _helpers
 
 _HAS_GRAPHVIZ = importlib.util.find_spec("graphviz") is not None
 
@@ -572,8 +571,7 @@ class TestLeafBadges(unittest.TestCase):
 
     def setUp(self):
         """Set up fitted models for badge tests."""
-        from sigma import _graphviz
-        from sigma import _node
+        from sigma import _graphviz, _node
 
         self._graphviz = _graphviz
         self._node = _node
@@ -742,8 +740,7 @@ class TestBuildDigraphMaxDepth(unittest.TestCase):
 
     def setUp(self):
         """Set up a fitted three-step regression tree and a build helper."""
-        from sigma import _graphviz
-        from sigma import _node
+        from sigma import _graphviz, _node
 
         self._graphviz = _graphviz
         self._node = _node

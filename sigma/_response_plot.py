@@ -26,14 +26,16 @@ import numpy
 import numpy.typing
 import scipy.stats
 
-from . import _palette
-from . import _survival
-from . import _tree
-from . import _tree_classification
-from . import _tree_ranking
-from . import _tree_regression
-from . import _tree_survival
-from . import _tree_text
+from . import (
+    _palette,
+    _survival,
+    _tree,
+    _tree_classification,
+    _tree_ranking,
+    _tree_regression,
+    _tree_survival,
+    _tree_text,
+)
 
 if typing.TYPE_CHECKING:
     import matplotlib.axes
@@ -53,8 +55,8 @@ def _render_response_image(
 ) -> bytes:
     """Render the per-leaf response plot of tree as image bytes."""
     try:
-        import matplotlib.figure
         import matplotlib.backends.backend_agg
+        import matplotlib.figure
     except ImportError as import_error:
         raise ImportError(
             "matplotlib is required for kind='response' image output. "

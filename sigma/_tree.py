@@ -21,12 +21,7 @@ import sklearn.base
 import sklearn.utils.validation
 import typing_extensions
 
-from . import _extension
-from . import _node
-from . import _partition
-from . import _splitting
-from . import _statistics
-from . import _types
+from . import _extension, _node, _partition, _splitting, _statistics, _types
 
 if typing.TYPE_CHECKING:
     import pandas

@@ -31,7 +31,7 @@ class SplitStatistics:
         Sigma: Covariance of T under the null of independence.
     """
 
-    __slots__ = ("p_value", "T", "mu", "Sigma", "__weakref__")
+    __slots__ = ("Sigma", "T", "__weakref__", "mu", "p_value")
 
     def __init__(
         self,
@@ -64,9 +64,7 @@ class NumericInterval(BranchCondition):
 
     __slots__ = ("lower", "upper")
 
-    def __init__(
-        self, lower: None | int | float, upper: None | int | float
-    ) -> None:
+    def __init__(self, lower: None | float, upper: None | float) -> None:
         self.lower = lower
         self.upper = upper
 
@@ -117,7 +115,7 @@ class Partition(_extension.Extension[N], typing.Generic[N]):
         children: Child nodes in branch order, one per branch.
     """
 
-    __slots__ = ("feature_index", "feature_name", "statistics", "children")
+    __slots__ = ("children", "feature_index", "feature_name", "statistics")
 
     def __init__(
         self,
@@ -180,7 +178,7 @@ class NumericalPartition(Partition[N], typing.Generic[N]):
             (NaN) records, or None when missing records are not routable.
     """
 
-    __slots__ = ("thresholds", "nan_child")
+    __slots__ = ("nan_child", "thresholds")
 
     def __init__(
         self,

@@ -19,10 +19,10 @@ are NOT exercised at run time outside of this file.
 
 import unittest
 
+import _helpers
 import numpy
 import numpy.testing
 
-import _helpers
 import sigma._ranking
 
 _RTOL = 1e-9

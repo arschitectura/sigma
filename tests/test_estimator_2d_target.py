@@ -30,7 +30,6 @@ import sklearn.utils.validation
 import sigma._tree_ranking
 import sigma._tree_survival
 
-
 _RANKING_ITEMS = 3
 
 _PREDICTION_METHOD_NAMES = (

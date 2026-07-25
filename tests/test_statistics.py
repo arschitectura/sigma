@@ -12,7 +12,6 @@ import scipy.stats
 import sigma._statistics
 import sigma._types
 
-
 # Hand-computed reference values for a simple numeric case:
 #   g_j = [1, 2, 3, 4], h = [10, 20, 30, 40], weights = [1, 1, 1, 1]
 #   w_. = 4, sum_wg = 10, E_h = 25, V_h = 125

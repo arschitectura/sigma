@@ -13,10 +13,7 @@ import sklearn.base
 import sklearn.utils.multiclass
 import sklearn.utils.validation
 
-from . import _extension
-from . import _node
-from . import _tree
-from . import _types
+from . import _extension, _node, _tree, _types
 
 if typing.TYPE_CHECKING:
     import pandas

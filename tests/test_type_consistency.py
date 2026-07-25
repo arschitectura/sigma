@@ -17,7 +17,6 @@ import polars
 
 import sigma._tree_regression
 
-
 _N = 20
 
 

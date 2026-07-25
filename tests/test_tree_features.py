@@ -2,6 +2,7 @@
 
 import unittest
 
+import _helpers
 import numpy
 import numpy.testing
 
@@ -15,8 +16,6 @@ import sigma._tree_regression
 import sigma._tree_survival
 import sigma._tree_text
 import sigma._types
-
-import _helpers
 
 
 class TestSampleWeight(unittest.TestCase):
@@ -325,7 +324,6 @@ class TestSideData(unittest.TestCase):
         def decorator(X_sub, y_sub, w_sub, offset_sub, sd_sub):
             """Record the side_data subset seen at each node."""
             seen.append(sd_sub)
-            return None
 
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
@@ -545,7 +543,6 @@ class TestTreeDecorator(unittest.TestCase):
                     sd_sub.shape[0],
                 )
             )
-            return None
 
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
@@ -576,7 +573,6 @@ class TestTreeDecorator(unittest.TestCase):
         def decorator(X_sub, y_sub, w_sub, offset_sub, sd_sub):
             """Record the distinct weight values seen at this node."""
             seen_weights.append(numpy.unique(w_sub).tolist())
-            return None
 
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
@@ -597,7 +593,6 @@ class TestTreeDecorator(unittest.TestCase):
         def decorator(X_sub, y_sub, w_sub, offset_sub, sd_sub):
             """Record whether side_data subset is None."""
             observed.append(sd_sub)
-            return None
 
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal",
@@ -625,7 +620,6 @@ class TestTreeDecorator(unittest.TestCase):
         def decorator(X_sub, y_sub, w_sub, offset_sub, sd_sub):
             """Record max of the raw y subset."""
             seen_maxes.append(float(y_sub.max()))
-            return None
 
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal",

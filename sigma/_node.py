@@ -10,13 +10,10 @@ import numpy
 import numpy.typing
 import typing_extensions
 
-from . import _extension
-from . import _partition
+from . import _extension, _partition
 
 if typing.TYPE_CHECKING:
     import polars
-
-_NodeT = typing.TypeVar("_NodeT", bound="Node")
 
 
 class Node(abc.ABC):
@@ -37,14 +34,14 @@ class Node(abc.ABC):
     """
 
     __slots__ = (
-        "depth",
-        "n_samples",
-        "share",
+        "__weakref__",
         "decoration",
+        "depth",
         "extension",
+        "n_samples",
         "node_id",
         "parent",
-        "__weakref__",
+        "share",
     )
 
     extension: _extension.Extension[typing_extensions.Self]
@@ -67,7 +64,7 @@ class Node(abc.ABC):
         self.node_id = 0
         self.parent = None
 
-    def traverse(self: _NodeT, x: numpy.typing.NDArray) -> _NodeT:
+    def traverse(self, x: numpy.typing.NDArray) -> typing_extensions.Self:
         """Walk a single sample down the tree to its deepest reached node.
 
         Args:
@@ -81,7 +78,9 @@ class Node(abc.ABC):
         node = path[-1]
         return node
 
-    def traverse_path(self: _NodeT, x: numpy.typing.NDArray) -> list[_NodeT]:
+    def traverse_path(
+        self, x: numpy.typing.NDArray
+    ) -> list[typing_extensions.Self]:
         """Walk a single sample down the tree, listing the nodes it visits.
 
         Args:
@@ -93,7 +92,7 @@ class Node(abc.ABC):
             completes, or the internal node whose partition did not route
             the value.
         """
-        path: list[_NodeT] = []
+        path: list[typing_extensions.Self] = []
         node = self
         while True:
             path.append(node)  # ty: ignore[invalid-argument-type]
@@ -108,11 +107,11 @@ class Node(abc.ABC):
                     break
         return path
 
-    def leaves(self: _NodeT) -> list[_NodeT]:
+    def leaves(self) -> list[typing_extensions.Self]:
         """Return all leaf nodes in this subtree, in left-to-right order."""
         match self.extension:
             case _partition.Partition() as partition:
-                result: list[_NodeT] = []
+                result: list[typing_extensions.Self] = []
                 for child in partition.children:
                     result.extend(child.leaves())  # ty: ignore[unresolved-attribute]
             case _:
@@ -187,7 +186,7 @@ class RegressionNode(Node):
             internal nodes and on leaves when response_sample_size=0.
     """
 
-    __slots__ = ("_prediction", "ci_low", "ci_high", "response_samples")
+    __slots__ = ("_prediction", "ci_high", "ci_low", "response_samples")
 
     def __init__(
         self,
@@ -248,9 +247,9 @@ class ClassificationNode(Node):
 
     __slots__ = (
         "_prediction",
-        "class_distribution",
-        "ci_low",
         "ci_high",
+        "ci_low",
+        "class_distribution",
         "mean_offset_proba",
     )
 
@@ -304,13 +303,13 @@ class SurvivalMetric:
     """
 
     __slots__ = (
-        "label",
-        "value",
-        "ci_low",
-        "ci_high",
-        "style",
-        "better_is",
         "__weakref__",
+        "better_is",
+        "ci_high",
+        "ci_low",
+        "label",
+        "style",
+        "value",
     )
 
     def __init__(
@@ -353,7 +352,7 @@ class SurvivalNode(Node):
         metrics: Non-empty ordered list of per-node summary metrics.
     """
 
-    __slots__ = ("survival_function", "survival_log_variance", "metrics")
+    __slots__ = ("metrics", "survival_function", "survival_log_variance")
 
     def __init__(
         self,
@@ -422,13 +421,13 @@ class RankingMetric:
     """
 
     __slots__ = (
-        "label",
-        "value",
-        "ci_low",
-        "ci_high",
-        "style",
-        "better_is",
         "__weakref__",
+        "better_is",
+        "ci_high",
+        "ci_low",
+        "label",
+        "style",
+        "value",
     )
 
     def __init__(

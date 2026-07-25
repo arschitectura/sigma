@@ -10,10 +10,10 @@ import typing
 import unittest
 import unittest.mock
 
+import _helpers
 import numpy
 import sklearn.exceptions
 
-import _helpers
 import sigma
 import sigma._tree
 import sigma._tree_classification
@@ -1203,8 +1203,7 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.colors
         import matplotlib.figure
 
-        from sigma import _palette
-        from sigma import _response_plot
+        from sigma import _palette, _response_plot
 
         regression_tree = _helpers._fit_step_regression_tree()
         figure = matplotlib.figure.Figure()
@@ -1308,8 +1307,7 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.colors
         import matplotlib.figure
 
-        from sigma import _palette
-        from sigma import _response_plot
+        from sigma import _palette, _response_plot
 
         classification_tree = _helpers._fit_step_classification_tree()
         figure = matplotlib.figure.Figure()
@@ -1341,8 +1339,7 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.colors
         import matplotlib.figure
 
-        from sigma import _palette
-        from sigma import _response_plot
+        from sigma import _palette, _response_plot
 
         classification_tree = _helpers._fit_step_classification_tree()
         figure = matplotlib.figure.Figure()
@@ -1588,8 +1585,7 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.colors
         import matplotlib.figure
 
-        from sigma import _palette
-        from sigma import _response_plot
+        from sigma import _palette, _response_plot
 
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)

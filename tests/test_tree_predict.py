@@ -4,6 +4,7 @@ import typing
 import unittest
 import warnings
 
+import _helpers
 import numpy
 import numpy.testing
 import scipy.sparse
@@ -20,8 +21,6 @@ import sigma._tree_regression
 import sigma._tree_survival
 import sigma._tree_text
 import sigma._types
-
-import _helpers
 
 
 class TestRegressionTreePredict(unittest.TestCase):

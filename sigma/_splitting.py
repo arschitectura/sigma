@@ -15,8 +15,7 @@ import typing
 import numpy
 import numpy.typing
 
-from . import _statistics
-from . import _types
+from . import _statistics, _types
 
 
 class _NumericSplit(typing.NamedTuple):

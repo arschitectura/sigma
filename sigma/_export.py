@@ -19,9 +19,7 @@ import typing
 
 import sklearn.utils.validation
 
-from . import _tree
-from . import _tree_ranking
-from . import _tree_text
+from . import _tree, _tree_ranking, _tree_text
 
 
 @typing.overload
@@ -729,8 +727,7 @@ def export_image(
     _validate_positive_int(max_branch_length, "max_branch_length")
     _validate_out_file(out_file)
     sklearn.utils.validation.check_is_fitted(tree, "content_")
-    from . import _graphviz
-    from . import _palette
+    from . import _graphviz, _palette
 
     effective_response_name = tree._effective_response_name(response_name)
     effective_class_names = tree._effective_class_names(class_names)

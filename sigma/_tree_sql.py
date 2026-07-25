@@ -7,10 +7,7 @@ import typing
 import numpy
 import numpy.typing
 
-from . import _extension
-from . import _node
-from . import _partition
-from . import _tree_text
+from . import _extension, _node, _partition, _tree_text
 
 if typing.TYPE_CHECKING:
     from . import _tree

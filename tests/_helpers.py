@@ -13,7 +13,6 @@ import sigma._tree_classification
 import sigma._tree_regression
 import sigma._tree_survival
 
-
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 _DEMO_DATA_DIR = os.path.join(_REPO_ROOT, ".demo_data")
 

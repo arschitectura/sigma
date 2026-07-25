@@ -22,10 +22,10 @@ import math
 import os
 import unittest
 
+import _helpers
 import numpy
 import numpy.testing
 
-import _helpers
 import sigma
 import sigma._ranking
 import sigma._types

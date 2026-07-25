@@ -12,9 +12,7 @@ import typing
 import numpy
 import numpy.typing
 
-from . import _extension
-from . import _node
-from . import _partition
+from . import _extension, _node, _partition
 
 
 def _format_p_value_number(value: float) -> str:
@@ -65,7 +63,7 @@ def _format_value(value: float, precision: int = 3) -> str:
     return result
 
 
-def _format_threshold(value: int | float, precision: int = 3) -> str:
+def _format_threshold(value: float, precision: int = 3) -> str:
     """Format a split threshold, using scientific notation outside [1e-3, 1e6)."""
     if isinstance(value, int):
         precision = 0

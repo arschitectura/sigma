@@ -29,8 +29,8 @@ _REPO_ROOT = os.path.abspath(
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-import sigma  # noqa: E402
-from sigma import _partition  # noqa: E402
+import sigma
+from sigma import _partition
 
 _CACHE_DIR = os.path.join(_REPO_ROOT, ".demo_data")
 _OUTPUT_PATH = os.path.join(

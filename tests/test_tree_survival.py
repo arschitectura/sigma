@@ -19,7 +19,6 @@ import sigma._tree_survival
 import sigma._tree_text
 import sigma._types
 
-
 try:
     import lifelines  # noqa: F401
 

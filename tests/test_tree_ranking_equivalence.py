@@ -20,15 +20,14 @@ import os
 import unittest
 import zipfile
 
+import _helpers
 import numpy
 import numpy.testing
 import pandas
 
-import _helpers
 import sigma
 import sigma._partition
 import sigma._ranking
-
 from tests.test_ranking_equivalence import (
     _legacy_compute_pl_mle,
     _legacy_pl_expected_rank,

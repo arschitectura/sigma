@@ -10,11 +10,7 @@ import numpy.typing
 import sklearn.utils
 import sklearn.utils.validation
 
-from . import _extension
-from . import _node
-from . import _survival
-from . import _tree
-from . import _types
+from . import _extension, _node, _survival, _tree, _types
 
 if typing.TYPE_CHECKING:
     import pandas
@@ -27,7 +23,7 @@ _SurvivalMetricSpec: typing.TypeAlias = str | tuple[str, float | int, str]
 class _Metric:
     """Internal normalized form of a survival metric specification."""
 
-    __slots__ = ("kind", "value", "unit")
+    __slots__ = ("kind", "unit", "value")
 
     def __init__(
         self,
