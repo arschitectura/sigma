@@ -425,9 +425,7 @@ class TestToImage(unittest.TestCase):
         regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("svg")
         self.assertIsInstance(result, bytes)
-        self.assertTrue(
-            result.startswith(b"<?xml") or result.startswith(b"<svg")
-        )
+        self.assertTrue(result.startswith((b"<?xml", b"<svg")))
 
     def test_regression_tree_png_returns_bytes(self):
         """RegressionTree to_image returns valid PNG bytes."""
@@ -448,9 +446,7 @@ class TestToImage(unittest.TestCase):
         classification_tree, _, _ = _make_classification_tree()
         result = classification_tree.to_image("svg")
         self.assertIsInstance(result, bytes)
-        self.assertTrue(
-            result.startswith(b"<?xml") or result.startswith(b"<svg")
-        )
+        self.assertTrue(result.startswith((b"<?xml", b"<svg")))
 
     def test_classification_tree_png_returns_bytes(self):
         """ClassificationTree to_image returns valid PNG bytes."""
@@ -526,9 +522,7 @@ class TestToImage(unittest.TestCase):
         regression_tree = _helpers._fit_step_regression_tree()
         result = regression_tree.to_image("svg", background_color="transparent")
         self.assertIsInstance(result, bytes)
-        self.assertTrue(
-            result.startswith(b"<?xml") or result.startswith(b"<svg")
-        )
+        self.assertTrue(result.startswith((b"<?xml", b"<svg")))
 
     def test_background_color_png_returns_bytes(self):
         """to_image with a background_color returns valid PNG bytes."""

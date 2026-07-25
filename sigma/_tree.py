@@ -111,6 +111,8 @@ class Tree(
             (so nodes_[k].node_id == k). Indices match the output of
             predict_index.
         n_features_in_: Number of features seen during fit.
+        feature_names_in_: Column names seen during fit, set when X is a
+            pandas or polars object that carries them.
         feature_types_: Per-feature CovariateType, shape (n_features,).
         response_name_in_: Display name captured from a named pandas Series y
             (or, for survival, the first column name of a DataFrame y) at fit
@@ -144,6 +146,7 @@ class Tree(
     leaves_: list[N]
     nodes_: list[N]
     n_features_in_: int
+    feature_names_in_: numpy.typing.NDArray
     feature_types_: numpy.typing.NDArray
     response_name_in_: None | str
     category_labels_in_: None | dict[int, dict[float, str]]
@@ -2211,7 +2214,7 @@ def _missing_mask(column: typing.Any) -> numpy.typing.NDArray[numpy.bool_]:
         mask = numpy.asarray(column.is_null(), dtype=bool)
         return mask
     array = numpy.asarray(column)
-    mask = array != array
+    mask = numpy.not_equal(array, array)
     return mask
 
 

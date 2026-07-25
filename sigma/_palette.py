@@ -134,9 +134,9 @@ def _srgb_to_hex(red: float, green: float, blue: float) -> str:
     red_clamped = min(1.0, max(0.0, red))
     green_clamped = min(1.0, max(0.0, green))
     blue_clamped = min(1.0, max(0.0, blue))
-    red_byte = int(round(red_clamped * 255))
-    green_byte = int(round(green_clamped * 255))
-    blue_byte = int(round(blue_clamped * 255))
+    red_byte = round(red_clamped * 255)
+    green_byte = round(green_clamped * 255)
+    blue_byte = round(blue_clamped * 255)
     hex_color = f"#{red_byte:02X}{green_byte:02X}{blue_byte:02X}"
     return hex_color
 

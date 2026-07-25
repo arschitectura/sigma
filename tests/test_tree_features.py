@@ -995,9 +995,9 @@ class TestRegressionTreeResponseSamples(unittest.TestCase):
             )
 
     @staticmethod
-    def _construct(cls: type, **kwargs: object) -> object:
-        """Untyped wrapper that funnels kwargs into cls() at runtime."""
-        instance = cls(**kwargs)
+    def _construct(target_class: type, **kwargs: object) -> object:
+        """Untyped wrapper that funnels kwargs into the class at runtime."""
+        instance = target_class(**kwargs)
         return instance
 
     def test_classification_tree_rejects_response_sample_size_kwarg(self):

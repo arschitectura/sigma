@@ -802,14 +802,14 @@ def _resolve_top_displayed_items(
             if top_displayed_items is None
             else top_displayed_items
         )
-        if not isinstance(effective, int) or isinstance(effective, bool):
+        if (
+            not isinstance(effective, int)
+            or isinstance(effective, bool)
+            or effective < 1
+        ):
             raise ValueError(
-                f"top_displayed_items must be an integer,"
-                f" got {type(effective).__name__}"
-            )
-        if effective < 1:
-            raise ValueError(
-                f"top_displayed_items must be at least 1, got {effective}"
+                f"top_displayed_items must be a positive integer,"
+                f" got {effective!r}"
             )
         return effective
     if top_displayed_items is not None:

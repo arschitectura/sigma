@@ -358,7 +358,7 @@ class TestFindBestSplit(unittest.TestCase):
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
-        split_value, statistic = result
+        split_value, _statistic = result
         assert isinstance(split_value, sigma._splitting._NumericSplit)
         assert split_value.threshold == 4
 
@@ -381,7 +381,7 @@ class TestFindBestSplit(unittest.TestCase):
             correlation=sigma._types.Correlation.NORMAL,
         )
         assert result is not None
-        split_value, statistic = result
+        split_value, _statistic = result
         assert isinstance(split_value, sigma._splitting._NumericSplit)
         assert split_value.threshold == 4.75
 

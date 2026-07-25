@@ -12,7 +12,7 @@ if typing.TYPE_CHECKING:
 N = typing.TypeVar("N", bound="_node.Node")
 
 
-class Extension(typing.Generic[N], abc.ABC):
+class Extension(abc.ABC, typing.Generic[N]):
     """Per-kind payload attached to every node of a fitted tree.
 
     Internal nodes carry a Partition (sigma._partition.Partition,

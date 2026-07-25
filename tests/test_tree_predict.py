@@ -581,8 +581,7 @@ class TestLeafId(unittest.TestCase):
                     sigma._partition.Partition[sigma._node.Node], node.extension
                 )
                 collected.append(node)
-                for child in partition.children:
-                    stack.append(child)
+                stack.extend(partition.children)
         return collected
 
     def test_internal_nodes_have_no_leaf_id(self):

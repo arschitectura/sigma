@@ -81,7 +81,7 @@ def _make_leaf_html_label(
                 ' cellpadding="0">'
             )
         case _:
-            width_attr = int(round(width_pt))
+            width_attr = round(width_pt)
             outer_table_open = (
                 '<<table border="0" cellborder="0" cellspacing="4"'
                 f' cellpadding="0" width="{width_attr}">'

@@ -605,9 +605,7 @@ class TestExportImage(unittest.TestCase):
         regression_tree = _helpers._fit_step_regression_tree()
         result = sigma.export_image(regression_tree, "svg")
         self.assertIsInstance(result, bytes)
-        self.assertTrue(
-            result.startswith(b"<?xml") or result.startswith(b"<svg")
-        )
+        self.assertTrue(result.startswith((b"<?xml", b"<svg")))
 
     def test_export_image_pdf_returns_bytes(self):
         """PDF format returns bytes that begin with the PDF magic prefix."""

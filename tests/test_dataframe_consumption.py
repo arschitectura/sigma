@@ -608,7 +608,7 @@ class TestPolarsConsumption(unittest.TestCase):
         )
         regression_tree.fit(X, y)
         self.assertIsNone(regression_tree.category_labels_in_)
-        names_in = getattr(regression_tree, "feature_names_in_")
+        names_in = regression_tree.feature_names_in_
         self.assertEqual(list(names_in), ["a", "b"])
 
     def test_polars_boolean_detected(self):
