@@ -545,9 +545,12 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
         survival_function = self._compute_survival_function(
             y_transmuted, w_transmuted
         )
-        survival_log_variance = self._compute_survival_log_variance(
-            y_transmuted, w_transmuted
-        )
+        if is_leaf:
+            survival_log_variance = self._compute_survival_log_variance(
+                y_transmuted, w_transmuted
+            )
+        else:
+            survival_log_variance = numpy.empty(0, dtype=float)
         metrics = self._compute_survival_metrics(y_transmuted, w_transmuted)
         statistics = _node._SurvivalStatistics(
             survival_function=survival_function,

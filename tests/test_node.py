@@ -27,19 +27,9 @@ def _leaf_regression(prediction: float) -> sigma._node.RegressionNode:
     return leaf
 
 
-_DUMMY_T = numpy.zeros(1)
-_DUMMY_MU = numpy.zeros(1)
-_DUMMY_SIGMA = numpy.zeros((1, 1))
-
-
 def _split_statistics(p_value) -> sigma._partition.SplitStatistics:
-    """Build a SplitStatistics with the given p-value and dummy moments."""
-    statistics = sigma._partition.SplitStatistics(
-        p_value=p_value,
-        T=_DUMMY_T,
-        mu=_DUMMY_MU,
-        Sigma=_DUMMY_SIGMA,
-    )
+    """Build a SplitStatistics with the given p-value."""
+    statistics = sigma._partition.SplitStatistics(p_value=p_value)
     return statistics
 
 

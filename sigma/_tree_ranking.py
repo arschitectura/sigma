@@ -152,8 +152,7 @@ class RankingTree(_tree.Tree[_node.RankingNode, _node._RankingStatistics]):
 
     n_items_: int
     item_names_: numpy.typing.NDArray
-    _y_full_: numpy.typing.NDArray[numpy.floating]
-    _pc_loadings_: numpy.typing.NDArray[numpy.floating]
+    _y_full: numpy.typing.NDArray[numpy.floating]
 
     def __init__(
         self,
@@ -279,6 +278,52 @@ class RankingTree(_tree.Tree[_node.RankingNode, _node._RankingStatistics]):
         target_tags.multi_output = True
         target_tags.single_output = False
         return tags
+
+    def fit(
+        self,
+        X: numpy.typing.NDArray[numpy.floating]
+        | pandas.DataFrame
+        | polars.DataFrame,
+        y: (
+            numpy.typing.NDArray[numpy.floating]
+            | pandas.Series
+            | pandas.DataFrame
+            | polars.DataFrame
+        ),
+        sample_weight: None | numpy.typing.NDArray[numpy.floating] = None,
+        offset: None | numpy.typing.NDArray[numpy.floating] = None,
+        side_data: None | numpy.typing.NDArray[numpy.floating] = None,
+    ) -> _tree.Tree:
+        """Fit the conditional inference ranking tree.
+
+        Args:
+            X: Training covariate matrix, shape (n_samples, n_features).
+            y: Ranks-in-cell matrix, shape (n_samples, n_items), carrying the
+                rank position each observation gave each item. Unranked items
+                are NaN and every row must rank at least two items. A pandas
+                DataFrame supplies item_names_ through its column names.
+            sample_weight: Per-sample weights, shape (n_samples,). If None,
+                all samples are weighted equally.
+            offset: Must be None; RankingTree does not support offsets.
+            side_data: Optional auxiliary per-sample data, shape (n_samples,
+                ...). Must have the same number of rows as X, and its active
+                subset reaches the decorator as a 5th positional argument.
+
+        Returns:
+            The fitted estimator. The ranking matrix passed as y is not
+            retained on it.
+
+        Raises:
+            ValueError: If y is None, is not 2D, has fewer than two columns,
+                has a row ranking fewer than two items, or has a row count
+                differing from X; if offset is not None; or under any of the
+                conditions listed by Tree.fit.
+        """
+        try:
+            fitted = super().fit(X, y, sample_weight, offset, side_data)
+        finally:
+            self.__dict__.pop("_y_full", None)
+        return fitted
 
     def predict(
         self,
@@ -446,7 +491,7 @@ class RankingTree(_tree.Tree[_node.RankingNode, _node._RankingStatistics]):
                 "each row must rank at least 2 items (have at least 2"
                 " non-NaN cells)"
             )
-        self._y_full_ = y_full
+        self._y_full = y_full
         self.n_items_ = n_items
         if column_names is None:
             if self.item_names is None:
@@ -466,12 +511,10 @@ class RankingTree(_tree.Tree[_node.RankingNode, _node._RankingStatistics]):
         y_log_centered = y_log - y_log.mean(axis=0)
         n_components = min(self.pca_components, n_items)
         if n_components >= n_items:
-            V = numpy.eye(n_items, dtype=float)
             Z = y_log_centered
         else:
             V = self._truncated_svd_v(y_log_centered, n_components)
             Z = y_log_centered @ V
-        self._pc_loadings_ = V
         return X_array, Z
 
     def _validate_offset(
@@ -505,7 +548,7 @@ class RankingTree(_tree.Tree[_node.RankingNode, _node._RankingStatistics]):
         is_leaf: bool,
     ) -> _node._RankingStatistics:
         """Compute the node's per-item expected-rank metrics."""
-        metrics = self._compute_ranking_metrics(y_transmuted, w_transmuted)
+        metrics = self._compute_ranking_metrics(w_transmuted)
         statistics = _node._RankingStatistics(metrics=metrics)
         return statistics
 
@@ -563,12 +606,11 @@ class RankingTree(_tree.Tree[_node.RankingNode, _node._RankingStatistics]):
 
     def _compute_ranking_metrics(
         self,
-        y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
     ) -> list[_node.RankingMetric]:
         """Compute the per-item RankingMetric list over the full catalogue."""
         active = weights > 0
-        y_full_active = self._y_full_[active]
+        y_full_active = self._y_full[active]
         w_active = weights[active]
         alpha = _ranking.compute_pl_mle(
             y_full_active,

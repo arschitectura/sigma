@@ -526,6 +526,43 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
         self.assertLess(key_b, key_a)
 
 
+class TestSurvivalLogVariance(unittest.TestCase):
+    """Tests where the Greenwood log-variance is available after fit."""
+
+    __slots__ = ()
+
+    def _fit(self):
+        """Fit a two-arm survival tree that splits at least once."""
+        X, time, event = _build_survival_dataset()
+        y = numpy.column_stack([time, event])
+        tree = sigma._tree_survival.SurvivalTree(random_state=0)
+        tree.fit(X, y)
+        return tree
+
+    def test_leaves_carry_variance_aligned_with_their_curve(self):
+        """Each leaf's log-variance has one entry per time of its survival curve."""
+        tree = self._fit()
+        self.assertGreater(len(tree.leaves_), 1)
+        for leaf in tree.leaves_:
+            times, _ = leaf.survival_function
+            self.assertEqual(leaf.survival_log_variance.shape, times.shape)
+
+    def test_internal_nodes_carry_no_variance(self):
+        """Internal nodes carry an empty log-variance array."""
+        tree = self._fit()
+        leaf_ids = {id(leaf) for leaf in tree.leaves_}
+        internal = [node for node in tree.nodes_ if id(node) not in leaf_ids]
+        self.assertGreater(len(internal), 0)
+        for node in internal:
+            self.assertEqual(node.survival_log_variance.size, 0)
+
+    def test_response_image_renders_from_leaf_variance(self):
+        """The response plot still draws its Greenwood band with leaf-only variance."""
+        tree = self._fit()
+        payload = tree.to_image("png", kind="response")
+        self.assertGreater(len(payload), 0)
+
+
 class TestSurvivalTreeSklearnTags(unittest.TestCase):
     """Tests for the sklearn tag overrides on SurvivalTree."""
 

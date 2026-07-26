@@ -331,7 +331,7 @@ class SurvivalMetric:
 
 @dataclasses.dataclass(frozen=True)
 class _SurvivalStatistics(_EstimatorStatistics):
-    """Survival node's Kaplan-Meier curve, log-variance, and per-node metrics."""
+    """Survival node's Kaplan-Meier curve, leaf log-variance, and metrics."""
 
     survival_function: tuple[
         numpy.typing.NDArray[numpy.floating],
@@ -348,7 +348,8 @@ class SurvivalNode(Node):
         survival_function: Pair (times, surv) describing the
             Kaplan-Meier estimate of S(t) at this node.
         survival_log_variance: Greenwood variance of log S(t) at the same
-            times as survival_function, shape (n,).
+            times as survival_function, shape (n,). Empty on internal
+            nodes.
         metrics: Non-empty ordered list of per-node summary metrics.
     """
 

@@ -12,6 +12,7 @@ import sigma._partition
 import sigma._statistics
 import sigma._tree
 import sigma._tree_classification
+import sigma._tree_ranking
 import sigma._tree_regression
 import sigma._tree_survival
 import sigma._tree_text
@@ -887,6 +888,23 @@ class TestNoRawTrainingDataOnFittedTree(unittest.TestCase):
         )
         self._assert_no_fit_inputs(tree, n)
 
+    def test_ranking_tree_does_not_retain_fit_inputs(self):
+        """RankingTree.fit leaves no per-sample fit-time array on the estimator."""
+        rng = numpy.random.RandomState(0)
+        n = 80
+        n_items = 5
+        X = rng.randn(n, 3)
+        ascending = numpy.arange(1.0, n_items + 1.0)
+        descending = ascending[::-1]
+        y = numpy.where((X[:, 0] > 0).reshape(-1, 1), ascending, descending)
+        sample_weight = rng.uniform(0.5, 1.5, size=n)
+        side_data = rng.randn(n, 2)
+        tree = sigma._tree_ranking.RankingTree(
+            min_splits=10, min_buckets=5, ci_coverage=None
+        )
+        tree.fit(X, y, sample_weight=sample_weight, side_data=side_data)
+        self._assert_no_fit_inputs(tree, n)
+
 
 class TestRegressionTreeResponseSamples(unittest.TestCase):
     """Tests for RegressionTree.response_sample_size and per-leaf samples."""
@@ -1030,13 +1048,28 @@ class TestRegressionTreeResponseSamples(unittest.TestCase):
             sigma._tree_regression.RegressionTree(response_sample_size=True)
 
 
-class TestPartitionExposesVariableSelectionTriple(unittest.TestCase):
-    """Tests each internal partition exposes T, mu, Sigma via statistics."""
+class TestSplitPValueMatchesVariableSelection(unittest.TestCase):
+    """Tests the p-value stored on a partition is the adjusted selection one."""
 
     __slots__ = ()
 
-    def test_partition_triple_reproduces_stored_p_value(self):
-        """Round-tripping split-statistics T, mu, Sigma through compute_test_statistic and compute_p_value reproduces the stored Sidak-adjusted p-value."""
+    def _select_at_root(self, tree, X, y):
+        """Run variable selection on the whole sample with the tree's settings."""
+        weights = numpy.ones(X.shape[0])
+        selection = sigma._statistics.select_variable(
+            X,
+            y.reshape(-1, 1),
+            weights,
+            tree.feature_types_,
+            sigma._types.TestStat.QUADRATIC,
+            sigma._types.TestType.SIDAK,
+            tree.alpha,
+            sigma._types.Correlation.NORMAL,
+        )
+        return selection
+
+    def test_root_p_value_reproduced_from_selection_triple(self):
+        """Round-tripping the selection T, mu, and Sigma through compute_test_statistic and compute_p_value reproduces the root partition's Sidak-adjusted p-value."""
         rng = numpy.random.default_rng(0)
         n = 200
         x_signal = numpy.linspace(0.0, 10.0, n)
@@ -1048,35 +1081,30 @@ class TestPartitionExposesVariableSelectionTriple(unittest.TestCase):
             random_state=123,
         )
         tree.fit(X, y)
-        internal_nodes = [
-            node
-            for node in tree.nodes_
-            if isinstance(node.extension, sigma._partition.Partition)
-        ]
-        assert len(internal_nodes) >= 1
-        for node in internal_nodes:
-            partition = node.extension
-            assert isinstance(partition, sigma._partition.Partition)
-            statistics = partition.statistics
-            assert statistics is not None
-            self.assertEqual(statistics.T.shape, statistics.mu.shape)
-            self.assertEqual(
-                statistics.Sigma.shape, (statistics.T.size, statistics.T.size)
-            )
-            c = sigma._statistics.compute_test_statistic(
-                statistics.T,
-                statistics.mu,
-                statistics.Sigma,
-                sigma._types.TestStat.QUADRATIC,
-            )
-            p_raw = sigma._statistics.compute_p_value(
-                c, statistics.Sigma, sigma._types.TestStat.QUADRATIC
-            )
-            p_adj = 1.0 - (1.0 - p_raw) ** tree.n_features_in_
-            numpy.testing.assert_allclose(p_adj, statistics.p_value, rtol=1e-10)
+        root_partition = tree.content_.extension
+        assert isinstance(root_partition, sigma._partition.Partition)
+        statistics = root_partition.statistics
+        assert statistics is not None
+        selection = self._select_at_root(tree, X, y)
+        assert selection is not None
+        self.assertEqual(selection.T.shape, selection.mu.shape)
+        self.assertEqual(
+            selection.Sigma.shape, (selection.T.size, selection.T.size)
+        )
+        c = sigma._statistics.compute_test_statistic(
+            selection.T,
+            selection.mu,
+            selection.Sigma,
+            sigma._types.TestStat.QUADRATIC,
+        )
+        p_raw = sigma._statistics.compute_p_value(
+            c, selection.Sigma, sigma._types.TestStat.QUADRATIC
+        )
+        p_adj = 1.0 - (1.0 - p_raw) ** tree.n_features_in_
+        numpy.testing.assert_allclose(p_adj, statistics.p_value, rtol=1e-10)
 
-    def test_partition_triple_present_for_categorical_split(self):
-        """A tree that splits on a categorical covariate stores T, mu, and Sigma on the resulting CategoricalPartition's split statistics."""
+    def test_categorical_split_p_value_matches_selection(self):
+        """A categorical split stores the p-value that variable selection reports for that covariate."""
         rng = numpy.random.default_rng(7)
         n = 300
         categories = rng.integers(0, 3, size=n).astype(float)
@@ -1093,21 +1121,28 @@ class TestPartitionExposesVariableSelectionTriple(unittest.TestCase):
             random_state=123,
         )
         tree.fit(X, y)
-        internal_nodes = [
-            node
-            for node in tree.nodes_
-            if isinstance(node.extension, sigma._partition.Partition)
-        ]
-        assert len(internal_nodes) >= 1
-        root_partition = internal_nodes[0].extension
+        root_partition = tree.content_.extension
         assert isinstance(root_partition, sigma._partition.CategoricalPartition)
         statistics = root_partition.statistics
         assert statistics is not None
-        self.assertIsInstance(statistics.T, numpy.ndarray)
-        self.assertIsInstance(statistics.mu, numpy.ndarray)
-        self.assertIsInstance(statistics.Sigma, numpy.ndarray)
-        self.assertEqual(statistics.T.shape, statistics.mu.shape)
-        self.assertEqual(
-            statistics.Sigma.shape,
-            (statistics.T.size, statistics.T.size),
+        selection = self._select_at_root(tree, X, y)
+        assert selection is not None
+        self.assertEqual(selection.feature_index, 0)
+        numpy.testing.assert_allclose(
+            selection.p_value, statistics.p_value, rtol=1e-10
         )
+
+    def test_partition_carries_no_test_moments(self):
+        """A fitted partition's statistics expose the p-value only, not the T, mu, and Sigma of the selection test."""
+        rng = numpy.random.default_rng(0)
+        n = 200
+        X = rng.standard_normal((n, 2))
+        y = 3.0 * X[:, 1] + rng.standard_normal(n) * 0.1
+        tree = sigma._tree_regression.RegressionTree(random_state=123)
+        tree.fit(X, y)
+        root_partition = tree.content_.extension
+        assert isinstance(root_partition, sigma._partition.Partition)
+        statistics = root_partition.statistics
+        assert statistics is not None
+        for name in ("T", "mu", "Sigma"):
+            self.assertFalse(hasattr(statistics, name))

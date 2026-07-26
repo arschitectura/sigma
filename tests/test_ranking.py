@@ -408,35 +408,16 @@ class TestRankingTreeFit(unittest.TestCase):
         parameters = inspect.signature(sigma.RankingTree).parameters
         self.assertNotIn("min_obs_per_item", parameters)
 
-    def test_pc_loadings_attribute_set_after_fit(self):
-        """After fit, _pc_loadings_ has shape (n_items, R = min(pca_components, n_items))."""
-        rng = numpy.random.default_rng(13)
-        n_samples = 200
-        n_items = 30
-        X = rng.normal(size=(n_samples, 1))
-        y = numpy.empty((n_samples, n_items), dtype=float)
-        for i in range(n_samples):
-            y[i] = (
-                numpy.arange(1.0, n_items + 1.0)
-                if X[i, 0] > 0
-                else numpy.arange(n_items, 0.0, -1.0)
-            )
-        tree = sigma.RankingTree(pca_components=5, random_state=0)
-        tree.fit(X, y)
-        self.assertEqual(tree._pc_loadings_.shape, (n_items, 5))
-
-    def test_pc_loadings_orthonormal(self):
-        """V.T @ V is approximately the identity matrix (PCA invariant)."""
+    def test_truncated_svd_v_shape_and_orthonormality(self):
+        """The log-rank projection basis has one column per requested component and orthonormal columns."""
         rng = numpy.random.default_rng(14)
         n_samples = 200
         n_items = 30
-        X = rng.normal(size=(n_samples, 1))
-        y = numpy.empty((n_samples, n_items), dtype=float)
-        for i in range(n_samples):
-            y[i] = rng.permutation(n_items).astype(float) + 1.0
-        tree = sigma.RankingTree(pca_components=10, random_state=0)
-        tree.fit(X, y)
-        V = tree._pc_loadings_
+        matrix = rng.normal(size=(n_samples, n_items))
+        centered = matrix - matrix.mean(axis=0)
+        tree = sigma.RankingTree(pca_components=5, random_state=0)
+        V = tree._truncated_svd_v(centered, 5)
+        self.assertEqual(V.shape, (n_items, 5))
         product = V.T @ V
         numpy.testing.assert_allclose(
             product, numpy.eye(product.shape[0]), atol=1e-6

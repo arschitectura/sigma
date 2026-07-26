@@ -6,9 +6,6 @@ import abc
 import math
 import typing
 
-import numpy
-import numpy.typing
-
 from . import _extension
 
 if typing.TYPE_CHECKING:
@@ -20,30 +17,18 @@ N = typing.TypeVar("N", bound="_node.Node")
 
 
 class SplitStatistics:
-    """Conditional-inference test backing a single binary split.
+    """Conditional-inference test backing the split at one internal node.
 
     Attributes:
         p_value: Significance p-value of the split. When a transmuter is
             used, this is the maximum of the variable selection p-value and
             the transmuter confirmation p-value.
-        T: Observed linear test statistic for the split variable.
-        mu: Expected value of T under the null of independence.
-        Sigma: Covariance of T under the null of independence.
     """
 
-    __slots__ = ("Sigma", "T", "__weakref__", "mu", "p_value")
+    __slots__ = ("__weakref__", "p_value")
 
-    def __init__(
-        self,
-        p_value: float,
-        T: numpy.typing.NDArray[numpy.floating],
-        mu: numpy.typing.NDArray[numpy.floating],
-        Sigma: numpy.typing.NDArray[numpy.floating],
-    ) -> None:
+    def __init__(self, p_value: float) -> None:
         self.p_value = p_value
-        self.T = T
-        self.mu = mu
-        self.Sigma = Sigma
 
 
 class BranchCondition(abc.ABC):

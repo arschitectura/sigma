@@ -997,12 +997,7 @@ class Tree(
             offset_transmuted=offset_right_transmuted,
         )
         split_name = None if names is None else str(names[feature_index])
-        split_statistics = _partition.SplitStatistics(
-            p_value=p_value,
-            T=selection.T,
-            mu=selection.mu,
-            Sigma=selection.Sigma,
-        )
+        split_statistics = _partition.SplitStatistics(p_value=p_value)
         children = (left_child, right_child)
         partition: _partition.Partition[_node.Node]
         match self.feature_types_[feature_index]:
