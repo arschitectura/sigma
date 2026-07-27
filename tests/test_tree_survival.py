@@ -39,6 +39,65 @@ def _build_survival_dataset(n=200, seed=0):
     return X, time, event
 
 
+_NAN = float("nan")
+
+# Median, risk score, survival at 3 and RMST at 4 for every node of the
+# TestSurvivalMetricReferenceValues tree, in pre-order.
+_REFERENCE_METRIC_VALUES = (
+    2.5118615259316757,
+    78.32067613395219,
+    0.4749999999999997,
+    2.5013268981208094,
+    _NAN,
+    30.84618766047522,
+    0.7499999999999998,
+    3.3360664285643655,
+    1.3484891658185798,
+    183.12638529115924,
+    0.1999999999999998,
+    1.6665873676772545,
+)
+_REFERENCE_METRIC_CI_LOW = (
+    2.060320490552345,
+    _NAN,
+    0.40438874078061354,
+    2.294843557653899,
+    5.755191991686398,
+    _NAN,
+    0.6529041352837425,
+    3.1091818096970787,
+    1.0100375021560113,
+    _NAN,
+    0.12831194858520037,
+    1.4105970533681886,
+)
+_REFERENCE_METRIC_CI_HIGH = (
+    3.767857799758713,
+    _NAN,
+    0.5422054247160537,
+    2.70781023858772,
+    _NAN,
+    _NAN,
+    0.8235537160360589,
+    3.5629510474316524,
+    1.7874581482546053,
+    _NAN,
+    0.28322004379451643,
+    1.9225776819863203,
+)
+
+
+def _flatten_metric_field(nodes, field):
+    """Return one field of every node's metric records, None mapped to NaN."""
+    flat = []
+    for node in nodes:
+        for metric in node.metrics:
+            entry = getattr(metric, field)
+            value = _NAN if entry is None else entry
+            flat.append(value)
+    return flat
+
+
 class TestSurvivalTreeFit(unittest.TestCase):
     """Tests for the fit method of SurvivalTree."""
 
@@ -561,6 +620,55 @@ class TestSurvivalLogVariance(unittest.TestCase):
         tree = self._fit()
         payload = tree.to_image("png", kind="response")
         self.assertGreater(len(payload), 0)
+
+
+class TestSurvivalMetricReferenceValues(unittest.TestCase):
+    """Tests that per-node metric records reproduce known-good numbers."""
+
+    __slots__ = ()
+
+    def _fit(self):
+        """Fit a survival tree carrying one record of every metric kind."""
+        X, time, event = _build_survival_dataset()
+        y = numpy.column_stack([time, event])
+        estimator = sigma._tree_survival.SurvivalTree(
+            min_splits=10,
+            min_buckets=5,
+            max_depth=2,
+            metrics=(
+                "median",
+                "risk_score",
+                ("survival", 3.0, "units"),
+                ("rmst", 4.0, "units"),
+            ),
+        )
+        estimator.fit(X, y)
+        return estimator
+
+    def test_every_node_value_matches_reference(self):
+        """Every node reproduces the reference value of all four metric kinds."""
+        estimator = self._fit()
+        observed = _flatten_metric_field(estimator.nodes_, "value")
+        numpy.testing.assert_array_equal(observed, _REFERENCE_METRIC_VALUES)
+
+    def test_every_node_interval_matches_reference(self):
+        """Every node reproduces the reference confidence bounds."""
+        estimator = self._fit()
+        observed_low = _flatten_metric_field(estimator.nodes_, "ci_low")
+        observed_high = _flatten_metric_field(estimator.nodes_, "ci_high")
+        numpy.testing.assert_array_equal(observed_low, _REFERENCE_METRIC_CI_LOW)
+        numpy.testing.assert_array_equal(
+            observed_high, _REFERENCE_METRIC_CI_HIGH
+        )
+
+    def test_risk_score_carries_no_interval(self):
+        """The risk-score record exposes no confidence interval on any node."""
+        estimator = self._fit()
+        for node in estimator.nodes_:
+            record = node.metrics[1]
+            self.assertEqual(record.label, "Risk score")
+            self.assertIsNone(record.ci_low)
+            self.assertIsNone(record.ci_high)
 
 
 class TestSurvivalTreeSklearnTags(unittest.TestCase):

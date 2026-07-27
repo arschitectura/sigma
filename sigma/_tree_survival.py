@@ -36,6 +36,26 @@ class _Metric:
         self.unit = unit
 
 
+class _NodeCurve:
+    """Kaplan-Meier curve and weighted counts shared by one node's metrics."""
+
+    __slots__ = ("d_w", "r_w", "surv", "times", "var_log_s")
+
+    def __init__(
+        self,
+        times: numpy.typing.NDArray[numpy.floating],
+        surv: numpy.typing.NDArray[numpy.floating],
+        var_log_s: numpy.typing.NDArray[numpy.floating],
+        d_w: numpy.typing.NDArray[numpy.floating],
+        r_w: numpy.typing.NDArray[numpy.floating],
+    ) -> None:
+        self.times = times
+        self.surv = surv
+        self.var_log_s = var_log_s
+        self.d_w = d_w
+        self.r_w = r_w
+
+
 class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
     """Conditional inference tree for right-censored survival outcomes.
 
@@ -542,16 +562,13 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
         is_leaf: bool,
     ) -> _node._SurvivalStatistics:
         """Compute the node's Kaplan-Meier curve, log-variance, and metrics."""
-        survival_function = self._compute_survival_function(
-            y_transmuted, w_transmuted
-        )
+        curve = self._compute_node_curve(y_transmuted, w_transmuted)
+        survival_function = (curve.times, curve.surv)
         if is_leaf:
-            survival_log_variance = self._compute_survival_log_variance(
-                y_transmuted, w_transmuted
-            )
+            survival_log_variance = curve.var_log_s
         else:
             survival_log_variance = numpy.empty(0, dtype=float)
-        metrics = self._compute_survival_metrics(y_transmuted, w_transmuted)
+        metrics = self._compute_survival_metrics(curve)
         statistics = _node._SurvivalStatistics(
             survival_function=survival_function,
             survival_log_variance=survival_log_variance,
@@ -621,44 +638,35 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
         single_time = bool(numpy.ptp(time_active) == 0.0)
         return single_time
 
-    def _compute_survival_function(
+    def _compute_node_curve(
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
-    ) -> tuple[
-        numpy.typing.NDArray[numpy.floating],
-        numpy.typing.NDArray[numpy.floating],
-    ]:
+    ) -> _NodeCurve:
         """Compute the weighted Kaplan-Meier curve for the active samples."""
         time_column = y[:, 0]
         event_column = y[:, 1]
-        times, surv = _survival.compute_kaplan_meier(
-            time_column, event_column, weights
+        times, surv, var_log_s, d_w, r_w = (
+            _survival.compute_kaplan_meier_with_variance(
+                time_column, event_column, weights
+            )
         )
-        result = (times, surv)
-        return result
-
-    def _compute_survival_log_variance(
-        self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
-    ) -> numpy.typing.NDArray[numpy.floating]:
-        """Compute the Greenwood variance of log S(t) for the active samples."""
-        time_column = y[:, 0]
-        event_column = y[:, 1]
-        _, _, var_log_s, _, _ = _survival.compute_kaplan_meier_with_variance(
-            time_column, event_column, weights
+        curve = _NodeCurve(
+            times=times,
+            surv=surv,
+            var_log_s=var_log_s,
+            d_w=d_w,
+            r_w=r_w,
         )
-        return var_log_s
+        return curve
 
     def _compute_survival_metrics(
         self,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
+        curve: _NodeCurve,
     ) -> list[_node.SurvivalMetric]:
         """Compute the full per-node metric stack."""
         records = [
-            self._compute_metric_record(resolved, y, weights)
+            self._compute_metric_record(resolved, curve)
             for resolved in self._get_metrics()
         ]
         return records
@@ -666,55 +674,41 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
     def _compute_metric_record(
         self,
         resolved: _Metric,
-        y: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
+        curve: _NodeCurve,
     ) -> _node.SurvivalMetric:
         """Compute a single metric value and CI for a node."""
-        time_column = y[:, 0]
-        event_column = y[:, 1]
         alpha = self._ci_alpha()
         if alpha is None:
             alpha = 0.025
         match resolved.kind:
             case _types.SurvivalMetricKind.MEDIAN:
-                record = self._compute_median_record(
-                    time_column, event_column, weights, alpha
-                )
+                record = self._compute_median_record(curve, alpha)
             case _types.SurvivalMetricKind.RISK_SCORE:
-                record = self._compute_risk_score_record(
-                    time_column, event_column, weights
-                )
+                record = self._compute_risk_score_record(curve)
             case _types.SurvivalMetricKind.SURVIVAL:
                 record = self._compute_survival_at_record(
-                    time_column, event_column, weights, resolved, alpha
+                    curve, resolved, alpha
                 )
             case _types.SurvivalMetricKind.RMST:
-                record = self._compute_rmst_record(
-                    time_column, event_column, weights, resolved, alpha
-                )
+                record = self._compute_rmst_record(curve, resolved, alpha)
         return record
 
     def _compute_median_record(
         self,
-        time_column: numpy.typing.NDArray[numpy.floating],
-        event_column: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
+        curve: _NodeCurve,
         alpha: float,
     ) -> _node.SurvivalMetric:
         """Median survival time with Brookmeyer-Crowley CI."""
-        times, surv = _survival.compute_kaplan_meier(
-            time_column, event_column, weights
-        )
-        value = _survival.compute_median_survival(times, surv)
+        value = _survival.compute_median_survival(curve.times, curve.surv)
         ci_coverage = self.ci_coverage
-        if ci_coverage is None or not numpy.any(weights > 0):
+        if ci_coverage is None or len(curve.times) == 0:
             ci_low: None | float = None if ci_coverage is None else float("nan")
             ci_high: None | float = (
                 None if ci_coverage is None else float("nan")
             )
         else:
             ci_low, ci_high = _survival.compute_brookmeyer_crowley_ci(
-                time_column, event_column, weights, alpha
+                curve.times, curve.surv, curve.var_log_s, alpha
             )
         record = _node.SurvivalMetric(
             label="Median survival",
@@ -728,13 +722,11 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
 
     def _compute_risk_score_record(
         self,
-        time_column: numpy.typing.NDArray[numpy.floating],
-        event_column: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
+        curve: _NodeCurve,
     ) -> _node.SurvivalMetric:
         """Sum of node cumulative hazard at training event times."""
         value = _survival.compute_risk_score(
-            time_column, event_column, weights, self.event_grid_
+            curve.times, curve.d_w, curve.r_w, self.event_grid_
         )
         record = _node.SurvivalMetric(
             label="Risk score",
@@ -748,27 +740,20 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
 
     def _compute_survival_at_record(
         self,
-        time_column: numpy.typing.NDArray[numpy.floating],
-        event_column: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
+        curve: _NodeCurve,
         resolved: _Metric,
         alpha: float,
     ) -> _node.SurvivalMetric:
         """Kaplan-Meier S(t) at a reference time with log-log CI."""
         query = typing.cast(float, resolved.value)
         unit = typing.cast(str, resolved.unit)
-        times, surv, var_log_s, _, _ = (
-            _survival.compute_kaplan_meier_with_variance(
-                time_column, event_column, weights
-            )
-        )
-        value = _survival.compute_survival_at(times, surv, query)
+        value = _survival.compute_survival_at(curve.times, curve.surv, query)
         if self.ci_coverage is None:
             ci_low: None | float = None
             ci_high: None | float = None
         else:
             ci_low, ci_high = _survival.compute_log_log_ci_at(
-                times, surv, var_log_s, query, alpha
+                curve.times, curve.surv, curve.var_log_s, query, alpha
             )
         label = f"Survival at {_format_metric_quantity(query)} {unit}"
         record = _node.SurvivalMetric(
@@ -783,25 +768,25 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
 
     def _compute_rmst_record(
         self,
-        time_column: numpy.typing.NDArray[numpy.floating],
-        event_column: numpy.typing.NDArray[numpy.floating],
-        weights: numpy.typing.NDArray[numpy.floating],
+        curve: _NodeCurve,
         resolved: _Metric,
         alpha: float,
     ) -> _node.SurvivalMetric:
         """Restricted mean survival time up to a horizon with integrated CI."""
         horizon = typing.cast(float, resolved.value)
         unit = typing.cast(str, resolved.unit)
-        times, surv, _, d_w, r_w = _survival.compute_kaplan_meier_with_variance(
-            time_column, event_column, weights
-        )
-        value = _survival.compute_rmst(times, surv, horizon)
+        value = _survival.compute_rmst(curve.times, curve.surv, horizon)
         if self.ci_coverage is None:
             ci_low: None | float = None
             ci_high: None | float = None
         else:
             ci_low, ci_high = _survival.compute_rmst_ci(
-                times, surv, d_w, r_w, horizon, alpha
+                curve.times,
+                curve.surv,
+                curve.d_w,
+                curve.r_w,
+                horizon,
+                alpha,
             )
         label = f"RMST at {_format_metric_quantity(horizon)} {unit}"
         record = _node.SurvivalMetric(

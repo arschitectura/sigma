@@ -8,6 +8,18 @@ import numpy.testing
 import sigma._survival
 
 
+def _reference_curve():
+    """Return (times, surv, var_log_s, d_w, r_w) for a fixed censored sample."""
+    rng = numpy.random.RandomState(0)
+    time = rng.exponential(scale=2.0, size=100)
+    event = (rng.uniform(size=100) < 0.7).astype(float)
+    weights = numpy.ones(100)
+    curve = sigma._survival.compute_kaplan_meier_with_variance(
+        time, event, weights
+    )
+    return curve
+
+
 class TestComputeLogrankScores(unittest.TestCase):
     """Tests for the log-rank (Savage) influence function."""
 
@@ -77,8 +89,8 @@ class TestComputeLogrankScores(unittest.TestCase):
         self.assertEqual(scores.shape, (0,))
 
 
-class TestComputeKaplanMeier(unittest.TestCase):
-    """Tests for the weighted Kaplan-Meier estimator."""
+class TestComputeKaplanMeierWithVariance(unittest.TestCase):
+    """Tests for the weighted Kaplan-Meier estimator and its counts."""
 
     __slots__ = ()
 
@@ -87,16 +99,26 @@ class TestComputeKaplanMeier(unittest.TestCase):
         time = numpy.array([1.0, 2.0, 3.0, 4.0])
         event = numpy.array([1.0, 1.0, 1.0, 1.0])
         weights = numpy.ones(4)
-        times, surv = sigma._survival.compute_kaplan_meier(time, event, weights)
+        times, surv, _, d_w, r_w = (
+            sigma._survival.compute_kaplan_meier_with_variance(
+                time, event, weights
+            )
+        )
         numpy.testing.assert_allclose(times, numpy.array([1.0, 2.0, 3.0, 4.0]))
         numpy.testing.assert_allclose(surv, numpy.array([0.75, 0.5, 0.25, 0.0]))
+        numpy.testing.assert_allclose(d_w, numpy.ones(4))
+        numpy.testing.assert_allclose(r_w, numpy.array([4.0, 3.0, 2.0, 1.0]))
 
     def test_with_censoring(self):
         """Censored observations leave the at-risk set without dropping S(t)."""
         time = numpy.array([1.0, 2.0, 3.0, 4.0])
         event = numpy.array([1.0, 0.0, 1.0, 1.0])
         weights = numpy.ones(4)
-        times, surv = sigma._survival.compute_kaplan_meier(time, event, weights)
+        times, surv, _, _, _ = (
+            sigma._survival.compute_kaplan_meier_with_variance(
+                time, event, weights
+            )
+        )
         numpy.testing.assert_allclose(times, numpy.array([1.0, 2.0, 3.0, 4.0]))
         expected = numpy.array(
             [
@@ -114,7 +136,9 @@ class TestComputeKaplanMeier(unittest.TestCase):
         time = rng.exponential(size=100)
         event = rng.randint(0, 2, size=100).astype(float)
         weights = numpy.ones(100)
-        _, surv = sigma._survival.compute_kaplan_meier(time, event, weights)
+        _, surv, _, _, _ = sigma._survival.compute_kaplan_meier_with_variance(
+            time, event, weights
+        )
         differences = numpy.diff(surv)
         self.assertTrue(numpy.all(differences <= 1e-12))
 
@@ -123,7 +147,11 @@ class TestComputeKaplanMeier(unittest.TestCase):
         time = numpy.array([1.0, 2.0, 3.0, 4.0])
         event = numpy.array([1.0, 1.0, 1.0, 1.0])
         weights = numpy.array([1.0, 0.0, 1.0, 1.0])
-        times, surv = sigma._survival.compute_kaplan_meier(time, event, weights)
+        times, surv, _, _, _ = (
+            sigma._survival.compute_kaplan_meier_with_variance(
+                time, event, weights
+            )
+        )
         numpy.testing.assert_allclose(times, numpy.array([1.0, 3.0, 4.0]))
         numpy.testing.assert_allclose(
             surv, numpy.array([1.0 - 1.0 / 3.0, (2.0 / 3.0) * 0.5, 0.0])
@@ -134,9 +162,16 @@ class TestComputeKaplanMeier(unittest.TestCase):
         time = numpy.array([1.0, 2.0])
         event = numpy.array([1.0, 0.0])
         weights = numpy.zeros(2)
-        times, surv = sigma._survival.compute_kaplan_meier(time, event, weights)
+        times, surv, var_log_s, d_w, r_w = (
+            sigma._survival.compute_kaplan_meier_with_variance(
+                time, event, weights
+            )
+        )
         self.assertEqual(times.shape, (0,))
         self.assertEqual(surv.shape, (0,))
+        self.assertEqual(var_log_s.shape, (0,))
+        self.assertEqual(d_w.shape, (0,))
+        self.assertEqual(r_w.shape, (0,))
 
 
 class TestComputeMedianSurvival(unittest.TestCase):
@@ -182,20 +217,25 @@ class TestComputeBrookmeyerCrowleyCi(unittest.TestCase):
         time = rng.exponential(scale=2.0, size=200)
         event = (rng.uniform(size=200) < 0.8).astype(float)
         weights = numpy.ones(200)
-        times, surv = sigma._survival.compute_kaplan_meier(time, event, weights)
+        times, surv, var_log_s, _, _ = (
+            sigma._survival.compute_kaplan_meier_with_variance(
+                time, event, weights
+            )
+        )
         median = sigma._survival.compute_median_survival(times, surv)
         ci_low, ci_high = sigma._survival.compute_brookmeyer_crowley_ci(
-            time, event, weights, alpha=0.025
+            times, surv, var_log_s, alpha=0.025
         )
         self.assertTrue(numpy.isfinite(ci_low))
         self.assertTrue(numpy.isfinite(ci_high))
         self.assertLessEqual(ci_low, median)
         self.assertLessEqual(median, ci_high)
 
-    def test_no_active_returns_nan(self):
-        """Returns (NaN, NaN) when there are no active samples."""
+    def test_empty_curve_returns_nan(self):
+        """Returns (NaN, NaN) for an empty curve."""
+        empty = numpy.empty(0)
         ci_low, ci_high = sigma._survival.compute_brookmeyer_crowley_ci(
-            numpy.array([1.0]), numpy.array([1.0]), numpy.array([0.0]), 0.025
+            empty, empty, empty, 0.025
         )
         self.assertTrue(numpy.isnan(ci_low))
         self.assertTrue(numpy.isnan(ci_high))
@@ -391,6 +431,20 @@ class TestComputeRmst(unittest.TestCase):
         surv = numpy.array([0.5, 0.0])
         self.assertEqual(sigma._survival.compute_rmst(times, surv, 0.0), 0.0)
 
+    def test_matches_reference_value_on_censored_sample(self):
+        """Reproduces the reference value on a fixed censored sample."""
+        times, surv, _, _, _ = _reference_curve()
+        rmst = sigma._survival.compute_rmst(times, surv, 5.0)
+        self.assertEqual(rmst, 2.2807572739579425)
+
+    def test_horizon_between_event_times_holds_last_step(self):
+        """A horizon past the last event extends the final step to the bound."""
+        times = numpy.array([1.0, 2.0])
+        surv = numpy.array([0.5, 0.25])
+        rmst = sigma._survival.compute_rmst(times, surv, 3.5)
+        expected = 1.0 + 0.5 + 0.25 * 1.5
+        self.assertAlmostEqual(rmst, expected)
+
 
 class TestComputeRmstCi(unittest.TestCase):
     """Tests for the integrated-Greenwood CI of RMST."""
@@ -417,6 +471,27 @@ class TestComputeRmstCi(unittest.TestCase):
         self.assertGreaterEqual(ci_low, 0.0)
         self.assertLessEqual(ci_high, 5.0)
 
+    def test_matches_reference_bounds_on_censored_sample(self):
+        """Reproduces the reference bounds on a fixed censored sample."""
+        times, surv, _, d_w, r_w = _reference_curve()
+        ci_low, ci_high = sigma._survival.compute_rmst_ci(
+            times, surv, d_w, r_w, 5.0, 0.025
+        )
+        self.assertEqual(ci_low, 1.9034054172557915)
+        self.assertEqual(ci_high, 2.6581091306600935)
+
+    def test_horizon_before_first_event_returns_point_estimate(self):
+        """A horizon below every observed time yields a degenerate interval."""
+        times = numpy.array([4.0, 6.0])
+        surv = numpy.array([0.5, 0.25])
+        d_w = numpy.array([1.0, 1.0])
+        r_w = numpy.array([2.0, 1.0])
+        ci_low, ci_high = sigma._survival.compute_rmst_ci(
+            times, surv, d_w, r_w, 2.0, 0.025
+        )
+        self.assertEqual(ci_low, 2.0)
+        self.assertEqual(ci_high, 2.0)
+
 
 class TestComputeRiskScore(unittest.TestCase):
     """Tests for the cumulative-hazard sum risk score."""
@@ -425,26 +500,34 @@ class TestComputeRiskScore(unittest.TestCase):
 
     def test_higher_hazard_yields_higher_score(self):
         """A leaf with more events has a strictly higher risk score."""
-        time_low = numpy.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        time = numpy.array([1.0, 2.0, 3.0, 4.0, 5.0])
         event_low = numpy.array([0.0, 0.0, 0.0, 1.0, 0.0])
-        time_high = numpy.array([1.0, 2.0, 3.0, 4.0, 5.0])
         event_high = numpy.array([1.0, 1.0, 1.0, 1.0, 0.0])
+        weights = numpy.ones(5)
         ref = numpy.array([1.0, 2.0, 3.0, 4.0])
+        times_low, _, _, d_w_low, r_w_low = (
+            sigma._survival.compute_kaplan_meier_with_variance(
+                time, event_low, weights
+            )
+        )
+        times_high, _, _, d_w_high, r_w_high = (
+            sigma._survival.compute_kaplan_meier_with_variance(
+                time, event_high, weights
+            )
+        )
         score_low = sigma._survival.compute_risk_score(
-            time_low, event_low, numpy.ones(5), ref
+            times_low, d_w_low, r_w_low, ref
         )
         score_high = sigma._survival.compute_risk_score(
-            time_high, event_high, numpy.ones(5), ref
+            times_high, d_w_high, r_w_high, ref
         )
         self.assertGreater(score_high, score_low)
 
-    def test_no_active_returns_zero(self):
+    def test_empty_curve_returns_zero(self):
         """A leaf with no active samples has a zero risk score."""
+        empty = numpy.empty(0)
         score = sigma._survival.compute_risk_score(
-            numpy.array([1.0]),
-            numpy.array([1.0]),
-            numpy.array([0.0]),
-            numpy.array([1.0]),
+            empty, empty, empty, numpy.array([1.0])
         )
         self.assertEqual(score, 0.0)
 

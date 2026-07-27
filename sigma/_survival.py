@@ -55,40 +55,6 @@ def compute_logrank_scores(
     return score
 
 
-def compute_kaplan_meier(
-    time: numpy.typing.NDArray[numpy.floating],
-    event: numpy.typing.NDArray[numpy.floating],
-    weights: numpy.typing.NDArray[numpy.floating],
-) -> tuple[
-    numpy.typing.NDArray[numpy.floating], numpy.typing.NDArray[numpy.floating]
-]:
-    """Estimate the (weighted) Kaplan-Meier survival curve.
-
-    Computes S(t) at each unique observed time among the active samples
-    (weight > 0). The returned curve is a right-continuous step function
-    that drops only at event times.
-
-    Args:
-        time: Observed times, shape (n,). Must be non-negative.
-        event: Event indicators, shape (n,).
-        weights: Case weights, shape (n,). Samples with zero weight are
-            excluded.
-
-    Returns:
-        Tuple (times, surv) of strictly-increasing unique active times and
-        the survival probabilities at those times. Both arrays have shape
-        (n_unique,) and may be empty when no sample is active.
-    """
-    grouped = _grouped_weighted_risk(time, event, weights)
-    if grouped is None:
-        empty_t = numpy.empty(0, dtype=float)
-        empty_s = numpy.empty(0, dtype=float)
-        return empty_t, empty_s
-    unique_times, d_w, r_w = grouped
-    surv = _km_survival_from_counts(d_w, r_w)
-    return unique_times, surv
-
-
 def compute_median_survival(
     times: numpy.typing.NDArray[numpy.floating],
     surv: numpy.typing.NDArray[numpy.floating],
@@ -115,9 +81,9 @@ def compute_median_survival(
 
 
 def compute_brookmeyer_crowley_ci(
-    time: numpy.typing.NDArray[numpy.floating],
-    event: numpy.typing.NDArray[numpy.floating],
-    weights: numpy.typing.NDArray[numpy.floating],
+    times: numpy.typing.NDArray[numpy.floating],
+    surv: numpy.typing.NDArray[numpy.floating],
+    var_log_s: numpy.typing.NDArray[numpy.floating],
     alpha: float,
 ) -> tuple[float, float]:
     """Compute the Brookmeyer-Crowley confidence interval for the median.
@@ -125,9 +91,9 @@ def compute_brookmeyer_crowley_ci(
     Bounds are NaN when the corresponding confidence band never reaches 0.5.
 
     Args:
-        time: Observed times, shape (n,).
-        event: Event indicators, shape (n,).
-        weights: Case weights, shape (n,).
+        times: Strictly-increasing observed times, shape (n,).
+        surv: Survival probabilities at those times, shape (n,).
+        var_log_s: Greenwood variance of log(S) at those times, shape (n,).
         alpha: One-sided tail probability; the returned interval has
             nominal coverage 1 - 2 * alpha.
 
@@ -135,15 +101,11 @@ def compute_brookmeyer_crowley_ci(
         Tuple (ci_low, ci_high) of confidence-interval bounds for the
         median. Either bound is NaN when not finite.
     """
-    active = weights > 0
-    if not numpy.any(active):
+    if len(times) == 0:
         return float("nan"), float("nan")
-    unique_times, surv, var_log_s, _, _ = compute_kaplan_meier_with_variance(
-        time, event, weights
-    )
     s_lower_band, s_upper_band = compute_log_log_ci_band(surv, var_log_s, alpha)
-    ci_low = _first_time_at_or_below(unique_times, s_lower_band, 0.5)
-    ci_high = _first_time_at_or_below(unique_times, s_upper_band, 0.5)
+    ci_low = _first_time_at_or_below(times, s_lower_band, 0.5)
+    ci_high = _first_time_at_or_below(times, s_upper_band, 0.5)
     return ci_low, ci_high
 
 
@@ -340,19 +302,10 @@ def compute_rmst(
     if len(times) == 0:
         result = float(horizon)
         return result
-    truncated = numpy.minimum(times, horizon)
-    truncated = truncated[truncated <= horizon]
-    bounds = numpy.concatenate([[0.0], truncated, [horizon]])
-    bounds = numpy.unique(bounds)
-    bounds = bounds[bounds <= horizon]
-    if bounds[-1] < horizon:
-        bounds = numpy.append(bounds, horizon)
-    total = 0.0
-    for k in range(len(bounds) - 1):
-        left = bounds[k]
-        right = bounds[k + 1]
-        s_at_left = compute_survival_at(times, surv, left)
-        total += s_at_left * (right - left)
+    bounds = _rmst_bounds(times, horizon)
+    areas = _rmst_step_areas(times, surv, bounds)
+    running = numpy.cumsum(areas)
+    total = float(running[-1])
     return total
 
 
@@ -380,20 +333,24 @@ def compute_rmst_ci(
     Returns:
         Tuple (ci_low, ci_high) of CI bounds for RMST(horizon).
     """
-    rmst = compute_rmst(times, surv, horizon)
-    if horizon <= 0.0 or len(times) == 0:
-        return rmst, rmst
+    if horizon <= 0.0:
+        return 0.0, 0.0
+    if len(times) == 0:
+        bound = float(horizon)
+        return bound, bound
+    bounds = _rmst_bounds(times, horizon)
+    areas = _rmst_step_areas(times, surv, bounds)
+    running = numpy.cumsum(areas)
+    prefix = numpy.concatenate([[0.0], running])
+    rmst = float(running[-1])
     in_window = times <= horizon
     if not numpy.any(in_window):
         return rmst, rmst
     times_inner = times[in_window]
     d_w_inner = d_w[in_window]
     r_w_inner = r_w[in_window]
-    integrals = numpy.empty(len(times_inner), dtype=float)
-    for k, t_star in enumerate(times_inner):
-        integrals[k] = compute_rmst(times, surv, horizon) - compute_rmst(
-            times, surv, t_star
-        )
+    positions = numpy.searchsorted(bounds, times_inner)
+    integrals = rmst - prefix[positions]
     denom = r_w_inner * (r_w_inner - d_w_inner)
     safe = denom > 0
     contribs = numpy.where(
@@ -409,37 +366,37 @@ def compute_rmst_ci(
     return ci_low, ci_high
 
 
-def compute_nelson_aalen(
-    time: numpy.typing.NDArray[numpy.floating],
-    event: numpy.typing.NDArray[numpy.floating],
-    weights: numpy.typing.NDArray[numpy.floating],
-) -> tuple[
-    numpy.typing.NDArray[numpy.floating], numpy.typing.NDArray[numpy.floating]
-]:
-    """Estimate the weighted Nelson-Aalen cumulative hazard.
+def _rmst_bounds(
+    times: numpy.typing.NDArray[numpy.floating],
+    horizon: float,
+) -> numpy.typing.NDArray[numpy.floating]:
+    """Integration bounds of the RMST step integral, from 0 to the horizon."""
+    truncated = numpy.minimum(times, horizon)
+    candidates = numpy.concatenate([[0.0], truncated, [horizon]])
+    bounds = numpy.unique(candidates)
+    return bounds
 
-    Args:
-        time: Observed times, shape (n,). Must be non-negative.
-        event: Event indicators, shape (n,).
-        weights: Case weights, shape (n,).
 
-    Returns:
-        Tuple (times, cum_haz) of strictly-increasing unique active times
-        and the cumulative hazard estimate at those times.
-    """
-    grouped = _grouped_weighted_risk(time, event, weights)
-    if grouped is None:
-        empty = numpy.empty(0, dtype=float)
-        return empty, empty
-    unique_times, d_w, r_w = grouped
-    cum_haz = _cumulative_hazard_from_counts(d_w, r_w)
-    return unique_times, cum_haz
+def _rmst_step_areas(
+    times: numpy.typing.NDArray[numpy.floating],
+    surv: numpy.typing.NDArray[numpy.floating],
+    bounds: numpy.typing.NDArray[numpy.floating],
+) -> numpy.typing.NDArray[numpy.floating]:
+    """Area under the survival curve over each consecutive pair of bounds."""
+    left_edges = bounds[:-1]
+    widths = numpy.diff(bounds)
+    positions = numpy.searchsorted(times, left_edges, side="right")
+    indices = positions - 1
+    clipped = numpy.maximum(indices, 0)
+    heights = numpy.where(indices < 0, 1.0, surv[clipped])
+    areas = heights * widths
+    return areas
 
 
 def compute_risk_score(
-    time: numpy.typing.NDArray[numpy.floating],
-    event: numpy.typing.NDArray[numpy.floating],
-    weights: numpy.typing.NDArray[numpy.floating],
+    times: numpy.typing.NDArray[numpy.floating],
+    d_w: numpy.typing.NDArray[numpy.floating],
+    r_w: numpy.typing.NDArray[numpy.floating],
     reference_event_times: numpy.typing.NDArray[numpy.floating],
 ) -> float:
     """Compute the cumulative-hazard sum risk score for a leaf.
@@ -447,9 +404,9 @@ def compute_risk_score(
     Higher values indicate worse prognosis.
 
     Args:
-        time: Observed times, shape (n,).
-        event: Event indicators, shape (n,).
-        weights: Case weights, shape (n,).
+        times: Strictly-increasing observed times, shape (n,).
+        d_w: Weighted event counts at those times, shape (n,).
+        r_w: Weighted at-risk counts at those times, shape (n,).
         reference_event_times: Strictly-increasing reference event times,
             typically the union of unique event times across the
             training data.
@@ -457,16 +414,14 @@ def compute_risk_score(
     Returns:
         The risk score, a non-negative finite float.
     """
-    leaf_times, leaf_cum_haz = compute_nelson_aalen(time, event, weights)
-    if len(leaf_times) == 0 or len(reference_event_times) == 0:
+    if len(times) == 0 or len(reference_event_times) == 0:
         return 0.0
-    indices = (
-        numpy.searchsorted(leaf_times, reference_event_times, side="right") - 1
-    )
+    cum_haz = _cumulative_hazard_from_counts(d_w, r_w)
+    positions = numpy.searchsorted(times, reference_event_times, side="right")
+    indices = positions - 1
     valid = indices >= 0
-    contributions = numpy.where(
-        valid, leaf_cum_haz[numpy.maximum(indices, 0)], 0.0
-    )
+    clipped = numpy.maximum(indices, 0)
+    contributions = numpy.where(valid, cum_haz[clipped], 0.0)
     score = float(contributions.sum())
     return score
 
