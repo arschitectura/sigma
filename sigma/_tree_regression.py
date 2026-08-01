@@ -12,7 +12,7 @@ import sklearn.base
 import sklearn.utils.multiclass
 import sklearn.utils.validation
 
-from . import _extension, _node, _tree, _tree_classification, _types
+from . import _node, _tree, _tree_classification, _types
 
 if typing.TYPE_CHECKING:
     import pandas
@@ -36,7 +36,7 @@ _POSITIVE_ONLY_CI_METHODS = frozenset(
 
 class RegressionTree(
     sklearn.base.RegressorMixin,
-    _tree.Tree[_node.RegressionNode, _node._RegressionStatistics],
+    _tree.Tree[_node.RegressionNode],
 ):
     """Conditional inference regression tree.
 
@@ -235,14 +235,16 @@ class RegressionTree(
             )
         return y_out_shape[0]
 
-    def _compute_statistics(
+    def _create_node(
         self,
+        depth: int,
+        n_samples: int,
         y_transmuted: numpy.typing.NDArray[numpy.floating],
         w_transmuted: numpy.typing.NDArray[numpy.floating],
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
         is_leaf: bool,
-    ) -> _node._RegressionStatistics:
-        """Compute the node's prediction, CI, and leaf response samples."""
+    ) -> _node.RegressionNode:
+        """Build a RegressionNode with its prediction, CI, and leaf samples."""
         prediction = self._compute_prediction(
             y_transmuted, w_transmuted, offset_transmuted
         )
@@ -255,32 +257,15 @@ class RegressionTree(
             )
         else:
             response_samples = numpy.empty(0, dtype=float)
-        statistics = _node._RegressionStatistics(
-            prediction=prediction,
-            ci_low=ci_low,
-            ci_high=ci_high,
-            response_samples=response_samples,
-        )
-        return statistics
-
-    def _make_node(
-        self,
-        depth: int,
-        n_samples: int,
-        extension: _extension.Extension,
-        statistics: _node._RegressionStatistics,
-    ) -> _node.RegressionNode:
-        """Assemble a RegressionNode from its computed statistics."""
         node = _node.RegressionNode(
             depth=depth,
             n_samples=n_samples,
             share=0.0,
             decoration=None,
-            extension=extension,
-            prediction=statistics.prediction,
-            ci_low=statistics.ci_low,
-            ci_high=statistics.ci_high,
-            response_samples=statistics.response_samples,
+            prediction=prediction,
+            ci_low=ci_low,
+            ci_high=ci_high,
+            response_samples=response_samples,
         )
         return node
 

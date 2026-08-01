@@ -173,9 +173,13 @@ class TestSushiEndToEndEquivalence(unittest.TestCase):
     def test_tree_shape_and_metrics_match(self):
         """Production tree matches a tree fitted with the legacy PL primitives."""
         with _ranking_legacy_active():
-            tree_legacy = sigma.RankingTree(random_state=123, max_depth=2)
+            tree_legacy = sigma.RankingTree(
+                random_state=123, max_depth=2, ci_replicates=20
+            )
             tree_legacy.fit(self.X, self.rankings)
-        tree_new = sigma.RankingTree(random_state=123, max_depth=2)
+        tree_new = sigma.RankingTree(
+            random_state=123, max_depth=2, ci_replicates=20
+        )
         tree_new.fit(self.X, self.rankings)
         _assert_same_tree_shape(self, tree_legacy, tree_new)
         _assert_same_metrics(self, tree_legacy, tree_new)

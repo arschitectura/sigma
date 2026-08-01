@@ -45,11 +45,17 @@ mypy --ignore-missing-imports --no-color sigma tests | \
 	sed -E 's/^([^:]+):([0-9]+): /mypy \1 \2 /' \
 	|| true
 
-# Unit tests
-python -m unittest discover tests -q 2>&1 | \
+# Unit tests, one worker per module
+TEST_LOGS=$(mktemp -d)
+print -l tests/test_*.py(:t) | \
+	xargs -P 8 -I '{}' \
+	sh -c "python -m unittest discover tests -q -p '{}' > $TEST_LOGS/'{}'.log 2>&1" \
+	|| true
+cat $TEST_LOGS/*.log | \
     grep -vE \
         -e '^$|^-+$|^Ran [0-9]+ tests? in' -e '^OK( \(.*\))?$' \
     || true
+rm -rf $TEST_LOGS
 
 # Reinstall
 pip install -e . -q

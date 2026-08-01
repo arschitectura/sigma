@@ -13,7 +13,7 @@ import sklearn.base
 import sklearn.utils.multiclass
 import sklearn.utils.validation
 
-from . import _extension, _node, _tree, _types
+from . import _node, _tree, _types
 
 if typing.TYPE_CHECKING:
     import pandas
@@ -22,7 +22,7 @@ if typing.TYPE_CHECKING:
 
 class ClassificationTree(
     sklearn.base.ClassifierMixin,
-    _tree.Tree[_node.ClassificationNode, _node._ClassificationStatistics],
+    _tree.Tree[_node.ClassificationNode],
 ):
     """Conditional inference classification tree.
 
@@ -227,14 +227,16 @@ class ClassificationTree(
             )
         return y_out_shape[0]
 
-    def _compute_statistics(
+    def _create_node(
         self,
+        depth: int,
+        n_samples: int,
         y_transmuted: numpy.typing.NDArray[numpy.floating],
         w_transmuted: numpy.typing.NDArray[numpy.floating],
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
         is_leaf: bool,
-    ) -> _node._ClassificationStatistics:
-        """Compute the node's class, distribution, CI, and offset mean."""
+    ) -> _node.ClassificationNode:
+        """Build a ClassificationNode with its class, distribution, and CI."""
         prediction = self._compute_prediction(
             y_transmuted, w_transmuted, offset_transmuted
         )
@@ -246,34 +248,16 @@ class ClassificationTree(
             w_transmuted, offset_transmuted
         )
         prediction_index = int(prediction)
-        statistics = _node._ClassificationStatistics(
-            prediction=prediction_index,
-            class_distribution=class_distribution,
-            ci_low=ci_low,
-            ci_high=ci_high,
-            mean_offset_proba=mean_offset_proba,
-        )
-        return statistics
-
-    def _make_node(
-        self,
-        depth: int,
-        n_samples: int,
-        extension: _extension.Extension,
-        statistics: _node._ClassificationStatistics,
-    ) -> _node.ClassificationNode:
-        """Assemble a ClassificationNode from its computed statistics."""
         node = _node.ClassificationNode(
             depth=depth,
             n_samples=n_samples,
             share=0.0,
             decoration=None,
-            extension=extension,
-            prediction=statistics.prediction,
-            class_distribution=statistics.class_distribution,
-            ci_low=statistics.ci_low,
-            ci_high=statistics.ci_high,
-            mean_offset_proba=statistics.mean_offset_proba,
+            prediction=prediction_index,
+            class_distribution=class_distribution,
+            ci_low=ci_low,
+            ci_high=ci_high,
+            mean_offset_proba=mean_offset_proba,
         )
         return node
 

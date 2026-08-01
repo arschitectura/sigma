@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import abc
-import dataclasses
 import typing
 
 import numpy
@@ -26,7 +25,8 @@ class Node(abc.ABC):
             node.
         decoration: Optional decoration produced by the tree decorator
             callable, or None when no decorator is set.
-        extension: Partition on internal nodes, Leaf on leaves.
+        extension: Partition on internal nodes, Leaf on leaves. Set by
+            Tree.fit; defaults to a Leaf in unfitted nodes.
         node_id: Zero-based index of this node in Tree.nodes_. Set by
             Tree.fit; defaults to 0 in unfitted nodes.
         parent: Parent node, or None on the root. Set by Tree.fit;
@@ -54,13 +54,12 @@ class Node(abc.ABC):
         n_samples: int,
         share: float,
         decoration: None | object,
-        extension: _extension.Extension[typing_extensions.Self],
     ) -> None:
         self.depth = depth
         self.n_samples = n_samples
         self.share = share
         self.decoration = decoration
-        self.extension = extension
+        self.extension = _extension.Leaf()
         self.node_id = 0
         self.parent = None
 
@@ -158,20 +157,6 @@ class Node(abc.ABC):
         """The node's point prediction for its task."""
 
 
-class _EstimatorStatistics:
-    """Base for a node's per-task summary values, built before node assembly."""
-
-
-@dataclasses.dataclass(frozen=True)
-class _RegressionStatistics(_EstimatorStatistics):
-    """Regression node's prediction, confidence bounds, and response samples."""
-
-    prediction: float
-    ci_low: None | float
-    ci_high: None | float
-    response_samples: numpy.typing.NDArray[numpy.floating]
-
-
 class RegressionNode(Node):
     """Node of a fitted RegressionTree.
 
@@ -194,13 +179,12 @@ class RegressionNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        extension: _extension.Extension[typing_extensions.Self],
         prediction: float,
         ci_low: None | float,
         ci_high: None | float,
         response_samples: numpy.typing.NDArray[numpy.floating],
     ) -> None:
-        super().__init__(depth, n_samples, share, decoration, extension)
+        super().__init__(depth, n_samples, share, decoration)
         self._prediction = prediction
         self.ci_low = ci_low
         self.ci_high = ci_high
@@ -215,17 +199,6 @@ class RegressionNode(Node):
         """Sort key: ascending by predicted mean."""
         key = (self.prediction,)
         return key
-
-
-@dataclasses.dataclass(frozen=True)
-class _ClassificationStatistics(_EstimatorStatistics):
-    """Classification node's class, distribution, per-class CI, and offset mean."""
-
-    prediction: int
-    class_distribution: numpy.typing.NDArray[numpy.floating]
-    ci_low: None | numpy.typing.NDArray[numpy.floating]
-    ci_high: None | numpy.typing.NDArray[numpy.floating]
-    mean_offset_proba: None | numpy.typing.NDArray[numpy.floating]
 
 
 class ClassificationNode(Node):
@@ -259,14 +232,13 @@ class ClassificationNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        extension: _extension.Extension[typing_extensions.Self],
         prediction: int,
         class_distribution: numpy.typing.NDArray[numpy.floating],
         ci_low: None | numpy.typing.NDArray[numpy.floating],
         ci_high: None | numpy.typing.NDArray[numpy.floating],
         mean_offset_proba: None | numpy.typing.NDArray[numpy.floating],
     ) -> None:
-        super().__init__(depth, n_samples, share, decoration, extension)
+        super().__init__(depth, n_samples, share, decoration)
         self._prediction = prediction
         self.class_distribution = class_distribution
         self.ci_low = ci_low
@@ -329,18 +301,6 @@ class SurvivalMetric:
         self.better_is = better_is
 
 
-@dataclasses.dataclass(frozen=True)
-class _SurvivalStatistics(_EstimatorStatistics):
-    """Survival node's Kaplan-Meier curve, leaf log-variance, and metrics."""
-
-    survival_function: tuple[
-        numpy.typing.NDArray[numpy.floating],
-        numpy.typing.NDArray[numpy.floating],
-    ]
-    survival_log_variance: numpy.typing.NDArray[numpy.floating]
-    metrics: list[SurvivalMetric]
-
-
 class SurvivalNode(Node):
     """Node of a fitted SurvivalTree.
 
@@ -361,7 +321,6 @@ class SurvivalNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        extension: _extension.Extension[typing_extensions.Self],
         survival_function: tuple[
             numpy.typing.NDArray[numpy.floating],
             numpy.typing.NDArray[numpy.floating],
@@ -369,7 +328,7 @@ class SurvivalNode(Node):
         survival_log_variance: numpy.typing.NDArray[numpy.floating],
         metrics: list[SurvivalMetric],
     ) -> None:
-        super().__init__(depth, n_samples, share, decoration, extension)
+        super().__init__(depth, n_samples, share, decoration)
         self.survival_function = survival_function
         self.survival_log_variance = survival_log_variance
         self.metrics = metrics
@@ -446,13 +405,6 @@ class RankingMetric:
         self.better_is: typing.Literal["higher", "lower"] = "lower"
 
 
-@dataclasses.dataclass(frozen=True)
-class _RankingStatistics(_EstimatorStatistics):
-    """Ranking node's per-item expected-rank metrics."""
-
-    metrics: list[RankingMetric]
-
-
 class RankingNode(Node):
     """Node of a fitted RankingTree.
 
@@ -469,10 +421,9 @@ class RankingNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        extension: _extension.Extension[typing_extensions.Self],
         metrics: list[RankingMetric],
     ) -> None:
-        super().__init__(depth, n_samples, share, decoration, extension)
+        super().__init__(depth, n_samples, share, decoration)
         self.metrics = metrics
 
     @property

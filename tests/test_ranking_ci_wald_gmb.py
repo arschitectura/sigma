@@ -340,27 +340,37 @@ class TestAllFourMethodsOnSushiSubset(unittest.TestCase):
     def test_bayesian_bootstrap(self):
         """Default Bayesian bootstrap produces valid CIs."""
         tree = sigma.RankingTree(
-            random_state=0, max_depth=1, ci_method="bayesian_bootstrap"
+            random_state=0,
+            max_depth=1,
+            ci_method="bayesian_bootstrap",
+            ci_replicates=20,
         )
         tree.fit(self.X, self.rankings)
         self._check_metrics(tree)
 
     def test_bca(self):
         """BCa CI dispatch still produces valid CIs after the menu expansion."""
-        tree = sigma.RankingTree(random_state=0, max_depth=1, ci_method="bca")
+        tree = sigma.RankingTree(
+            random_state=0, max_depth=1, ci_method="bca", ci_replicates=20
+        )
         tree.fit(self.X, self.rankings)
         self._check_metrics(tree)
 
     def test_wald(self):
         """Wald CI dispatch produces valid CIs."""
-        tree = sigma.RankingTree(random_state=0, max_depth=1, ci_method="wald")
+        tree = sigma.RankingTree(
+            random_state=0, max_depth=1, ci_method="wald", ci_replicates=20
+        )
         tree.fit(self.X, self.rankings)
         self._check_metrics(tree)
 
     def test_gaussian_multiplier(self):
         """Gaussian-multiplier CI dispatch produces valid CIs."""
         tree = sigma.RankingTree(
-            random_state=0, max_depth=1, ci_method="gaussian_multiplier"
+            random_state=0,
+            max_depth=1,
+            ci_method="gaussian_multiplier",
+            ci_replicates=20,
         )
         tree.fit(self.X, self.rankings)
         self._check_metrics(tree)
@@ -404,7 +414,10 @@ class TestCiMethodDoesNotAffectTreeShape(unittest.TestCase):
         ):
             with self.subTest(method=method):
                 tree = sigma.RankingTree(
-                    random_state=123, max_depth=2, ci_method=method
+                    random_state=123,
+                    max_depth=2,
+                    ci_method=method,
+                    ci_replicates=5,
                 )
                 tree.fit(X, rankings)
                 signature = shape_signature(tree)

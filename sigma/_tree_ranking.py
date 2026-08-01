@@ -15,14 +15,14 @@ import sklearn.base
 import sklearn.utils.extmath
 import sklearn.utils.validation
 
-from . import _extension, _node, _ranking, _tree, _types
+from . import _node, _ranking, _tree, _types
 
 if typing.TYPE_CHECKING:
     import pandas
     import polars
 
 
-class RankingTree(_tree.Tree[_node.RankingNode, _node._RankingStatistics]):
+class RankingTree(_tree.Tree[_node.RankingNode]):
     """Conditional inference tree for full and partial rankings of items.
 
     Uses permutation-based conditional inference for unbiased variable
@@ -540,33 +540,23 @@ class RankingTree(_tree.Tree[_node.RankingNode, _node._RankingStatistics]):
             )
         return y_out_shape[0]
 
-    def _compute_statistics(
+    def _create_node(
         self,
+        depth: int,
+        n_samples: int,
         y_transmuted: numpy.typing.NDArray[numpy.floating],
         w_transmuted: numpy.typing.NDArray[numpy.floating],
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
         is_leaf: bool,
-    ) -> _node._RankingStatistics:
-        """Compute the node's per-item expected-rank metrics."""
-        metrics = self._compute_ranking_metrics(w_transmuted)
-        statistics = _node._RankingStatistics(metrics=metrics)
-        return statistics
-
-    def _make_node(
-        self,
-        depth: int,
-        n_samples: int,
-        extension: _extension.Extension,
-        statistics: _node._RankingStatistics,
     ) -> _node.RankingNode:
-        """Assemble a RankingNode from its computed statistics."""
+        """Build a RankingNode with its per-item expected-rank metrics."""
+        metrics = self._compute_ranking_metrics(w_transmuted)
         node = _node.RankingNode(
             depth=depth,
             n_samples=n_samples,
             share=0.0,
             decoration=None,
-            extension=extension,
-            metrics=statistics.metrics,
+            metrics=metrics,
         )
         return node
 

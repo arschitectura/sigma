@@ -38,7 +38,6 @@ _OFFSET_EPS = 1e-15
 
 
 N = typing.TypeVar("N", bound=_node.Node)
-S = typing.TypeVar("S", bound=_node._EstimatorStatistics)
 
 
 # TODO review all shared data structures
@@ -47,7 +46,7 @@ S = typing.TypeVar("S", bound=_node._EstimatorStatistics)
 class Tree(
     sklearn.base.BaseEstimator,
     abc.ABC,
-    typing.Generic[N, S],
+    typing.Generic[N],
 ):
     """Abstract base class for conditional inference trees.
 
@@ -836,11 +835,13 @@ class Tree(
             or (self.max_depth is not None and depth >= self.max_depth)
             or is_constant
         ):
-            leaf = self._create_leaf(
+            leaf = self._create_node(
                 depth,
+                n_samples,
                 y_transmuted,
                 w_transmuted,
                 offset_transmuted,
+                is_leaf=True,
             )
             self._apply_decorator(leaf, X, y, weights, side_data, offset)
             return leaf
@@ -857,11 +858,13 @@ class Tree(
             rng=self._rng_,
         )
         if selection is None:
-            leaf = self._create_leaf(
+            leaf = self._create_node(
                 depth,
+                n_samples,
                 y_transmuted,
                 w_transmuted,
                 offset_transmuted,
+                is_leaf=True,
             )
             self._apply_decorator(leaf, X, y, weights, side_data, offset)
             return leaf
@@ -878,11 +881,13 @@ class Tree(
             self.correlation_enum_,
         )
         if split_result is None:
-            leaf = self._create_leaf(
+            leaf = self._create_node(
                 depth,
+                n_samples,
                 y_transmuted,
                 w_transmuted,
                 offset_transmuted,
+                is_leaf=True,
             )
             self._apply_decorator(leaf, X, y, weights, side_data, offset)
             return leaf
@@ -956,17 +961,24 @@ class Tree(
                 offset_right_transmuted,
             ) = validation
             if transmuted_p > self.alpha:
-                leaf = self._create_leaf(
+                leaf = self._create_node(
                     depth,
+                    n_samples,
                     y_transmuted,
                     w_transmuted,
                     offset_transmuted,
+                    is_leaf=True,
                 )
                 self._apply_decorator(leaf, X, y, weights, side_data, offset)
                 return leaf
             p_value = max(p_value, transmuted_p)
-        statistics = self._compute_statistics(
-            y_transmuted, w_transmuted, offset_transmuted, is_leaf=False
+        node = self._create_node(
+            depth,
+            n_samples,
+            y_transmuted,
+            w_transmuted,
+            offset_transmuted,
+            is_leaf=False,
         )
         left_child = self._build_tree(
             X,
@@ -999,7 +1011,7 @@ class Tree(
         split_name = None if names is None else str(names[feature_index])
         split_statistics = _partition.SplitStatistics(p_value=p_value)
         children = (left_child, right_child)
-        partition: _partition.Partition[_node.Node]
+        partition: _partition.Partition[N]
         match self.feature_types_[feature_index]:
             case _types.CovariateType.BOOLEAN:
                 partition = _partition.BooleanPartition(
@@ -1040,29 +1052,21 @@ class Tree(
                     ),
                     nan_child=numeric_nan_child,
                 )
-        node = self._make_node(depth, n_samples, partition, statistics)
+        node.extension = partition
         self._apply_decorator(node, X, y, weights, side_data, offset)
         return node
 
     @abc.abstractmethod
-    def _compute_statistics(
+    def _create_node(
         self,
+        depth: int,
+        n_samples: int,
         y_transmuted: numpy.typing.NDArray[numpy.floating],
         w_transmuted: numpy.typing.NDArray[numpy.floating],
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
         is_leaf: bool,
-    ) -> S:
-        """Compute the node's summary values from its own active samples."""
-
-    @abc.abstractmethod
-    def _make_node(
-        self,
-        depth: int,
-        n_samples: int,
-        extension: _extension.Extension,
-        statistics: S,
     ) -> N:
-        """Assemble the task's Node from its computed statistics."""
+        """Build the task's Node from its own active samples."""
 
     @abc.abstractmethod
     def _validate_fit_params(
@@ -1405,21 +1409,6 @@ class Tree(
             w_right_transmuted,
             offset_right_transmuted,
         )
-
-    def _create_leaf(
-        self,
-        depth: int,
-        y_transmuted: numpy.typing.NDArray[numpy.floating],
-        w_transmuted: numpy.typing.NDArray[numpy.floating],
-        offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
-    ) -> N:
-        """Build a leaf node from transmuted data."""
-        n_samples = int(numpy.count_nonzero(w_transmuted))
-        statistics = self._compute_statistics(
-            y_transmuted, w_transmuted, offset_transmuted, is_leaf=True
-        )
-        leaf = self._make_node(depth, n_samples, _extension.Leaf(), statistics)
-        return leaf
 
     def _apply_decorator(
         self,

@@ -84,6 +84,7 @@ def _estimator_cases():
         pca_components=2,
         min_splits=2,
         min_buckets=1,
+        ci_replicates=5,
     )
     cases = [
         ("SurvivalTree", survival_factory, _survival_target),
@@ -120,7 +121,7 @@ def _fitted_survival_tree(X, y):
 def _fitted_ranking_tree(X, y):
     """Fit and return a RankingTree on the given design and target."""
     ranking_tree = sigma._tree_ranking.RankingTree(
-        pca_components=2, min_splits=2, min_buckets=1
+        pca_components=2, min_splits=2, min_buckets=1, ci_replicates=5
     )
     ranking_tree.fit(X, y)
     return ranking_tree
@@ -820,7 +821,7 @@ class TestTwoDimensionalTargetContract(unittest.TestCase):
         y[0, 2] = numpy.nan
         y[1, 2] = numpy.nan
         ranking_tree = sigma._tree_ranking.RankingTree(
-            pca_components=2, min_splits=2, min_buckets=1
+            pca_components=2, min_splits=2, min_buckets=1, ci_replicates=5
         )
         ranking_tree.fit(X, y)
         predictions = ranking_tree.predict(X)
@@ -1037,7 +1038,11 @@ class TestTwoDimensionalTargetContract(unittest.TestCase):
         self.assertEqual(default_names, [0, 1, 2])
         names = ["soba", "udon", "ramen"]
         named_tree = sigma._tree_ranking.RankingTree(
-            pca_components=2, min_splits=2, min_buckets=1, item_names=names
+            pca_components=2,
+            min_splits=2,
+            min_buckets=1,
+            item_names=names,
+            ci_replicates=5,
         )
         named_tree.fit(X, y)
         named_items = named_tree.item_names_.tolist()

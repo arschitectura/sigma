@@ -205,6 +205,7 @@ class TestRankingTreeFit(unittest.TestCase):
         tree = sigma.RankingTree(
             item_names=["A", "B", "C", "D"],
             random_state=123,
+            ci_replicates=5,
         )
         tree.fit(X, y)
         self.assertGreaterEqual(len(tree.leaves_), 2)
@@ -232,7 +233,7 @@ class TestRankingTreeFit(unittest.TestCase):
                 y[i] = [1.0, 2.0, 3.0]
             else:
                 y[i] = [3.0, 2.0, 1.0]
-        tree = sigma.RankingTree(random_state=0)
+        tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         predictions = tree.predict(X)
         self.assertEqual(predictions.shape, (n_samples,))
@@ -252,7 +253,7 @@ class TestRankingTreeFit(unittest.TestCase):
                 y[i] = [1.0, 2.0, 3.0, 4.0]
             else:
                 y[i] = [4.0, 3.0, 2.0, 1.0]
-        tree = sigma.RankingTree(random_state=0)
+        tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         self.assertTrue(numpy.issubdtype(tree.item_names_.dtype, numpy.integer))
         numpy.testing.assert_array_equal(
@@ -270,7 +271,7 @@ class TestRankingTreeFit(unittest.TestCase):
         y = numpy.empty((n_samples, n_items), dtype=float)
         for i in range(n_samples):
             y[i] = [1.0, 2.0, 3.0] if X[i, 0] > 0 else [3.0, 2.0, 1.0]
-        tree = sigma.RankingTree(random_state=0)
+        tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         ranks = tree.predict_rank(X)
         self.assertEqual(ranks.shape, (n_samples, 3))
@@ -331,7 +332,7 @@ class TestRankingTreeFit(unittest.TestCase):
             numpy.array([[1.0, 2.0]]),
             numpy.array([[2.0, 1.0]]),
         )
-        tree = sigma.RankingTree(random_state=0)
+        tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         self.assertGreaterEqual(len(tree.leaves_), 2)
         leaf_predictions = {int(leaf.prediction) for leaf in tree.leaves_}
@@ -364,7 +365,7 @@ class TestRankingTreeFit(unittest.TestCase):
         y = numpy.empty((n_samples, n_items), dtype=float)
         for i in range(n_samples):
             y[i] = [1.0, 2.0, 3.0] if X[i, 0] > 0 else [3.0, 2.0, 1.0]
-        tree = sigma.RankingTree(random_state=0)
+        tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         predictions_before = tree.predict(X)
         ranks_before = tree.predict_rank(X)
@@ -383,9 +384,9 @@ class TestRankingTreeFit(unittest.TestCase):
         y = numpy.empty((n_samples, n_items), dtype=float)
         for i in range(n_samples):
             y[i] = [1.0, 2.0, 3.0] if X[i, 0] > 0 else [3.0, 2.0, 1.0]
-        tree_none = sigma.RankingTree(random_state=0)
+        tree_none = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree_none.fit(X, y)
-        tree_ones = sigma.RankingTree(random_state=0)
+        tree_ones = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree_ones.fit(X, y, sample_weight=numpy.ones(n_samples))
         numpy.testing.assert_array_equal(
             tree_none.predict(X), tree_ones.predict(X)
@@ -435,7 +436,9 @@ class TestRankingTreeFit(unittest.TestCase):
             if X[i, 0] < 0:
                 base = base[::-1].copy()
             y[i] = base
-        tree = sigma.RankingTree(pca_components=5, random_state=0)
+        tree = sigma.RankingTree(
+            pca_components=5, random_state=0, ci_replicates=5
+        )
         tree.fit(X, y)
         for node in tree.nodes_:
             self.assertEqual(len(node.metrics), n_items)
@@ -452,7 +455,7 @@ class TestRankingTreeFit(unittest.TestCase):
             if X[i, 0] < 0:
                 base = base[::-1].copy()
             y[i] = base
-        tree = sigma.RankingTree(random_state=0)
+        tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         for leaf in tree.leaves_:
             for metric in leaf.metrics:
@@ -490,7 +493,7 @@ class TestTopDisplayedItems(unittest.TestCase):
             y_right[:, top_b].copy(),
         )
         y = numpy.vstack([y_left, y_right])
-        tree = sigma.RankingTree(random_state=0)
+        tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         return tree
 
@@ -544,7 +547,9 @@ class TestTopDisplayedItems(unittest.TestCase):
         import sigma._graphviz
 
         tree = sigma.RankingTree(
-            item_names=[f"i{k}" for k in range(10)], random_state=0
+            item_names=[f"i{k}" for k in range(10)],
+            random_state=0,
+            ci_replicates=5,
         )
         rng = numpy.random.default_rng(41)
         n_per_leaf = 100
@@ -582,7 +587,9 @@ class TestTopDisplayedItems(unittest.TestCase):
         import sigma._graphviz
 
         tree = sigma.RankingTree(
-            item_names=["apple", "banana", "cherry"], random_state=0
+            item_names=["apple", "banana", "cherry"],
+            random_state=0,
+            ci_replicates=5,
         )
         rng = numpy.random.default_rng(42)
         X = rng.normal(size=(200, 1))

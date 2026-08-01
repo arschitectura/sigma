@@ -19,7 +19,6 @@ def _leaf(prediction: float) -> sigma._node.RegressionNode:
         n_samples=10,
         share=0.0,
         decoration=None,
-        extension=sigma._extension.Leaf(),
         prediction=prediction,
         ci_low=None,
         ci_high=None,
@@ -35,12 +34,12 @@ def _root(extension) -> sigma._node.RegressionNode:
         n_samples=20,
         share=1.0,
         decoration=None,
-        extension=extension,
         prediction=0.0,
         ci_low=None,
         ci_high=None,
         response_samples=numpy.empty(0, dtype=float),
     )
+    root.extension = extension
     return root
 
 

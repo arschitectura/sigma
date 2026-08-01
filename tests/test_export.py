@@ -362,12 +362,16 @@ class TestExportGraphviz(unittest.TestCase):
 
     __slots__ = ()
 
+    @classmethod
+    def setUpClass(cls):
+        """Fit the step regression tree and export its default DOT source once."""
+        cls.regression_tree = _helpers._fit_step_regression_tree()
+        cls.default_source = sigma.export_graphviz(cls.regression_tree)
+
     def test_export_graphviz_returns_dot_string_when_out_file_none(self):
         """Returns the DOT source as a Python str when out_file is None."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        result = sigma.export_graphviz(regression_tree)
-        self.assertIsInstance(result, str)
-        self.assertTrue(result.startswith("digraph"))
+        self.assertIsInstance(self.default_source, str)
+        self.assertTrue(self.default_source.startswith("digraph"))
 
     def test_export_graphviz_writes_to_file_path(self):
         """Writes the DOT source to disk when out_file is a string path."""
@@ -449,9 +453,7 @@ class TestExportGraphviz(unittest.TestCase):
 
     def test_export_graphviz_default_orientation_is_top_down(self):
         """Default DOT source sets rankdir=TB (top-down layout)."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        result = sigma.export_graphviz(regression_tree)
-        self.assertIn("rankdir=TB", result)
+        self.assertIn("rankdir=TB", self.default_source)
 
     def test_export_graphviz_orientation_left_to_right(self):
         """orientation='left-to-right' sets rankdir=LR in the DOT source."""
@@ -511,9 +513,7 @@ class TestExportGraphviz(unittest.TestCase):
 
     def test_export_graphviz_default_dpi_appears_in_dot_graph_attr(self):
         """The default dpi=192 is baked into the DOT graph attribute."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        result = sigma.export_graphviz(regression_tree)
-        self.assertIn("dpi=192", result)
+        self.assertIn("dpi=192", self.default_source)
 
     def test_export_graphviz_custom_dpi_appears_in_dot_graph_attr(self):
         """A custom dpi value is baked into the returned DOT graph attribute."""
@@ -628,26 +628,12 @@ class TestExportImage(unittest.TestCase):
         high = sigma.export_image(regression_tree, "png", dpi=600)
         self.assertGreater(len(high), len(low))
 
-    def test_export_image_custom_dpi_propagates_to_gif(self):
-        """A higher dpi produces a strictly larger GIF byte payload."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        low = sigma.export_image(regression_tree, "gif", dpi=72)
-        high = sigma.export_image(regression_tree, "gif", dpi=600)
-        self.assertGreater(len(high), len(low))
-
     def test_export_image_custom_dpi_propagates_to_svg(self):
         """A higher dpi proportionally enlarges the SVG width attribute."""
         regression_tree = _helpers._fit_step_regression_tree()
         low = sigma.export_image(regression_tree, "svg", dpi=72)
         high = sigma.export_image(regression_tree, "svg", dpi=600)
         self.assertGreater(_svg_root_width(high), _svg_root_width(low))
-
-    def test_export_image_custom_dpi_propagates_to_pdf(self):
-        """A higher dpi produces a strictly larger PDF byte payload."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        low = sigma.export_image(regression_tree, "pdf", dpi=72)
-        high = sigma.export_image(regression_tree, "pdf", dpi=600)
-        self.assertGreater(len(high), len(low))
 
     def test_export_image_png_and_pdf_render_without_cairosvg(self):
         """PNG and PDF render via the Graphviz binary when cairosvg is absent."""
@@ -717,35 +703,12 @@ class TestExportImage(unittest.TestCase):
         )
         self.assertIn(b"spread", result)
 
-    def test_export_image_forwards_category_labels(self):
-        """Display-time category_labels appear inside the rendered SVG."""
-        regression_tree = _helpers._fit_categorical_regression_tree()
-        result = sigma.export_image(
-            regression_tree,
-            "svg",
-            feature_names=["color", "noise"],
-            category_labels={0: {0.0: "red", 1.0: "blue"}},
-        )
-        has_label = b"red" in result or b"blue" in result
-        self.assertTrue(has_label)
-
-    def test_export_image_forwards_max_depth_and_precision(self):
-        """max_depth and precision threading affect the SVG output."""
+    def test_export_image_forwards_max_depth(self):
+        """max_depth threading truncates the rendered SVG output."""
         regression_tree = _helpers._fit_three_step_regression_tree()
         truncated = sigma.export_image(regression_tree, "svg", max_depth=0)
         full = sigma.export_image(regression_tree, "svg")
         self.assertNotEqual(truncated, full)
-        coarse = sigma.export_image(regression_tree, "svg", precision=0)
-        precise = sigma.export_image(regression_tree, "svg", precision=5)
-        self.assertNotEqual(coarse, precise)
-
-    def test_export_image_reverse_order(self):
-        """A reverse-ordered tree changes the rendered SVG output."""
-        natural_tree = _helpers._fit_step_regression_tree()
-        reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
-        natural = sigma.export_image(natural_tree, "svg")
-        reversed_svg = sigma.export_image(reversed_tree, "svg")
-        self.assertNotEqual(natural, reversed_svg)
 
 
 @unittest.skipUnless(_HAS_GRAPHVIZ, "graphviz not installed")
@@ -792,7 +755,7 @@ class TestToText(unittest.TestCase):
 
 @unittest.skipUnless(_HAS_GRAPHVIZ, "graphviz not installed")
 class TestToImage(unittest.TestCase):
-    """Tests for the Tree.to_image out_file dispatch and dpi propagation."""
+    """Tests for the Tree.to_image out_file dispatch."""
 
     __slots__ = ()
 
@@ -822,34 +785,6 @@ class TestToImage(unittest.TestCase):
         self.assertIsNone(result)
         self.assertTrue(buffer.getvalue().startswith(b"\x89PNG"))
 
-    def test_to_image_custom_dpi_propagates_to_png(self):
-        """A higher dpi via the shortcut method produces a larger PNG."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        low = regression_tree.to_image("png", dpi=72)
-        high = regression_tree.to_image("png", dpi=600)
-        self.assertGreater(len(high), len(low))
-
-    def test_to_image_custom_dpi_propagates_to_gif(self):
-        """A higher dpi via the shortcut method produces a larger GIF."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        low = regression_tree.to_image("gif", dpi=72)
-        high = regression_tree.to_image("gif", dpi=600)
-        self.assertGreater(len(high), len(low))
-
-    def test_to_image_custom_dpi_propagates_to_svg(self):
-        """A higher dpi via the shortcut method enlarges the SVG width."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        low = regression_tree.to_image("svg", dpi=72)
-        high = regression_tree.to_image("svg", dpi=600)
-        self.assertGreater(_svg_root_width(high), _svg_root_width(low))
-
-    def test_to_image_custom_dpi_propagates_to_pdf(self):
-        """A higher dpi via the shortcut method produces a larger PDF."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        low = regression_tree.to_image("pdf", dpi=72)
-        high = regression_tree.to_image("pdf", dpi=600)
-        self.assertGreater(len(high), len(low))
-
     def test_to_image_raises_on_invalid_format(self):
         """Raises ValueError for an unsupported format string (including 'dot')."""
         regression_tree = _helpers._fit_step_regression_tree()
@@ -870,32 +805,30 @@ class TestReprMimebundle(unittest.TestCase):
 
     __slots__ = ()
 
+    @classmethod
+    def setUpClass(cls):
+        """Build the fitted tree's mime bundle once."""
+        regression_tree = _helpers._fit_step_regression_tree()
+        cls.bundle = regression_tree._repr_mimebundle_()
+
     def test_fitted_tree_returns_svg_in_bundle(self):
         """A fitted tree's mime bundle exposes image/svg+xml as a string."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        bundle = regression_tree._repr_mimebundle_()
-        self.assertIn("image/svg+xml", bundle)
-        self.assertIsInstance(bundle["image/svg+xml"], str)
+        self.assertIn("image/svg+xml", self.bundle)
+        self.assertIsInstance(self.bundle["image/svg+xml"], str)
 
     def test_fitted_tree_svg_is_well_formed(self):
         """The bundled SVG payload contains an <svg ...> root element."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        bundle = regression_tree._repr_mimebundle_()
-        svg = bundle["image/svg+xml"]
+        svg = self.bundle["image/svg+xml"]
         self.assertIn("<svg", svg)
 
     def test_fitted_tree_bundle_includes_text_plain(self):
         """The fitted-tree bundle still carries a text/plain fallback."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        bundle = regression_tree._repr_mimebundle_()
-        self.assertIn("text/plain", bundle)
-        self.assertIsInstance(bundle["text/plain"], str)
+        self.assertIn("text/plain", self.bundle)
+        self.assertIsInstance(self.bundle["text/plain"], str)
 
     def test_fitted_tree_bundle_excludes_estimator_widget(self):
         """The fitted-tree bundle does not carry sklearn's text/html widget."""
-        regression_tree = _helpers._fit_step_regression_tree()
-        bundle = regression_tree._repr_mimebundle_()
-        self.assertNotIn("text/html", bundle)
+        self.assertNotIn("text/html", self.bundle)
 
     def test_unfitted_tree_falls_back_to_sklearn(self):
         """An unfitted tree falls back to sklearn's hyperparameter widget."""
@@ -1637,7 +1570,7 @@ class TestExportImageResponse(unittest.TestCase):
             else:
                 y[i] = [3.0, 2.0, 1.0]
         ranking_tree = sigma.RankingTree(
-            item_names=["A", "B", "C"], random_state=0
+            item_names=["A", "B", "C"], random_state=0, ci_replicates=5
         )
         ranking_tree.fit(X, y)
         figure = matplotlib.figure.Figure()

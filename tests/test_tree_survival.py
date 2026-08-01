@@ -545,7 +545,6 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
             n_samples=10,
             share=0.0,
             decoration=None,
-            extension=sigma._extension.Leaf(),
             survival_function=(numpy.array([1.0]), numpy.array([1.0])),
             survival_log_variance=numpy.zeros(1, dtype=float),
             metrics=[
@@ -565,7 +564,6 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
             n_samples=10,
             share=0.0,
             decoration=None,
-            extension=sigma._extension.Leaf(),
             survival_function=(numpy.array([1.0]), numpy.array([1.0])),
             survival_log_variance=numpy.zeros(1, dtype=float),
             metrics=[

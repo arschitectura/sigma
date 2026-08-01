@@ -53,7 +53,6 @@ class TestNumericPartitionRouting(unittest.TestCase):
             1,
             1.0,
             None,
-            sigma._extension.Leaf(),
             value,
             None,
             None,
@@ -120,7 +119,6 @@ class TestBooleanPartitionRouting(unittest.TestCase):
             1,
             1.0,
             None,
-            sigma._extension.Leaf(),
             1.0,
             None,
             None,
@@ -131,7 +129,6 @@ class TestBooleanPartitionRouting(unittest.TestCase):
             1,
             1.0,
             None,
-            sigma._extension.Leaf(),
             2.0,
             None,
             None,
@@ -611,7 +608,7 @@ class TestResponseValidation(unittest.TestCase):
         X = rng.normal(0.0, 1.0, (n, 2))
         y = numpy.array([rng.permutation(3) + 1.0 for _ in range(n)])
         y[:20, 2] = numpy.nan
-        tree = sigma.RankingTree(random_state=0)
+        tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         predictions = tree.predict(X)
         self.assertEqual(predictions.shape[0], n)
@@ -652,7 +649,9 @@ class TestEndToEndTasks(unittest.TestCase):
         X, _, missing = _numeric_missingness_design(seed=3, n=n)
         base = numpy.where(missing[:, None], [1.0, 2.0, 3.0], [3.0, 2.0, 1.0])
         y = base + rng.normal(0.0, 0.1, (n, 3))
-        tree = sigma.RankingTree(random_state=0, min_splits=10, min_buckets=5)
+        tree = sigma.RankingTree(
+            random_state=0, min_splits=10, min_buckets=5, ci_replicates=5
+        )
         tree.fit(X, y)
         self.assertTrue(numpy.all(numpy.isfinite(tree.predict(X))))
 
@@ -689,7 +688,6 @@ class TestPartitionState(unittest.TestCase):
             1,
             1.0,
             None,
-            sigma._extension.Leaf(),
             0.0,
             None,
             None,
@@ -700,7 +698,6 @@ class TestPartitionState(unittest.TestCase):
             1,
             1.0,
             None,
-            sigma._extension.Leaf(),
             1.0,
             None,
             None,

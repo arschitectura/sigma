@@ -10,7 +10,7 @@ import numpy.typing
 import sklearn.utils
 import sklearn.utils.validation
 
-from . import _extension, _node, _survival, _tree, _types
+from . import _node, _survival, _tree, _types
 
 if typing.TYPE_CHECKING:
     import pandas
@@ -56,7 +56,7 @@ class _NodeCurve:
         self.r_w = r_w
 
 
-class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
+class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
     """Conditional inference tree for right-censored survival outcomes.
 
     Uses permutation-based conditional inference for unbiased variable selection
@@ -554,14 +554,16 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
             )
         return y_out_shape[0]
 
-    def _compute_statistics(
+    def _create_node(
         self,
+        depth: int,
+        n_samples: int,
         y_transmuted: numpy.typing.NDArray[numpy.floating],
         w_transmuted: numpy.typing.NDArray[numpy.floating],
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
         is_leaf: bool,
-    ) -> _node._SurvivalStatistics:
-        """Compute the node's Kaplan-Meier curve, log-variance, and metrics."""
+    ) -> _node.SurvivalNode:
+        """Build a SurvivalNode with its Kaplan-Meier curve and metrics."""
         curve = self._compute_node_curve(y_transmuted, w_transmuted)
         survival_function = (curve.times, curve.surv)
         if is_leaf:
@@ -569,30 +571,14 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode, _node._SurvivalStatistics]):
         else:
             survival_log_variance = numpy.empty(0, dtype=float)
         metrics = self._compute_survival_metrics(curve)
-        statistics = _node._SurvivalStatistics(
-            survival_function=survival_function,
-            survival_log_variance=survival_log_variance,
-            metrics=metrics,
-        )
-        return statistics
-
-    def _make_node(
-        self,
-        depth: int,
-        n_samples: int,
-        extension: _extension.Extension,
-        statistics: _node._SurvivalStatistics,
-    ) -> _node.SurvivalNode:
-        """Assemble a SurvivalNode from its computed statistics."""
         node = _node.SurvivalNode(
             depth=depth,
             n_samples=n_samples,
             share=0.0,
             decoration=None,
-            extension=extension,
-            survival_function=statistics.survival_function,
-            survival_log_variance=statistics.survival_log_variance,
-            metrics=statistics.metrics,
+            survival_function=survival_function,
+            survival_log_variance=survival_log_variance,
+            metrics=metrics,
         )
         return node
 
