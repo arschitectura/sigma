@@ -66,8 +66,7 @@ class TestPolarsExpressionStructure(unittest.TestCase):
         """A child combines its parent's expression with its own branch condition using AND."""
         left, right = _leaf(1.0), _leaf(9.0)
         partition = sigma._partition.NumericalPartition(
-            feature_index=0,
-            feature_name="x",
+            feature=sigma.NumericFeature(0, "x"),
             statistics=None,
             children=(left, right),
             thresholds=(5.0,),
@@ -89,8 +88,7 @@ class TestPolarsExpressionStructure(unittest.TestCase):
         """A depth-2 node AND-chains the root and intermediate branch conditions."""
         deep_left, deep_right = _leaf(1.0), _leaf(2.0)
         inner_partition = sigma._partition.NumericalPartition(
-            feature_index=1,
-            feature_name="z",
+            feature=sigma.NumericFeature(1, "z"),
             statistics=None,
             children=(deep_left, deep_right),
             thresholds=(2.0,),
@@ -99,8 +97,7 @@ class TestPolarsExpressionStructure(unittest.TestCase):
         _link(inner, inner_partition)
         outer_right = _leaf(9.0)
         outer_partition = sigma._partition.NumericalPartition(
-            feature_index=0,
-            feature_name="x",
+            feature=sigma.NumericFeature(0, "x"),
             statistics=None,
             children=(inner, outer_right),
             thresholds=(5.0,),
@@ -119,8 +116,7 @@ class TestPolarsExpressionStructure(unittest.TestCase):
         """A partition without a feature name references the X[i] column."""
         left, right = _leaf(1.0), _leaf(9.0)
         partition = sigma._partition.NumericalPartition(
-            feature_index=3,
-            feature_name=None,
+            feature=sigma.NumericFeature(3, None),
             statistics=None,
             children=(left, right),
             thresholds=(5.0,),
@@ -144,8 +140,7 @@ class TestPolarsExpressionConditions(unittest.TestCase):
         """A dedicated missing child of a numeric partition tests for null."""
         c0, c1, missing = _leaf(1.0), _leaf(2.0), _leaf(9.0)
         partition = sigma._partition.NumericalPartition(
-            feature_index=0,
-            feature_name="x",
+            feature=sigma.NumericFeature(0, "x"),
             statistics=None,
             children=(c0, c1, missing),
             thresholds=(5.0,),
@@ -164,8 +159,7 @@ class TestPolarsExpressionConditions(unittest.TestCase):
         """An interval branch that also admits missing values ORs in a null test."""
         left, right = _leaf(1.0), _leaf(9.0)
         partition = sigma._partition.NumericalPartition(
-            feature_index=0,
-            feature_name="x",
+            feature=sigma.NumericFeature(0, "x"),
             statistics=None,
             children=(left, right),
             thresholds=(5.0,),
@@ -188,8 +182,7 @@ class TestPolarsExpressionConditions(unittest.TestCase):
         """An interior interval branch bounds the column on both sides."""
         c0, c1, c2 = _leaf(1.0), _leaf(2.0), _leaf(3.0)
         partition = sigma._partition.NumericalPartition(
-            feature_index=0,
-            feature_name="x",
+            feature=sigma.NumericFeature(0, "x"),
             statistics=None,
             children=(c0, c1, c2),
             thresholds=(2.0, 5.0),
@@ -207,8 +200,7 @@ class TestPolarsExpressionConditions(unittest.TestCase):
         """A boolean partition emits the negated column and the bare column."""
         false_leaf, true_leaf = _leaf(1.0), _leaf(9.0)
         partition = sigma._partition.BooleanPartition(
-            feature_index=0,
-            feature_name="flag",
+            feature=sigma.BooleanFeature(0, "flag"),
             statistics=None,
             children=(false_leaf, true_leaf),
         )
@@ -229,8 +221,7 @@ class TestPolarsExpressionConditions(unittest.TestCase):
         """A categorical partition without labels compares the raw codes."""
         left, right = _leaf(1.0), _leaf(9.0)
         partition = sigma._partition.CategoricalPartition(
-            feature_index=0,
-            feature_name="group",
+            feature=sigma.CategoricalFeature(0, "group"),
             statistics=None,
             children=(left, right),
             category_groups=(frozenset({2.0}), frozenset({7.0, 5.0})),
@@ -252,12 +243,14 @@ class TestPolarsExpressionConditions(unittest.TestCase):
         """A categorical partition with labels compares the label strings."""
         left, right = _leaf(1.0), _leaf(9.0)
         partition = sigma._partition.CategoricalPartition(
-            feature_index=0,
-            feature_name="color",
+            feature=sigma.CategoricalFeature(
+                0,
+                "color",
+                category_labels={0.0: "red", 1.0: "blue", 2.0: "green"},
+            ),
             statistics=None,
             children=(left, right),
             category_groups=(frozenset({0.0, 2.0}), frozenset({1.0})),
-            category_labels={0.0: "red", 1.0: "blue", 2.0: "green"},
         )
         root = _root(partition)
         _link(root, partition)
@@ -276,13 +269,15 @@ class TestPolarsExpressionConditions(unittest.TestCase):
         """A category group holding the N/A code tests for null instead of the code."""
         left, right = _leaf(1.0), _leaf(9.0)
         partition = sigma._partition.CategoricalPartition(
-            feature_index=0,
-            feature_name="color",
+            feature=sigma.CategoricalFeature(
+                0,
+                "color",
+                category_labels={0.0: "red", 1.0: "blue", 2.0: "N/A"},
+                na_code=2.0,
+            ),
             statistics=None,
             children=(left, right),
             category_groups=(frozenset({0.0}), frozenset({1.0, 2.0})),
-            category_labels={0.0: "red", 1.0: "blue", 2.0: "N/A"},
-            na_code=2.0,
         )
         root = _root(partition)
         _link(root, partition)
@@ -297,14 +292,15 @@ class TestPolarsExpressionConditions(unittest.TestCase):
         """A promoted boolean partition tests the column truth values and null."""
         true_leaf, rest_leaf = _leaf(9.0), _leaf(1.0)
         partition = sigma._partition.CategoricalPartition(
-            feature_index=0,
-            feature_name="flag",
+            feature=sigma.PromotedBooleanFeature(
+                0,
+                "flag",
+                category_labels={0.0: "False", 1.0: "True", 2.0: "N/A"},
+                na_code=2.0,
+            ),
             statistics=None,
             children=(true_leaf, rest_leaf),
             category_groups=(frozenset({1.0}), frozenset({0.0, 2.0})),
-            category_labels={0.0: "False", 1.0: "True", 2.0: "N/A"},
-            na_code=2.0,
-            promoted_boolean=True,
         )
         root = _root(partition)
         _link(root, partition)
@@ -386,7 +382,7 @@ class TestPolarsExpressionOnFittedTrees(unittest.TestCase):
     def test_promoted_boolean_tree_matches_decision_path(self):
         """A promoted boolean split selects its true, false, and null rows."""
         tree, frame = _promoted_boolean_tree()
-        self.assertEqual(tree.promoted_boolean_features_in_, frozenset({0}))
+        self.assertIsInstance(tree.features_[0], sigma.PromotedBooleanFeature)
         self._assert_expressions_match_paths(tree, frame)
 
     def test_compacted_tree_matches_decision_path(self):
@@ -405,6 +401,25 @@ class TestPolarsExpressionOnFittedTrees(unittest.TestCase):
         """ClassificationTree node expressions select the decision-path rows."""
         tree, frame = _classification_tree()
         self._assert_expressions_match_paths(tree, frame)
+
+    def test_category_labels_agree_with_to_text(self):
+        """Categorical conditions carry the labels to_text renders, and both
+        follow a display-time category_labels override the same way."""
+        tree, _frame = _categorical_tree()
+        feature = tree.features_[0]
+        assert isinstance(feature, sigma.CategoricalFeature)
+        labels = feature.category_labels
+        assert labels is not None
+        rendered = tree.to_text()
+        for label in labels.values():
+            self.assertIn(label, rendered)
+        expression = str(tree.leaves_[0].polars_expression())
+        used = [label for label in labels.values() if label in expression]
+        self.assertTrue(used)
+        override = {code: f"{label}!" for code, label in labels.items()}
+        overridden = tree.to_text(category_labels={0: override})
+        for label in override.values():
+            self.assertIn(label, overridden)
 
     def test_pickled_tree_expressions_survive(self):
         """A pickle round-trip preserves parent links and expression parity."""

@@ -20,6 +20,13 @@ import importlib.metadata
 
 from ._export import export_graphviz, export_image, export_sql, export_text
 from ._extension import Extension, Leaf
+from ._feature import (
+    BooleanFeature,
+    CategoricalFeature,
+    Feature,
+    NumericFeature,
+    PromotedBooleanFeature,
+)
 from ._node import (
     ClassificationNode,
     Node,
@@ -48,19 +55,24 @@ from ._tree_survival import SurvivalTree
 __version__ = importlib.metadata.version("ars-sigma")
 
 __all__ = [
+    "BooleanFeature",
     "BooleanPartition",
     "BooleanValue",
     "BranchCondition",
+    "CategoricalFeature",
     "CategoricalPartition",
     "CategorySubset",
     "ClassificationNode",
     "ClassificationTree",
     "Extension",
+    "Feature",
     "Leaf",
     "Node",
+    "NumericFeature",
     "NumericInterval",
     "NumericalPartition",
     "Partition",
+    "PromotedBooleanFeature",
     "RankingMetric",
     "RankingNode",
     "RankingTree",

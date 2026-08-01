@@ -321,17 +321,17 @@ class TestFindBestSplit(unittest.TestCase):
     __slots__ = ()
 
     def test_dispatches_to_boolean(self):
-        """Routes BOOLEAN features to the boolean split branch."""
+        """Routes boolean features to the boolean split branch."""
         X = numpy.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=float).reshape(-1, 1)
         y = numpy.array([1, 1, 1, 1, 9, 9, 9, 9], dtype=float)
         weights = numpy.ones(8)
-        feature_types = numpy.array([sigma._types.CovariateType.BOOLEAN])
+        features = [sigma.BooleanFeature(0)]
         result = sigma._splitting.find_best_split(
             X,
             y.reshape(-1, 1),
             weights,
             0,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             min_buckets=1,
             correlation=sigma._types.Correlation.NORMAL,
@@ -346,13 +346,13 @@ class TestFindBestSplit(unittest.TestCase):
         X = numpy.array([1, 2, 3, 4, 5, 6, 7, 8], dtype=float).reshape(-1, 1)
         y = numpy.array([0, 0, 0, 0, 10, 10, 10, 10], dtype=float)
         weights = numpy.ones(8)
-        feature_types = numpy.array([sigma._types.CovariateType.INTEGER])
+        features = [sigma.NumericFeature(0, integer=True)]
         result = sigma._splitting.find_best_split(
             X,
             y.reshape(-1, 1),
             weights,
             0,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             min_buckets=1,
             correlation=sigma._types.Correlation.NORMAL,
@@ -369,13 +369,13 @@ class TestFindBestSplit(unittest.TestCase):
         ).reshape(-1, 1)
         y = numpy.array([0, 0, 0, 0, 10, 10, 10, 10], dtype=float)
         weights = numpy.ones(8)
-        feature_types = numpy.array([sigma._types.CovariateType.REAL])
+        features = [sigma.NumericFeature(0)]
         result = sigma._splitting.find_best_split(
             X,
             y.reshape(-1, 1),
             weights,
             0,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             min_buckets=1,
             correlation=sigma._types.Correlation.NORMAL,
@@ -390,13 +390,13 @@ class TestFindBestSplit(unittest.TestCase):
         X = numpy.array([0, 0, 0, 1, 1, 1], dtype=float).reshape(-1, 1)
         y = numpy.array([1, 1, 1, 10, 10, 10], dtype=float)
         weights = numpy.ones(6)
-        feature_types = numpy.array([sigma._types.CovariateType.CATEGORICAL])
+        features = [sigma.CategoricalFeature(0)]
         result = sigma._splitting.find_best_split(
             X,
             y.reshape(-1, 1),
             weights,
             0,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             min_buckets=1,
             correlation=sigma._types.Correlation.NORMAL,

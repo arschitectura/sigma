@@ -9,13 +9,14 @@ and Lausen (2003), "On the Exact Distribution of Maximally Selected Rank
 Statistics," *Computational Statistics & Data Analysis*, 43(2), 121-137.
 """
 
+import collections.abc
 import itertools
 import typing
 
 import numpy
 import numpy.typing
 
-from . import _statistics, _types
+from . import _feature, _statistics, _types
 
 
 class _NumericSplit(typing.NamedTuple):
@@ -193,7 +194,7 @@ def find_best_split(
     h: numpy.typing.NDArray[numpy.floating],
     weights: numpy.typing.NDArray[numpy.floating],
     feature_index: int,
-    feature_types: numpy.typing.NDArray,
+    features: collections.abc.Sequence[_feature.Feature],
     test_stat: _types.TestStat,
     min_buckets: int,
     correlation: _types.Correlation = _types.Correlation.RANK,
@@ -205,7 +206,7 @@ def find_best_split(
         h: Influence function values, shape (n, q).
         weights: Case weights, shape (n,).
         feature_index: Index of the feature to split on.
-        feature_types: Per-feature CovariateType, shape (m,).
+        features: One Feature per column of X, in column order.
         test_stat: Type of test statistic.
         min_buckets: Minimum sum of weights in each child node.
         correlation: Correlation type for the test statistic.
@@ -218,33 +219,23 @@ def find_best_split(
     """
     X_j = X[:, feature_index]
     result: None | tuple[_NumericSplit | frozenset | bool, float]
-    match feature_types[feature_index]:
-        case _types.CovariateType.BOOLEAN:
+    match features[feature_index]:
+        case _feature.BooleanFeature():
             result = find_best_split_boolean(
                 X_j, h, weights, test_stat, min_buckets, correlation
             )
-        case _types.CovariateType.CATEGORICAL:
+        case _feature.CategoricalFeature():
             result = find_best_split_categorical(
                 X_j, h, weights, test_stat, min_buckets, correlation
             )
-        case _types.CovariateType.INTEGER:
+        case _feature.NumericFeature() as numeric:
             result = find_best_split_numeric(
                 X_j,
                 h,
                 weights,
                 test_stat,
                 min_buckets,
-                is_integer=True,
-                correlation=correlation,
-            )
-        case _types.CovariateType.REAL:
-            result = find_best_split_numeric(
-                X_j,
-                h,
-                weights,
-                test_stat,
-                min_buckets,
-                is_integer=False,
+                is_integer=numeric.integer,
                 correlation=correlation,
             )
     return result

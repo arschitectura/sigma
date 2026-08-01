@@ -55,26 +55,6 @@ class TestType(enum.Enum):
     SIDAK = "sidak"
 
 
-class CovariateType(enum.Enum):
-    """Type of a covariate, used to route variable selection and splitting.
-
-    BOOLEAN: Boolean covariate (pandas BooleanDtype or numpy bool).
-    CATEGORICAL: Unordered factor. Splits are binary partitions of the
-        observed categories.
-    INTEGER: Numeric covariate whose observed values are all integers. Split
-        thresholds coincide with observed values.
-    REAL: Numeric covariate with at least one non-integer observed value.
-        Split thresholds fall between adjacent observed values.
-    """
-
-    __slots__ = ()
-
-    BOOLEAN = "boolean"
-    CATEGORICAL = "categorical"
-    INTEGER = "integer"
-    REAL = "real"
-
-
 class Correlation(enum.Enum):
     """Correlation type for association tests.
 

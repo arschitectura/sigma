@@ -98,9 +98,8 @@ def export_text(
         category_labels: Optional mapping from a categorical feature
             (column-name string or integer index) to a dict of {code: label}.
             String keys are resolved against feature_names (or
-            feature_names_in_). Merged over category_labels_in_ (set at
-            fit time when X has pandas categorical / object columns), with
-            caller-provided keys winning.
+            feature_names_in_). Overrides, per column, the labels captured
+            at fit time from pandas categorical columns.
         prediction_formatter: Optional callable taking a float and returning a
             string. For regression, applied to the prediction and each
             confidence interval bound. For classification, applied to each
@@ -140,8 +139,6 @@ def export_text(
     text_rows = _tree_text._collect_text_rows(
         root,
         resolved_category_labels,
-        tree.na_codes_in_,
-        tree.promoted_boolean_features_in_,
         names,
         prediction_formatter,
         max_depth,
@@ -266,11 +263,11 @@ def export_sql(
         category_labels: Optional mapping from a categorical feature
             (column-name string or integer index) to a dict of
             {code: label}. String keys are resolved against feature_names
-            (or feature_names_in_). Merged over category_labels_in_ (set
-            at fit time when X has pandas categorical / object columns),
-            with caller-provided keys winning. When labels are known,
-            categorical comparisons emit label strings; otherwise they
-            emit the numeric codes Sigma stored at fit time.
+            (or feature_names_in_). Overrides, per column, the labels
+            captured at fit time from pandas categorical columns. When
+            labels are known, categorical comparisons emit label strings;
+            otherwise they emit the numeric codes Sigma stored at fit
+            time.
         max_depth: Maximum depth to render, with the root counted as depth
             0. When None (the default), the full tree is rendered. When a
             non-negative integer, subtrees rooted below this depth are
@@ -305,8 +302,6 @@ def export_sql(
         tree.content_,
         names,
         resolved_category_labels,
-        tree.na_codes_in_,
-        tree.promoted_boolean_features_in_,
         target_class_index,
         max_depth,
         not tree.reverse_order,
@@ -410,9 +405,8 @@ def export_graphviz(
         category_labels: Optional mapping from a categorical feature
             (column-name string or integer index) to a dict of {code: label}.
             String keys are resolved against feature_names (or
-            feature_names_in_). Merged over category_labels_in_ (set at fit
-            time when X has pandas categorical / object columns), with
-            caller-provided keys winning.
+            feature_names_in_). Overrides, per column, the labels captured
+            at fit time from pandas categorical columns.
         prediction_formatter: Optional callable taking a float and returning a
             string. For regression, applied to the prediction and each
             confidence interval bound. For classification, applied to each
@@ -510,8 +504,6 @@ def export_graphviz(
         orientation=orientation,
         reverse_order=tree.reverse_order,
         max_branch_length=max_branch_length,
-        na_codes=tree.na_codes_in_,
-        promoted_booleans=tree.promoted_boolean_features_in_,
     )
     dot_source = dot.source.rstrip("\n")
     emitted = _write_text_output(dot_source, out_file)
@@ -642,9 +634,8 @@ def export_image(
         category_labels: Optional mapping from a categorical feature
             (column-name string or integer index) to a dict of {code: label}.
             String keys are resolved against feature_names (or
-            feature_names_in_). Merged over category_labels_in_ (set at fit
-            time when X has pandas categorical / object columns), with
-            caller-provided keys winning.
+            feature_names_in_). Overrides, per column, the labels captured
+            at fit time from pandas categorical columns.
         prediction_formatter: Optional callable taking a float and returning
             a string. For regression, applied to the prediction and each
             confidence interval bound. For classification, applied to each
@@ -780,8 +771,6 @@ def export_image(
         reverse_order=tree.reverse_order,
         top_displayed_items=effective_top_displayed_items,
         max_branch_length=max_branch_length,
-        na_codes=tree.na_codes_in_,
-        promoted_booleans=tree.promoted_boolean_features_in_,
     )
     payload = dot.pipe(format=format)
     emitted = _write_bytes_output(payload, out_file)

@@ -63,7 +63,7 @@ class TestNumericPartitionRouting(unittest.TestCase):
         """A NaN value routes to children[nan_child] when one was learned."""
         left, right = self._leaf(1.0), self._leaf(2.0)
         partition = sigma._partition.NumericalPartition(
-            0, None, None, (left, right), (5.0,), nan_child=1
+            sigma.NumericFeature(0), None, (left, right), (5.0,), nan_child=1
         )
         self.assertIs(partition.route(3.0), left)
         self.assertIs(partition.route(9.0), right)
@@ -73,7 +73,7 @@ class TestNumericPartitionRouting(unittest.TestCase):
         """A NaN value is unroutable when no missing rule was learned."""
         left, right = self._leaf(1.0), self._leaf(2.0)
         partition = sigma._partition.NumericalPartition(
-            0, None, None, (left, right), (5.0,), nan_child=None
+            sigma.NumericFeature(0), None, (left, right), (5.0,), nan_child=None
         )
         self.assertIsNone(partition.route(float("nan")))
 
@@ -81,7 +81,11 @@ class TestNumericPartitionRouting(unittest.TestCase):
         """With no threshold, observed values reach the observed child, NaN the other."""
         observed, nan_child = self._leaf(1.0), self._leaf(9.0)
         partition = sigma._partition.NumericalPartition(
-            0, None, None, (observed, nan_child), (), nan_child=1
+            sigma.NumericFeature(0),
+            None,
+            (observed, nan_child),
+            (),
+            nan_child=1,
         )
         self.assertIs(partition.route(0.0), observed)
         self.assertIs(partition.route(1e9), observed)
@@ -91,7 +95,11 @@ class TestNumericPartitionRouting(unittest.TestCase):
         """An observed value above all thresholds reaches the last interval child, not a trailing missing child."""
         c0, c1, missing = self._leaf(1.0), self._leaf(2.0), self._leaf(9.0)
         partition = sigma._partition.NumericalPartition(
-            0, None, None, (c0, c1, missing), (5.0,), nan_child=2
+            sigma.NumericFeature(0),
+            None,
+            (c0, c1, missing),
+            (5.0,),
+            nan_child=2,
         )
         self.assertIs(partition.route(9.0), c1)
         self.assertIs(partition.route(float("nan")), missing)
@@ -100,7 +108,11 @@ class TestNumericPartitionRouting(unittest.TestCase):
         """branch_conditions appends a MissingValue for a dedicated missing child."""
         c0, c1, missing = self._leaf(1.0), self._leaf(2.0), self._leaf(9.0)
         partition = sigma._partition.NumericalPartition(
-            0, None, None, (c0, c1, missing), (5.0,), nan_child=2
+            sigma.NumericFeature(0),
+            None,
+            (c0, c1, missing),
+            (5.0,),
+            nan_child=2,
         )
         conditions = partition.branch_conditions
         self.assertEqual(len(conditions), 3)
@@ -135,7 +147,7 @@ class TestBooleanPartitionRouting(unittest.TestCase):
             numpy.array([], dtype=float),
         )
         partition = sigma._partition.BooleanPartition(
-            0, None, None, (left, right)
+            sigma.BooleanFeature(0), None, (left, right)
         )
         self.assertIsNone(partition.route(float("nan")))
         self.assertIs(partition.route(0.0), left)
@@ -334,7 +346,11 @@ class TestEndToEndDataFrame(unittest.TestCase):
         frame, y = self._frame()
         tree = sigma.RegressionTree(min_splits=8, min_buckets=4)
         tree.fit(frame, y)
-        self.assertEqual(tree.na_codes_in_, {0: 2.0, 1: 2.0})
+        category, flag = tree.features_[0], tree.features_[1]
+        assert isinstance(category, sigma.CategoricalFeature)
+        assert isinstance(flag, sigma.CategoricalFeature)
+        self.assertEqual(category.na_code, 2.0)
+        self.assertEqual(flag.na_code, 2.0)
         self.assertTrue(numpy.all(numpy.isfinite(tree.predict(frame))))
 
     def test_na_label_collision_increments(self):
@@ -349,10 +365,12 @@ class TestEndToEndDataFrame(unittest.TestCase):
         y = pandas.isna(pandas.Series(values)).to_numpy() * 2.0
         tree = sigma.RegressionTree(min_splits=4, min_buckets=2)
         tree.fit(frame, y)
-        self.assertEqual(tree.na_codes_in_, {0: 2.0})
+        feature = tree.features_[0]
+        assert isinstance(feature, sigma.CategoricalFeature)
+        self.assertEqual(feature.na_code, 2.0)
         self.assertEqual(
-            tree.category_labels_in_,
-            {0: {0.0: "N/A", 1.0: "b", 2.0: "N/A 2"}},
+            feature.category_labels,
+            {0.0: "N/A", 1.0: "b", 2.0: "N/A 2"},
         )
 
     def test_boolean_with_na_promoted(self):
@@ -360,13 +378,16 @@ class TestEndToEndDataFrame(unittest.TestCase):
         frame, y = self._frame()
         tree = sigma.RegressionTree(min_splits=8, min_buckets=4)
         tree.fit(frame, y)
-        self.assertEqual(tree.promoted_boolean_features_in_, frozenset({1}))
+        category, flag = tree.features_[0], tree.features_[1]
+        assert isinstance(category, sigma.CategoricalFeature)
+        assert isinstance(flag, sigma.PromotedBooleanFeature)
         self.assertEqual(
-            tree.category_labels_in_,
-            {
-                0: {0.0: "a", 1.0: "b", 2.0: "N/A"},
-                1: {0.0: "False", 1.0: "True", 2.0: "N/A"},
-            },
+            category.category_labels,
+            {0.0: "a", 1.0: "b", 2.0: "N/A"},
+        )
+        self.assertEqual(
+            flag.category_labels,
+            {0.0: "False", 1.0: "True", 2.0: "N/A"},
         )
 
     def test_unseen_category_routes_to_node_average(self):
@@ -546,7 +567,9 @@ class TestNumpyCategoricalMissing(unittest.TestCase):
     def test_literal_na_code_routes_to_node_average(self):
         """A literal value equal to the learned N/A code routes to the node average like any unseen category, not to the missing child."""
         tree = self._fit()
-        self.assertEqual(tree.na_codes_in_, {0: 3.0})
+        feature = tree.features_[0]
+        assert isinstance(feature, sigma.CategoricalFeature)
+        self.assertEqual(feature.na_code, 3.0)
         node_average = tree.predict(numpy.array([[99.0]]))[0]
         literal_k = tree.predict(numpy.array([[3.0]]))[0]
         missing = tree.predict(numpy.array([[numpy.nan]]))[0]
@@ -704,7 +727,11 @@ class TestPartitionState(unittest.TestCase):
             numpy.array([], dtype=float),
         )
         partition = sigma._partition.NumericalPartition(
-            0, "x", None, (left, right), (5.0,), nan_child=1
+            sigma.NumericFeature(0, "x"),
+            None,
+            (left, right),
+            (5.0,),
+            nan_child=1,
         )
         clone = copy.copy(partition)
         self.assertEqual(clone.nan_child, 1)

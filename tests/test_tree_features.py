@@ -1060,7 +1060,7 @@ class TestSplitPValueMatchesVariableSelection(unittest.TestCase):
             X,
             y.reshape(-1, 1),
             weights,
-            tree.feature_types_,
+            tree.features_,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
             tree.alpha,

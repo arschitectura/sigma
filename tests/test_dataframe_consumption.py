@@ -218,9 +218,8 @@ class TestCategoricalAutoDetection(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        self.assertEqual(
-            regression_tree.feature_types_[0],
-            sigma._types.CovariateType.CATEGORICAL,
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.CategoricalFeature
         )
 
     def test_categorical_split_constructs_categorical_partition(self):
@@ -234,23 +233,20 @@ class TestCategoricalAutoDetection(unittest.TestCase):
         partition = regression_tree.content_.extension
         self.assertIsInstance(partition, sigma._partition.CategoricalPartition)
 
-    def test_category_labels_in_preserves_explicit_order(self):
-        """``category_labels_in_`` follows the explicit Categorical order."""
+    def test_category_labels_preserve_explicit_order(self):
+        """The captured category labels follow the explicit Categorical order."""
         signal, noise, y = self._signal_design()
         X = self._categorical_frame(signal, noise, categories=["red", "blue"])
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        self.assertEqual(
-            regression_tree.category_labels_in_,
-            {0: {0.0: "red", 1.0: "blue"}},
-        )
+        feature = regression_tree.features_[0]
+        assert isinstance(feature, sigma.CategoricalFeature)
+        self.assertEqual(feature.category_labels, {0.0: "red", 1.0: "blue"})
 
-    def test_category_labels_in_none_when_no_categorical_columns(self):
-        """``category_labels_in_`` is ``None`` for a pure numeric
-        DataFrame.
-        """
+    def test_numeric_columns_carry_no_category_labels(self):
+        """A pure numeric DataFrame yields only numeric features."""
         rng = numpy.random.default_rng(0)
         n = 20
         X = pandas.DataFrame(
@@ -261,7 +257,12 @@ class TestCategoricalAutoDetection(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        self.assertIsNone(regression_tree.category_labels_in_)
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.NumericFeature
+        )
+        self.assertIsInstance(
+            regression_tree.features_[1], sigma.NumericFeature
+        )
 
     def test_to_text_uses_auto_category_labels(self):
         """``to_text`` renders auto-extracted category labels with no
@@ -308,9 +309,8 @@ class TestCategoricalAutoDetection(unittest.TestCase):
             min_buckets=1,
         )
         regression_tree.fit(X, y)
-        self.assertEqual(
-            regression_tree.feature_types_[0],
-            sigma._types.CovariateType.CATEGORICAL,
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.CategoricalFeature
         )
 
     def test_predict_accepts_categorical_dataframe(self):
@@ -340,20 +340,19 @@ class TestBooleanColumnDetection(unittest.TestCase):
         return signal, noise, y
 
     def test_numpy_bool_column_auto_detected_as_boolean(self):
-        """A numpy bool column is classified as BOOLEAN in feature_types_."""
+        """A numpy bool column yields a BooleanFeature."""
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame({"flag": signal, "noise": noise})
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        self.assertEqual(
-            regression_tree.feature_types_[0],
-            sigma._types.CovariateType.BOOLEAN,
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.BooleanFeature
         )
 
     def test_pandas_boolean_dtype_auto_detected_as_boolean(self):
-        """A pandas BooleanDtype column is classified as BOOLEAN."""
+        """A pandas BooleanDtype column yields a BooleanFeature."""
         signal, noise, y = self._two_level_design()
         X = pandas.DataFrame(
             {
@@ -365,34 +364,9 @@ class TestBooleanColumnDetection(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        self.assertEqual(
-            regression_tree.feature_types_[0],
-            sigma._types.CovariateType.BOOLEAN,
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.BooleanFeature
         )
-
-    def test_boolean_features_in_records_indices(self):
-        """``boolean_features_in_`` is a frozenset of bool-column indices."""
-        signal, noise, y = self._two_level_design()
-        X = pandas.DataFrame({"flag": signal, "noise": noise})
-        regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        regression_tree.fit(X, y)
-        self.assertEqual(regression_tree.boolean_features_in_, frozenset({0}))
-
-    def test_boolean_features_in_none_when_no_bool_columns(self):
-        """``boolean_features_in_`` is None for a pure numeric DataFrame."""
-        rng = numpy.random.default_rng(0)
-        n = 20
-        X = pandas.DataFrame(
-            {"a": rng.standard_normal(n), "b": rng.standard_normal(n)}
-        )
-        y = rng.standard_normal(n)
-        regression_tree = sigma._tree_regression.RegressionTree(
-            correlation="normal", min_splits=2, min_buckets=1
-        )
-        regression_tree.fit(X, y)
-        self.assertIsNone(regression_tree.boolean_features_in_)
 
     def test_boolean_dtype_with_na_promotes_to_categorical(self):
         """A pandas BooleanDtype column with pd.NA is promoted to a categorical with an N/A level."""
@@ -404,12 +378,11 @@ class TestBooleanColumnDetection(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
+        feature = regression_tree.features_[0]
+        assert isinstance(feature, sigma.PromotedBooleanFeature)
         self.assertEqual(
-            regression_tree.promoted_boolean_features_in_, frozenset({0})
-        )
-        self.assertEqual(
-            regression_tree.category_labels_in_,
-            {0: {0.0: "False", 1.0: "True", 2.0: "N/A"}},
+            feature.category_labels,
+            {0.0: "False", 1.0: "True", 2.0: "N/A"},
         )
         predictions = regression_tree.predict(X)
         self.assertTrue(numpy.all(numpy.isfinite(predictions)))
@@ -427,17 +400,14 @@ class TestBooleanColumnDetection(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        self.assertEqual(
-            regression_tree.feature_types_[0],
-            sigma._types.CovariateType.BOOLEAN,
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.BooleanFeature
         )
-        self.assertEqual(
-            regression_tree.feature_types_[1],
-            sigma._types.CovariateType.CATEGORICAL,
+        self.assertIsInstance(
+            regression_tree.features_[1], sigma.CategoricalFeature
         )
-        self.assertEqual(
-            regression_tree.feature_types_[2],
-            sigma._types.CovariateType.REAL,
+        self.assertIsInstance(
+            regression_tree.features_[2], sigma.NumericFeature
         )
 
     def test_split_constructs_boolean_partition(self):
@@ -556,14 +526,12 @@ class TestPolarsConsumption(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        self.assertEqual(
-            regression_tree.feature_types_[0],
-            sigma._types.CovariateType.CATEGORICAL,
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.CategoricalFeature
         )
-        self.assertEqual(
-            regression_tree.category_labels_in_,
-            {0: {0.0: "red", 1.0: "blue"}},
-        )
+        feature = regression_tree.features_[0]
+        assert isinstance(feature, sigma.CategoricalFeature)
+        self.assertEqual(feature.category_labels, {0.0: "red", 1.0: "blue"})
 
     def test_polars_categorical_matches_pandas_labels(self):
         """polars and pandas Categorical columns yield identical label maps."""
@@ -589,9 +557,12 @@ class TestPolarsConsumption(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         pandas_tree.fit(X_pandas, y)
+        polars_feature = polars_tree.features_[0]
+        pandas_feature = pandas_tree.features_[0]
+        assert isinstance(polars_feature, sigma.CategoricalFeature)
+        assert isinstance(pandas_feature, sigma.CategoricalFeature)
         self.assertEqual(
-            polars_tree.category_labels_in_,
-            pandas_tree.category_labels_in_,
+            polars_feature.category_labels, pandas_feature.category_labels
         )
 
     def test_polars_numeric_only_fits_and_names(self):
@@ -607,7 +578,9 @@ class TestPolarsConsumption(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        self.assertIsNone(regression_tree.category_labels_in_)
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.NumericFeature
+        )
         names_in = regression_tree.feature_names_in_
         self.assertEqual(list(names_in), ["a", "b"])
 
@@ -628,10 +601,8 @@ class TestPolarsConsumption(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        self.assertEqual(regression_tree.boolean_features_in_, frozenset({0}))
-        self.assertEqual(
-            regression_tree.feature_types_[0],
-            sigma._types.CovariateType.BOOLEAN,
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.BooleanFeature
         )
 
     def test_polars_predict_roundtrip(self):
@@ -736,10 +707,9 @@ class TestPolarsConsumption(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        self.assertEqual(
-            regression_tree.category_labels_in_,
-            {0: {0.0: "red", 1.0: "blue"}},
-        )
+        feature = regression_tree.features_[0]
+        assert isinstance(feature, sigma.CategoricalFeature)
+        self.assertEqual(feature.category_labels, {0.0: "red", 1.0: "blue"})
         pollutant_levels = pollutant.to_list()
         self.assertEqual(
             pollutant_levels, ["pollutant_1", "pollutant_2", "red", "blue"]
@@ -764,12 +734,11 @@ class TestNaNDataFrameConsumption(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
+        feature = regression_tree.features_[0]
+        assert isinstance(feature, sigma.PromotedBooleanFeature)
         self.assertEqual(
-            regression_tree.promoted_boolean_features_in_, frozenset({0})
-        )
-        self.assertEqual(
-            regression_tree.category_labels_in_,
-            {0: {0.0: "False", 1.0: "True", 2.0: "N/A"}},
+            feature.category_labels,
+            {0.0: "False", 1.0: "True", 2.0: "N/A"},
         )
 
     def test_literal_na_string_routes_to_node_average(self):
@@ -817,7 +786,9 @@ class TestNaNDataFrameConsumption(unittest.TestCase):
             min_splits=4, min_buckets=2
         )
         regression_tree.fit(X, y)
-        self.assertEqual(regression_tree.na_codes_in_, {0: 2.0})
+        feature = regression_tree.features_[0]
+        assert isinstance(feature, sigma.CategoricalFeature)
+        self.assertEqual(feature.na_code, 2.0)
         self.assertTrue(numpy.all(numpy.isfinite(regression_tree.predict(X))))
 
 

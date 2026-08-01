@@ -6,7 +6,7 @@ import abc
 import math
 import typing
 
-from . import _extension
+from . import _extension, _feature
 
 if typing.TYPE_CHECKING:
     import polars
@@ -90,29 +90,29 @@ class Partition(_extension.Extension[N], typing.Generic[N]):
     """Routes records reaching an internal tree node to one of its children.
 
     Attributes:
-        feature_index: Integer index of the partition covariate in the fit
-            X matrix.
-        feature_name: Display name of the partition covariate, or None when
-            no name source (constructor feature_names or DataFrame columns)
-            was available at fit time.
+        feature: Covariate column this partition splits on.
         statistics: Conditional-inference test backing the split, or None
             when no single test applies to this node.
         children: Child nodes in branch order, one per branch.
     """
 
-    __slots__ = ("children", "feature_index", "feature_name", "statistics")
+    __slots__ = ("children", "feature", "statistics")
 
     def __init__(
         self,
-        feature_index: int,
-        feature_name: None | str,
+        feature: _feature.Feature,
         statistics: None | SplitStatistics,
         children: tuple[N, ...],
     ) -> None:
-        self.feature_index = feature_index
-        self.feature_name = feature_name
+        self.feature = feature
         self.statistics = statistics
         self.children = children
+
+    @property
+    def feature_index(self) -> int:
+        """Position of the partition covariate in the fit X matrix."""
+        index = self.feature.index
+        return index
 
     @property
     @abc.abstractmethod
@@ -140,10 +140,11 @@ class Partition(_extension.Extension[N], typing.Generic[N]):
         """Polars column reference for this partition's feature."""
         import polars
 
-        if self.feature_name is None:
-            name = f"X[{self.feature_index}]"
+        feature = self.feature
+        if feature.name is None:
+            name = f"X[{feature.index}]"
         else:
-            name = self.feature_name
+            name = feature.name
         column = polars.col(name)
         return column
 
@@ -167,14 +168,13 @@ class NumericalPartition(Partition[N], typing.Generic[N]):
 
     def __init__(
         self,
-        feature_index: int,
-        feature_name: None | str,
+        feature: _feature.Feature,
         statistics: None | SplitStatistics,
         children: tuple[N, ...],
         thresholds: tuple[int | float, ...],
         nan_child: None | int = None,
     ) -> None:
-        super().__init__(feature_index, feature_name, statistics, children)
+        super().__init__(feature, statistics, children)
         self.thresholds = thresholds
         self.nan_child = nan_child
 
@@ -269,7 +269,7 @@ class BooleanPartition(Partition[N], typing.Generic[N]):
         if numeric == 1.0:
             return self.children[1]
         raise ValueError(
-            f"boolean feature {self.feature_name!r} got non-boolean"
+            f"boolean feature {self.feature.name!r} got non-boolean"
             f" predict-time value {value!r}"
         )
 
@@ -290,38 +290,21 @@ class CategoricalPartition(Partition[N], typing.Generic[N]):
     Attributes:
         category_groups: Disjoint category sets in branch order, one per
             child. A value outside every set is not routable.
-        category_labels: Mapping from category code to display label for
-            this feature, or None when the fit input carried no labels.
-        na_code: Category code standing for a missing value, or None
-            when the feature learned no missing level.
-        promoted_boolean: Whether this partition covers a boolean
-            feature handled as categorical because it carried missing
-            values at fit time.
     """
 
-    __slots__ = (
-        "category_groups",
-        "category_labels",
-        "na_code",
-        "promoted_boolean",
-    )
+    __slots__ = ("category_groups",)
+
+    feature: _feature.CategoricalFeature
 
     def __init__(
         self,
-        feature_index: int,
-        feature_name: None | str,
+        feature: _feature.CategoricalFeature,
         statistics: None | SplitStatistics,
         children: tuple[N, ...],
         category_groups: tuple[frozenset, ...],
-        category_labels: None | dict[float, str] = None,
-        na_code: None | float = None,
-        promoted_boolean: bool = False,
     ) -> None:
-        super().__init__(feature_index, feature_name, statistics, children)
+        super().__init__(feature, statistics, children)
         self.category_groups = category_groups
-        self.category_labels = category_labels
-        self.na_code = na_code
-        self.promoted_boolean = promoted_boolean
 
     @property
     def observed_categories(self) -> frozenset:
@@ -354,10 +337,12 @@ class CategoricalPartition(Partition[N], typing.Generic[N]):
         index = self._child_index(child)
         column = self._polars_column()
         group = self.category_groups[index]
+        feature = self.feature
+        na_code = feature.na_code
         sorted_codes = sorted(group)
-        real_codes = [code for code in sorted_codes if code != self.na_code]
+        real_codes = [code for code in sorted_codes if code != na_code]
         parts: list[polars.Expr] = []
-        if self.promoted_boolean:
+        if isinstance(feature, _feature.PromotedBooleanFeature):
             for code in real_codes:
                 if code == 1.0:
                     parts.append(column)
@@ -365,7 +350,7 @@ class CategoricalPartition(Partition[N], typing.Generic[N]):
                     negated = ~column
                     parts.append(negated)
         elif real_codes:
-            labels = self.category_labels
+            labels = feature.category_labels
             values: list[float] | list[str]
             if labels is None:
                 values = list(real_codes)
@@ -376,7 +361,7 @@ class CategoricalPartition(Partition[N], typing.Generic[N]):
             else:
                 condition = column.is_in(values)
             parts.append(condition)
-        if self.na_code is not None and self.na_code in group:
+        if na_code is not None and na_code in group:
             missing = column.is_null()
             parts.append(missing)
         expression = parts[0]

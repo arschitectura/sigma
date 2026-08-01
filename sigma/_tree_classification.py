@@ -86,7 +86,7 @@ class ClassificationTree(
         classes_: Unique class labels, shape (n_classes,).
         n_classes_: Number of classes.
         n_features_in_: Number of features seen during fit.
-        feature_types_: Per-feature CovariateType, shape (n_features,).
+        features_: One Feature per column of X, in column order.
     """
 
     classes_: numpy.typing.NDArray

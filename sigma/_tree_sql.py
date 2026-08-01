@@ -7,7 +7,7 @@ import typing
 import numpy
 import numpy.typing
 
-from . import _extension, _node, _partition, _tree_text
+from . import _extension, _feature, _node, _partition, _tree_text
 
 if typing.TYPE_CHECKING:
     from . import _tree
@@ -17,8 +17,6 @@ def _collect_sql(
     root: _node.Node,
     feature_names: None | numpy.typing.NDArray,
     category_labels: None | dict[int, dict[float, str]],
-    na_codes: None | dict[int, float],
-    promoted_booleans: None | frozenset[int],
     target_class_index: None | int,
     max_depth: None | int,
     best_first: bool,
@@ -28,15 +26,13 @@ def _collect_sql(
         root,
         feature_names,
         category_labels,
-        na_codes,
-        promoted_booleans,
         target_class_index,
         max_depth,
         best_first,
         indent_level=0,
     )
     header = _format_sql_expectations(
-        root, feature_names, category_labels, promoted_booleans, max_depth
+        root, feature_names, category_labels, max_depth
     )
     if header is None:
         return body
@@ -48,7 +44,6 @@ def _format_sql_expectations(
     root: _node.Node,
     feature_names: None | numpy.typing.NDArray,
     category_labels: None | dict[int, dict[float, str]],
-    promoted_booleans: None | frozenset[int],
     max_depth: None | int,
 ) -> None | str:
     """Build the leading comment listing each referenced column and the SQL
@@ -63,7 +58,7 @@ def _format_sql_expectations(
         partition = partitions[index]
         raw_name = _tree_text._resolve_feature_name(partition, feature_names)
         identifier = _format_sql_identifier(raw_name)
-        kind = _expected_sql_kind(partition, category_labels, promoted_booleans)
+        kind = _expected_sql_kind(partition, category_labels)
         parts.append(f"{identifier} {kind}")
     listing = ", ".join(parts)
     line = f"-- Expects: {listing}"
@@ -91,16 +86,12 @@ def _collect_rendered_partitions(
 def _expected_sql_kind(
     partition: _partition.Partition,
     category_labels: None | dict[int, dict[float, str]],
-    promoted_booleans: None | frozenset[int],
 ) -> str:
     """SQL column kind the partition's rendered conditions compare against."""
-    promoted = promoted_booleans or frozenset()
-    if partition.feature_index in promoted:
-        return "boolean"
-    match partition:
-        case _partition.BooleanPartition():
+    match partition.feature:
+        case _feature.PromotedBooleanFeature() | _feature.BooleanFeature():
             return "boolean"
-        case _partition.CategoricalPartition():
+        case _feature.CategoricalFeature():
             labels = _tree_text._feature_category_labels(
                 partition, category_labels
             )
@@ -115,8 +106,6 @@ def _build_sql_case(
     node: _node.Node,
     feature_names: None | numpy.typing.NDArray,
     category_labels: None | dict[int, dict[float, str]],
-    na_codes: None | dict[int, float],
-    promoted_booleans: None | frozenset[int],
     target_class_index: None | int,
     max_depth: None | int,
     best_first: bool,
@@ -135,8 +124,8 @@ def _build_sql_case(
     raw_name = _tree_text._resolve_feature_name(partition, feature_names)
     feature = _format_sql_identifier(raw_name)
     labels = _tree_text._feature_category_labels(partition, category_labels)
-    na_code = (na_codes or {}).get(partition.feature_index)
-    is_promoted = partition.feature_index in (promoted_booleans or frozenset())
+    na_code = _tree_text._feature_missing_code(partition)
+    is_promoted = isinstance(partition.feature, _feature.PromotedBooleanFeature)
     nan_child_node = None
     if (
         isinstance(partition, _partition.NumericalPartition)
@@ -158,8 +147,6 @@ def _build_sql_case(
             child,
             feature_names,
             category_labels,
-            na_codes,
-            promoted_booleans,
             target_class_index,
             max_depth,
             best_first,

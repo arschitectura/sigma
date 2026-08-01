@@ -541,14 +541,12 @@ def _assert_selects_associated_variable(test_type, **kwargs):
     X = numpy.column_stack([x_noise, x_signal])
     y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
     weights = numpy.ones(n)
-    feature_types = numpy.array(
-        [sigma._types.CovariateType.REAL, sigma._types.CovariateType.REAL]
-    )
+    features = [sigma.NumericFeature(0), sigma.NumericFeature(1)]
     result = sigma._statistics.select_variable(
         X,
         y.reshape(-1, 1),
         weights,
-        feature_types,
+        features,
         sigma._types.TestStat.QUADRATIC,
         test_type,
         correlation=sigma._types.Correlation.NORMAL,
@@ -566,18 +564,16 @@ def _assert_returns_none_when_independent(test_type, **kwargs):
     X = rng.standard_normal((n, 3))
     y = rng.standard_normal(n)
     weights = numpy.ones(n)
-    feature_types = numpy.array(
-        [
-            sigma._types.CovariateType.REAL,
-            sigma._types.CovariateType.REAL,
-            sigma._types.CovariateType.REAL,
-        ]
-    )
+    features = [
+        sigma.NumericFeature(0),
+        sigma.NumericFeature(1),
+        sigma.NumericFeature(2),
+    ]
     result = sigma._statistics.select_variable(
         X,
         y.reshape(-1, 1),
         weights,
-        feature_types,
+        features,
         sigma._types.TestStat.QUADRATIC,
         test_type,
         correlation=sigma._types.Correlation.NORMAL,
@@ -612,12 +608,12 @@ class TestSelectVariable(unittest.TestCase):
         y = y + rng.standard_normal(n) * 0.5
         X = categories.reshape(-1, 1)
         weights = numpy.ones(n)
-        feature_types = numpy.array([sigma._types.CovariateType.CATEGORICAL])
+        features = [sigma.CategoricalFeature(0)]
         result = sigma._statistics.select_variable(
             X,
             y.reshape(-1, 1),
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
             correlation=sigma._types.Correlation.NORMAL,
@@ -634,12 +630,12 @@ class TestSelectVariable(unittest.TestCase):
         X = x_signal.reshape(-1, 1)
         y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
         weights = numpy.ones(n)
-        feature_types = numpy.array([sigma._types.CovariateType.REAL])
+        features = [sigma.NumericFeature(0)]
         result = sigma._statistics.select_variable(
             X,
             y.reshape(-1, 1),
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.MAXIMUM,
             sigma._types.TestType.SIDAK,
             correlation=sigma._types.Correlation.NORMAL,
@@ -661,12 +657,12 @@ class TestSelectVariable(unittest.TestCase):
         y = y + rng.standard_normal(n) * 0.5
         X = categories.reshape(-1, 1)
         weights = numpy.ones(n)
-        feature_types = numpy.array([sigma._types.CovariateType.CATEGORICAL])
+        features = [sigma.CategoricalFeature(0)]
         result = sigma._statistics.select_variable(
             X,
             y.reshape(-1, 1),
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.MAXIMUM,
             sigma._types.TestType.SIDAK,
             correlation=sigma._types.Correlation.NORMAL,
@@ -685,12 +681,12 @@ class TestSelectVariable(unittest.TestCase):
         weights = numpy.ones(n)
         # Zero out weights for all but a tiny random subset
         weights[: n - 3] = 0.0
-        feature_types = numpy.array([sigma._types.CovariateType.REAL])
+        features = [sigma.NumericFeature(0)]
         result = sigma._statistics.select_variable(
             X,
             y.reshape(-1, 1),
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
             correlation=sigma._types.Correlation.NORMAL,
@@ -861,14 +857,12 @@ class TestSelectVariableRank(unittest.TestCase):
         X = numpy.column_stack([x_noise, x_signal])
         y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
         weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [sigma._types.CovariateType.REAL, sigma._types.CovariateType.REAL]
-        )
+        features = [sigma.NumericFeature(0), sigma.NumericFeature(1)]
         result = sigma._statistics.select_variable(
             X,
             y.reshape(-1, 1),
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
         )
@@ -887,14 +881,12 @@ class TestSelectVariableRank(unittest.TestCase):
         y = 2.0 * x_real + rng.standard_normal(n) * 0.5
         y[0] = 1e6
         weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [sigma._types.CovariateType.REAL, sigma._types.CovariateType.REAL]
-        )
+        features = [sigma.NumericFeature(0), sigma.NumericFeature(1)]
         result_rank = sigma._statistics.select_variable(
             X,
             y.reshape(-1, 1),
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
         )
@@ -914,12 +906,12 @@ class TestSelectVariableRank(unittest.TestCase):
         y = y + rng.standard_normal(n) * 0.5
         X = categories.reshape(-1, 1)
         weights = numpy.ones(n)
-        feature_types = numpy.array([sigma._types.CovariateType.CATEGORICAL])
+        features = [sigma.CategoricalFeature(0)]
         result = sigma._statistics.select_variable(
             X,
             y.reshape(-1, 1),
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
         )
@@ -1066,14 +1058,12 @@ class TestSelectVariableMonteCarlo(unittest.TestCase):
         X = numpy.column_stack([x_noise, x_signal])
         y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
         weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [sigma._types.CovariateType.REAL, sigma._types.CovariateType.REAL]
-        )
+        features = [sigma.NumericFeature(0), sigma.NumericFeature(1)]
         args = (
             X,
             y.reshape(-1, 1),
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.MONTE_CARLO,
             0.05,
@@ -1098,13 +1088,13 @@ class TestSelectVariableMonteCarlo(unittest.TestCase):
         X = numpy.array([[1.0], [2.0], [3.0]])
         h = numpy.array([[1.0], [2.0], [3.0]])
         weights = numpy.ones(3)
-        feature_types = numpy.array([sigma._types.CovariateType.REAL])
+        features = [sigma.NumericFeature(0)]
         with self.assertRaises(ValueError):
             sigma._statistics.select_variable(
                 X,
                 h,
                 weights,
-                feature_types,
+                features,
                 sigma._types.TestStat.QUADRATIC,
                 sigma._types.TestType.MONTE_CARLO,
                 resamples=99,
@@ -1116,13 +1106,13 @@ class TestSelectVariableMonteCarlo(unittest.TestCase):
         X = numpy.array([[1.0], [2.0], [3.0]])
         h = numpy.array([[1.0], [2.0], [3.0]])
         weights = numpy.ones(3)
-        feature_types = numpy.array([sigma._types.CovariateType.REAL])
+        features = [sigma.NumericFeature(0)]
         with self.assertRaises(ValueError):
             sigma._statistics.select_variable(
                 X,
                 h,
                 weights,
-                feature_types,
+                features,
                 sigma._types.TestStat.QUADRATIC,
                 sigma._types.TestType.MONTE_CARLO,
                 resamples=None,
@@ -1140,12 +1130,12 @@ class TestSelectVariableReturnsTestInputs(unittest.TestCase):
         X = numpy.array([[1.0], [2.0], [3.0], [4.0]])
         y = numpy.array([10.0, 20.0, 30.0, 40.0]).reshape(-1, 1)
         weights = numpy.ones(4)
-        feature_types = numpy.array([sigma._types.CovariateType.REAL])
+        features = [sigma.NumericFeature(0)]
         result = sigma._statistics.select_variable(
             X,
             y,
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
             alpha=1.0,
@@ -1166,14 +1156,12 @@ class TestSelectVariableReturnsTestInputs(unittest.TestCase):
         X = numpy.column_stack([x_noise, x_signal])
         y = 3.0 * x_signal + rng.standard_normal(n) * 0.1
         weights = numpy.ones(n)
-        feature_types = numpy.array(
-            [sigma._types.CovariateType.REAL, sigma._types.CovariateType.REAL]
-        )
+        features = [sigma.NumericFeature(0), sigma.NumericFeature(1)]
         result = sigma._statistics.select_variable(
             X,
             y.reshape(-1, 1),
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
             correlation=sigma._types.Correlation.NORMAL,
@@ -1207,12 +1195,12 @@ class TestSelectVariableReturnsTestInputs(unittest.TestCase):
         y = y + rng.standard_normal(n) * 0.5
         X = categories.reshape(-1, 1)
         weights = numpy.ones(n)
-        feature_types = numpy.array([sigma._types.CovariateType.CATEGORICAL])
+        features = [sigma.CategoricalFeature(0)]
         result = sigma._statistics.select_variable(
             X,
             y.reshape(-1, 1),
             weights,
-            feature_types,
+            features,
             sigma._types.TestStat.QUADRATIC,
             sigma._types.TestType.SIDAK,
             correlation=sigma._types.Correlation.NORMAL,

@@ -154,14 +154,11 @@ class TestRegressionTreeFit(unittest.TestCase):
             min_buckets=1,
         )
         regression_tree.fit(X, y)
-        numpy.testing.assert_array_equal(
-            regression_tree.feature_types_,
-            numpy.array(
-                [
-                    sigma._types.CovariateType.CATEGORICAL,
-                    sigma._types.CovariateType.REAL,
-                ]
-            ),
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.CategoricalFeature
+        )
+        self.assertIsInstance(
+            regression_tree.features_[1], sigma.NumericFeature
         )
         partition = regression_tree.content_.extension
         assert isinstance(partition, sigma._partition.CategoricalPartition)
@@ -183,15 +180,14 @@ class TestRegressionTreeFit(unittest.TestCase):
             categorical_features=[0, "c"]
         )
         regression_tree.fit(X, y)
-        numpy.testing.assert_array_equal(
-            regression_tree.feature_types_,
-            numpy.array(
-                [
-                    sigma._types.CovariateType.CATEGORICAL,
-                    sigma._types.CovariateType.REAL,
-                    sigma._types.CovariateType.CATEGORICAL,
-                ]
-            ),
+        self.assertIsInstance(
+            regression_tree.features_[0], sigma.CategoricalFeature
+        )
+        self.assertIsInstance(
+            regression_tree.features_[1], sigma.NumericFeature
+        )
+        self.assertIsInstance(
+            regression_tree.features_[2], sigma.CategoricalFeature
         )
 
     def test_categorical_features_label_without_name_source(self):
@@ -231,20 +227,20 @@ class TestFeatureNames(unittest.TestCase):
     __slots__ = ()
 
     def test_split_feature_name_from_dataframe_columns(self):
-        """DataFrame columns populate split_feature_name when fitting."""
+        """DataFrame columns populate the split feature name when fitting."""
         regression_tree = _helpers._fit_categorical_regression_tree(
             X_is_dataframe=True
         )
         extension = regression_tree.content_.extension
         assert isinstance(extension, sigma._partition.Partition)
-        assert extension.feature_name == "category"
+        assert extension.feature.name == "category"
 
     def test_split_feature_name_none_without_name_source(self):
-        """split_feature_name is None when fit on a numpy array."""
+        """The split feature name is None when fit on a numpy array."""
         regression_tree = _helpers._fit_step_regression_tree()
         extension = regression_tree.content_.extension
         assert isinstance(extension, sigma._partition.Partition)
-        assert extension.feature_name is None
+        assert extension.feature.name is None
         assert extension.feature_index == 0
 
     def test_to_text_uses_index_fallback_without_names(self):

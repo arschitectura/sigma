@@ -35,8 +35,7 @@ def _split_statistics(p_value) -> sigma._partition.SplitStatistics:
 def _numeric_partition(left, right) -> sigma._partition.NumericalPartition:
     """Build a NumericalPartition on x[0] <= 5.0 around the given children."""
     partition = sigma._partition.NumericalPartition(
-        feature_index=0,
-        feature_name="x",
+        feature=sigma.NumericFeature(0, "x"),
         statistics=_split_statistics(0.01),
         children=(left, right),
         thresholds=(5.0,),
@@ -279,8 +278,7 @@ class TestTraverse(unittest.TestCase):
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
         partition = sigma._partition.CategoricalPartition(
-            feature_index=0,
-            feature_name="cat",
+            feature=sigma.CategoricalFeature(0, "cat"),
             statistics=_split_statistics(0.05),
             children=(left, right),
             category_groups=(frozenset({0.0, 1.0}), frozenset({2.0})),
@@ -295,8 +293,7 @@ class TestTraverse(unittest.TestCase):
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
         partition = sigma._partition.CategoricalPartition(
-            feature_index=0,
-            feature_name="cat",
+            feature=sigma.CategoricalFeature(0, "cat"),
             statistics=_split_statistics(0.05),
             children=(left, right),
             category_groups=(frozenset({0.0}), frozenset({1.0})),
@@ -376,8 +373,7 @@ class TestPartitionTypes(unittest.TestCase):
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
         partition = sigma._partition.CategoricalPartition(
-            feature_index=0,
-            feature_name="cat",
+            feature=sigma.CategoricalFeature(0, "cat"),
             statistics=_split_statistics(0.05),
             children=(left, right),
             category_groups=(frozenset({"a", "b"}), frozenset({"c"})),
@@ -391,8 +387,7 @@ class TestPartitionTypes(unittest.TestCase):
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
         partition = sigma._partition.BooleanPartition(
-            feature_index=0,
-            feature_name="flag",
+            feature=sigma.BooleanFeature(0, "flag"),
             statistics=_split_statistics(0.01),
             children=(left, right),
         )
@@ -406,8 +401,7 @@ class TestPartitionTypes(unittest.TestCase):
         left = _leaf_regression(1.0)
         right = _leaf_regression(9.0)
         partition = sigma._partition.BooleanPartition(
-            feature_index=0,
-            feature_name="flag",
+            feature=sigma.BooleanFeature(0, "flag"),
             statistics=_split_statistics(0.01),
             children=(left, right),
         )
@@ -472,14 +466,12 @@ class TestWeakReferenceable(unittest.TestCase):
         right_leaf = _leaf_regression(9.0)
         numerical = _numeric_partition(leaf, right_leaf)
         boolean = sigma._partition.BooleanPartition(
-            feature_index=0,
-            feature_name="flag",
+            feature=sigma.BooleanFeature(0, "flag"),
             statistics=_split_statistics(0.01),
             children=(leaf, right_leaf),
         )
         categorical = sigma._partition.CategoricalPartition(
-            feature_index=0,
-            feature_name="cat",
+            feature=sigma.CategoricalFeature(0, "cat"),
             statistics=_split_statistics(0.05),
             children=(leaf, right_leaf),
             category_groups=(frozenset({0.0}), frozenset({1.0})),

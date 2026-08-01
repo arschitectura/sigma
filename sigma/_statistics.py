@@ -16,7 +16,7 @@ import numpy
 import numpy.typing
 import scipy.stats
 
-from . import _types
+from . import _feature, _types
 
 
 class _VariableSelection(typing.NamedTuple):
@@ -186,7 +186,7 @@ def select_variable(
     X: numpy.typing.NDArray[numpy.floating],
     h: numpy.typing.NDArray[numpy.floating],
     weights: numpy.typing.NDArray[numpy.floating],
-    feature_types: numpy.typing.NDArray,
+    features: collections.abc.Sequence[_feature.Feature],
     test_stat: _types.TestStat,
     test_type: _types.TestType,
     alpha: float = 0.05,
@@ -203,7 +203,7 @@ def select_variable(
         X: Covariate matrix, shape (n, m).
         h: Influence function values, shape (n, q).
         weights: Case weights, shape (n,).
-        feature_types: Per-feature CovariateType, shape (m,).
+        features: One Feature per column of X, in column order.
         test_stat: Type of test statistic.
         test_type: Multiplicity adjustment method.
         alpha: Significance level.
@@ -230,20 +230,21 @@ def select_variable(
     mu_list: list[None | numpy.typing.NDArray[numpy.floating]] = []
     Sigma_list: list[None | numpy.typing.NDArray[numpy.floating]] = []
     for j in range(m):
-        if feature_types[j] == _types.CovariateType.CATEGORICAL:
-            categories = _active_unique_levels(X, weights, j)
-            if len(categories) < 2:
-                _append_skipped_feature(g_list, T_list, mu_list, Sigma_list)
-                continue
-            g_j = (X[:, j : j + 1] == categories).astype(float)
-        elif feature_types[j] == _types.CovariateType.BOOLEAN:
-            unique_values = _active_unique_levels(X, weights, j)
-            if len(unique_values) < 2:
-                _append_skipped_feature(g_list, T_list, mu_list, Sigma_list)
-                continue
-            g_j = X[:, j : j + 1]
-        else:
-            g_j = _numeric_selection_design(X[:, j], weights, is_rank)
+        match features[j]:
+            case _feature.CategoricalFeature():
+                categories = _active_unique_levels(X, weights, j)
+                if len(categories) < 2:
+                    _append_skipped_feature(g_list, T_list, mu_list, Sigma_list)
+                    continue
+                g_j = (X[:, j : j + 1] == categories).astype(float)
+            case _feature.BooleanFeature():
+                unique_values = _active_unique_levels(X, weights, j)
+                if len(unique_values) < 2:
+                    _append_skipped_feature(g_list, T_list, mu_list, Sigma_list)
+                    continue
+                g_j = X[:, j : j + 1]
+            case _:
+                g_j = _numeric_selection_design(X[:, j], weights, is_rank)
         g_list.append(g_j)
         T = compute_linear_statistic(g_j, h, weights)
         mu = compute_conditional_expectation(g_j, h, weights)

@@ -147,7 +147,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             y DataFrame columns, else the constructor item_names, else
             falling back to integer indices 0..n_items - 1.
         n_features_in_: Number of features seen during fit.
-        feature_types_: Per-feature CovariateType, shape (n_features,).
+        features_: One Feature per column of X, in column order.
     """
 
     n_items_: int

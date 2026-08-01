@@ -148,7 +148,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         nodes_: List of all nodes in pre-order DFS, ordered by node_id.
             Indices match the output of predict_index.
         n_features_in_: Number of features seen during fit.
-        feature_types_: Per-feature CovariateType, shape (n_features,).
+        features_: One Feature per column of X, in column order.
     """
 
     _metrics: list[_Metric]

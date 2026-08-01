@@ -12,7 +12,7 @@ import typing
 import numpy
 import numpy.typing
 
-from . import _extension, _node, _partition
+from . import _extension, _feature, _node, _partition
 
 
 def _format_p_value_number(value: float) -> str:
@@ -682,8 +682,6 @@ def _pad_cell(text: str, width: int, column_index: int) -> str:
 def _collect_text_rows(
     root: _node.Node,
     category_labels: None | dict[int, dict[float, str]],
-    na_codes: None | dict[int, float],
-    promoted_booleans: None | frozenset[int],
     feature_names: None | numpy.typing.NDArray,
     prediction_formatter: None | typing.Callable[[float], str],
     max_depth: None | int,
@@ -705,8 +703,6 @@ def _collect_text_rows(
     _append_child_text_rows(
         root,
         category_labels,
-        na_codes,
-        promoted_booleans,
         feature_names,
         prediction_formatter,
         max_depth,
@@ -754,8 +750,6 @@ def _append_text_row(
 def _append_child_text_rows(
     node: _node.Node,
     category_labels: None | dict[int, dict[float, str]],
-    na_codes: None | dict[int, float],
-    promoted_booleans: None | frozenset[int],
     feature_names: None | numpy.typing.NDArray,
     prediction_formatter: None | typing.Callable[[float], str],
     max_depth: None | int,
@@ -787,9 +781,8 @@ def _append_child_text_rows(
     branches = _node.display_branches(node, partition, best_first)
     name = _resolve_feature_name(partition, feature_names)
     labels = _feature_category_labels(partition, category_labels)
-    promoted = promoted_booleans or frozenset()
-    is_promoted = partition.feature_index in promoted
-    na_code = (na_codes or {}).get(partition.feature_index)
+    is_promoted = isinstance(partition.feature, _feature.PromotedBooleanFeature)
+    na_code = _feature_missing_code(partition)
     nan_child_node = _numeric_nan_child(partition)
     branch_count = len(branches)
     for index, (condition, child) in enumerate(branches):
@@ -816,8 +809,6 @@ def _append_child_text_rows(
         _append_child_text_rows(
             child,
             category_labels,
-            na_codes,
-            promoted_booleans,
             feature_names,
             prediction_formatter,
             max_depth,
@@ -847,14 +838,13 @@ def _resolve_feature_name(
     feature_names: None | numpy.typing.NDArray,
 ) -> str:
     """Resolve a partition's display feature name from optional feature names."""
-    feature_index = partition.feature_index
-    if feature_names is None:
-        if partition.feature_name is None:
-            name = f"X[{feature_index}]"
-        else:
-            name = partition.feature_name
+    feature = partition.feature
+    if feature_names is not None:
+        name = str(feature_names[feature.index])
+    elif feature.name is None:
+        name = f"X[{feature.index}]"
     else:
-        name = str(feature_names[feature_index])
+        name = feature.name
     return name
 
 
@@ -862,11 +852,23 @@ def _feature_category_labels(
     partition: _partition.Partition,
     category_labels: None | dict[int, dict[float, str]],
 ) -> None | dict[float, str]:
-    """Resolve the category-label mapping for a partition's feature."""
-    if category_labels is None:
-        return None
-    labels = category_labels.get(partition.feature_index)
-    return labels
+    """Resolve the category-label mapping for a partition's feature, preferring a display-time override over the labels learned at fit time."""
+    feature = partition.feature
+    if category_labels is not None:
+        override = category_labels.get(feature.index)
+        if override is not None:
+            return override
+    if isinstance(feature, _feature.CategoricalFeature):
+        return feature.category_labels
+    return None
+
+
+def _feature_missing_code(partition: _partition.Partition) -> None | float:
+    """Category code standing for a missing value on a partition's feature."""
+    feature = partition.feature
+    if isinstance(feature, _feature.CategoricalFeature):
+        return feature.na_code
+    return None
 
 
 def _numeric_nan_child(partition: _partition.Partition) -> None | _node.Node:
