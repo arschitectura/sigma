@@ -339,7 +339,7 @@ class TestRankingTreeFit(unittest.TestCase):
         self.assertEqual(leaf_predictions, {0, 1})
 
     def test_ci_coverage_none_disables_per_item_ci(self):
-        """ci_coverage=None makes every per-item ci_low / ci_high be None."""
+        """ci_coverage=None leaves every per-item bound undefined."""
         rng = numpy.random.default_rng(8)
         n_samples = 60
         n_items = 3
@@ -349,10 +349,11 @@ class TestRankingTreeFit(unittest.TestCase):
             y[i] = [1.0, 2.0, 3.0] if X[i, 0] > 0 else [3.0, 2.0, 1.0]
         tree = sigma.RankingTree(ci_coverage=None, random_state=0)
         tree.fit(X, y)
+        for metric in tree.metrics_:
+            self.assertFalse(metric.has_ci)
         for leaf in tree.leaves_:
-            for metric in leaf.metrics:
-                self.assertIsNone(metric.ci_low)
-                self.assertIsNone(metric.ci_high)
+            self.assertTrue(numpy.all(numpy.isnan(leaf.ci_low)))
+            self.assertTrue(numpy.all(numpy.isnan(leaf.ci_high)))
 
     def test_pickle_roundtrip_preserves_predictions(self):
         """A fitted RankingTree round-trips through pickle without drift."""
@@ -425,7 +426,7 @@ class TestRankingTreeFit(unittest.TestCase):
         )
 
     def test_per_node_metrics_cover_full_catalogue(self):
-        """node.metrics has length equal to the full catalogue, not M+1."""
+        """node.values has length equal to the full catalogue, not M+1."""
         rng = numpy.random.default_rng(12)
         n_samples = 200
         n_items = 30
@@ -440,11 +441,12 @@ class TestRankingTreeFit(unittest.TestCase):
             pca_components=5, random_state=0, ci_replicates=5
         )
         tree.fit(X, y)
+        self.assertEqual(len(tree.metrics_), n_items)
         for node in tree.nodes_:
-            self.assertEqual(len(node.metrics), n_items)
+            self.assertEqual(len(node.values), n_items)
 
     def test_leaf_metric_values_lie_in_rank_interval(self):
-        """Every leaf metric.value falls in [1, n_items_] (PL expected rank)."""
+        """Every leaf value falls in [1, n_items_] (PL expected rank)."""
         rng = numpy.random.default_rng(15)
         n_samples = 200
         n_items = 8
@@ -458,9 +460,9 @@ class TestRankingTreeFit(unittest.TestCase):
         tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         for leaf in tree.leaves_:
-            for metric in leaf.metrics:
-                self.assertGreaterEqual(metric.value, 1.0 - 1.0e-9)
-                self.assertLessEqual(metric.value, n_items + 1.0e-9)
+            for value in leaf.values:
+                self.assertGreaterEqual(value, 1.0 - 1.0e-9)
+                self.assertLessEqual(value, n_items + 1.0e-9)
 
 
 class TestTopDisplayedItems(unittest.TestCase):
@@ -520,8 +522,9 @@ class TestTopDisplayedItems(unittest.TestCase):
         tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
         union = set(tree._compute_displayed_indices(3))
         for leaf in tree.leaves_:
-            values = numpy.array([metric.value for metric in leaf.metrics])
-            leaf_top = set(numpy.argsort(values, kind="stable")[:3].tolist())
+            leaf_top = set(
+                numpy.argsort(leaf.values, kind="stable")[:3].tolist()
+            )
             self.assertTrue(leaf_top.issubset(union))
 
     def test_top_displayed_items_rejected_for_non_ranking_trees(self):
@@ -567,6 +570,7 @@ class TestTopDisplayedItems(unittest.TestCase):
         tree.fit(X, y)
         dot_source = sigma._graphviz._build_digraph(
             tree.content_,
+            tree.metrics_,
             None,
             None,
             sigma._graphviz._DEFAULT_ROOT_COLORS,
@@ -607,6 +611,7 @@ class TestTopDisplayedItems(unittest.TestCase):
         self.assertNotIn("apple rank", text)
         dot_source = sigma._graphviz._build_digraph(
             tree.content_,
+            tree.metrics_,
             None,
             None,
             sigma._graphviz._DEFAULT_ROOT_COLORS,
@@ -625,6 +630,7 @@ class TestTopDisplayedItems(unittest.TestCase):
         tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
         dot_source = sigma._graphviz._build_digraph(
             tree.content_,
+            tree.metrics_,
             None,
             None,
             sigma._graphviz._DEFAULT_ROOT_COLORS,

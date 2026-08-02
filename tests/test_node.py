@@ -26,6 +26,27 @@ def _leaf_regression(prediction: float) -> sigma._node.RegressionNode:
     return leaf
 
 
+def _survival_node(
+    values: list[float],
+    ci_low: None | list[float] = None,
+    ci_high: None | list[float] = None,
+) -> sigma._node.SurvivalNode:
+    """Build a survival leaf carrying the given per-metric values and bounds."""
+    undefined = [numpy.nan] * len(values)
+    node = sigma._node.SurvivalNode(
+        depth=0,
+        n_samples=10,
+        share=1.0,
+        decoration=None,
+        survival_function=(numpy.array([1.0]), numpy.array([1.0])),
+        survival_log_variance=numpy.zeros(1, dtype=float),
+        values=numpy.array(values, dtype=float),
+        ci_low=numpy.array(ci_low or undefined, dtype=float),
+        ci_high=numpy.array(ci_high or undefined, dtype=float),
+    )
+    return node
+
+
 def _split_statistics(p_value) -> sigma._partition.SplitStatistics:
     """Build a SplitStatistics with the given p-value."""
     statistics = sigma._partition.SplitStatistics(p_value=p_value)
@@ -93,7 +114,7 @@ class TestRegressionNode(unittest.TestCase):
         """RegressionNode.leaf_sort_key returns (prediction,) for ascending sort."""
         low = _leaf_regression(1.0)
         high = _leaf_regression(5.0)
-        self.assertLess(low.leaf_sort_key(), high.leaf_sort_key())
+        self.assertLess(low.leaf_sort_key(()), high.leaf_sort_key(()))
 
 
 class TestClassificationNode(unittest.TestCase):
@@ -152,7 +173,7 @@ class TestClassificationNode(unittest.TestCase):
             mean_offset_proba=None,
         )
         self.assertLess(
-            majority_zero.leaf_sort_key(), majority_one.leaf_sort_key()
+            majority_zero.leaf_sort_key(()), majority_one.leaf_sort_key(())
         )
 
 
@@ -161,84 +182,25 @@ class TestSurvivalNode(unittest.TestCase):
 
     __slots__ = ()
 
-    def _metric(self, value: float) -> sigma._node.SurvivalMetric:
-        """Build a single SurvivalMetric for use as metrics[0]."""
-        record = sigma._node.SurvivalMetric(
-            label="Median survival",
-            value=value,
-            ci_low=None,
-            ci_high=None,
-            style="value",
-            better_is="higher",
-        )
-        return record
-
-    def test_prediction_property_reads_first_metric(self):
-        """SurvivalNode.prediction returns metrics[0].value."""
-        leaf = sigma._node.SurvivalNode(
-            depth=0,
-            n_samples=20,
-            share=1.0,
-            decoration=None,
-            survival_function=(
-                numpy.array([1.0, 2.0]),
-                numpy.array([1.0, 0.5]),
-            ),
-            survival_log_variance=numpy.zeros(2, dtype=float),
-            metrics=[self._metric(2.5)],
-        )
+    def test_prediction_property_reads_first_value(self):
+        """SurvivalNode.prediction returns the first entry of values."""
+        leaf = _survival_node([2.5])
         self.assertEqual(leaf.prediction, 2.5)
 
-    def test_ci_properties_read_first_metric(self):
-        """SurvivalNode.ci_low and .ci_high read metrics[0]."""
-        record = sigma._node.SurvivalMetric(
-            label="Median survival",
-            value=2.5,
-            ci_low=2.0,
-            ci_high=3.0,
-            style="value",
-            better_is="higher",
-        )
-        leaf = sigma._node.SurvivalNode(
-            depth=0,
-            n_samples=10,
-            share=1.0,
-            decoration=None,
-            survival_function=(numpy.array([1.0]), numpy.array([1.0])),
-            survival_log_variance=numpy.zeros(1, dtype=float),
-            metrics=[record],
-        )
-        self.assertEqual(leaf.ci_low, 2.0)
-        self.assertEqual(leaf.ci_high, 3.0)
+    def test_stores_per_metric_ci_arrays(self):
+        """SurvivalNode stores one CI bound pair per metric."""
+        leaf = _survival_node([2.5], ci_low=[2.0], ci_high=[3.0])
+        numpy.testing.assert_array_equal(leaf.ci_low, numpy.array([2.0]))
+        numpy.testing.assert_array_equal(leaf.ci_high, numpy.array([3.0]))
 
     def test_leaf_sort_key_negates_lower_is_better(self):
         """SurvivalNode.leaf_sort_key flips the sign for better_is='lower' metrics."""
-        higher_metric = sigma._node.SurvivalMetric(
-            label="median",
-            value=5.0,
-            ci_low=None,
-            ci_high=None,
-            style="value",
-            better_is="higher",
+        metrics = (
+            sigma.MedianSurvivalMetric("Median survival", False),
+            sigma.RiskScoreMetric("Risk score"),
         )
-        lower_metric = sigma._node.SurvivalMetric(
-            label="risk",
-            value=2.0,
-            ci_low=None,
-            ci_high=None,
-            style="value",
-            better_is="lower",
-        )
-        leaf = sigma._node.SurvivalNode(
-            depth=0,
-            n_samples=10,
-            share=1.0,
-            decoration=None,
-            survival_function=(numpy.array([1.0]), numpy.array([1.0])),
-            survival_log_variance=numpy.zeros(1, dtype=float),
-            metrics=[higher_metric, lower_metric],
-        )
-        key = leaf.leaf_sort_key()
+        leaf = _survival_node([5.0, 2.0])
+        key = leaf.leaf_sort_key(metrics)
         self.assertEqual(key, (5.0, -2.0))
 
 
@@ -476,20 +438,13 @@ class TestWeakReferenceable(unittest.TestCase):
             children=(leaf, right_leaf),
             category_groups=(frozenset({0.0}), frozenset({1.0})),
         )
-        survival_metric = sigma._node.SurvivalMetric(
-            label="Median survival",
-            value=2.5,
-            ci_low=None,
-            ci_high=None,
-            style="value",
-            better_is="higher",
-        )
-        ranking_metric = sigma._node.RankingMetric(
-            label="item",
-            value=1.0,
-            ci_low=None,
-            ci_high=None,
-        )
+        metrics = [
+            sigma.MedianSurvivalMetric("Median survival", False),
+            sigma.RiskScoreMetric("Risk score"),
+            sigma.SurvivalAtMetric("Survival at 5 years", False, 5.0),
+            sigma.RmstMetric("RMST at 2 years", False, 2.0),
+            sigma.ExpectedRankMetric("Ebi rank", False),
+        ]
         classification = sigma._node.ClassificationNode(
             depth=0,
             n_samples=10,
@@ -501,21 +456,15 @@ class TestWeakReferenceable(unittest.TestCase):
             ci_high=None,
             mean_offset_proba=None,
         )
-        survival = sigma._node.SurvivalNode(
-            depth=0,
-            n_samples=10,
-            share=1.0,
-            decoration=None,
-            survival_function=(numpy.array([1.0]), numpy.array([1.0])),
-            survival_log_variance=numpy.zeros(1, dtype=float),
-            metrics=[survival_metric],
-        )
+        survival = _survival_node([2.5])
         ranking = sigma._node.RankingNode(
             depth=0,
             n_samples=10,
             share=1.0,
             decoration=None,
-            metrics=[ranking_metric],
+            values=numpy.array([1.0]),
+            ci_low=numpy.array([numpy.nan]),
+            ci_high=numpy.array([numpy.nan]),
         )
         instances: list[object] = [
             leaf.extension,
@@ -526,8 +475,7 @@ class TestWeakReferenceable(unittest.TestCase):
             classification,
             survival,
             ranking,
-            survival_metric,
-            ranking_metric,
+            *metrics,
             _split_statistics(0.01),
             sigma._partition.NumericInterval(None, 5.0),
             sigma._partition.CategorySubset(frozenset({0.0})),

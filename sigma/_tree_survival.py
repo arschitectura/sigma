@@ -10,7 +10,7 @@ import numpy.typing
 import sklearn.utils
 import sklearn.utils.validation
 
-from . import _node, _survival, _tree, _types
+from . import _metric, _node, _survival, _tree, _types
 
 if typing.TYPE_CHECKING:
     import pandas
@@ -19,21 +19,8 @@ if typing.TYPE_CHECKING:
 
 _SurvivalMetricSpec: typing.TypeAlias = str | tuple[str, float | int, str]
 
-
-class _Metric:
-    """Internal normalized form of a survival metric specification."""
-
-    __slots__ = ("kind", "unit", "value")
-
-    def __init__(
-        self,
-        kind: _types.SurvivalMetricKind,
-        value: None | float,
-        unit: None | str,
-    ) -> None:
-        self.kind = kind
-        self.value = value
-        self.unit = unit
+_METRIC_KINDS = ("median", "risk_score", "survival", "rmst")
+_PARAMETRIZED_METRIC_KINDS = ("survival", "rmst")
 
 
 class _NodeCurve:
@@ -149,9 +136,10 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             Indices match the output of predict_index.
         n_features_in_: Number of features seen during fit.
         features_: One Feature per column of X, in column order.
+        metrics_: One Metric per configured metric specification, in the
+            order given, aligned with the value arrays of every node.
     """
 
-    _metrics: list[_Metric]
     event_grid_: numpy.typing.NDArray[numpy.floating]
 
     def __init__(
@@ -197,76 +185,11 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             reverse_order=reverse_order,
         )
 
-    def __getstate__(self) -> dict:
-        """Return picklable state, excluding the transient parse cache."""
-        state = super().__getstate__()
-        state.pop("_metrics", None)
-        return state
-
     def __sklearn_tags__(self):
         """Declare that y is required."""
         tags = super().__sklearn_tags__()
         tags.target_tags.required = True
         return tags
-
-    def _get_metrics(self) -> list[_Metric]:
-        """Return the parsed metric list, computing it on first access."""
-        if hasattr(self, "_metrics"):
-            return self._metrics
-        metrics = self.metrics
-        if isinstance(metrics, (str, bytes)):
-            raise TypeError(
-                f"metrics must be a sequence of metric specs, not a string;"
-                f" wrap a single entry in a tuple: ({metrics!r},)"
-            )
-        if not isinstance(metrics, collections.abc.Sequence):
-            raise TypeError(
-                f"metrics must be a sequence; got {type(metrics).__name__}"
-            )
-        if len(metrics) == 0:
-            raise ValueError("metrics must contain at least one entry")
-        parametrized_kinds = {
-            _types.SurvivalMetricKind.SURVIVAL,
-            _types.SurvivalMetricKind.RMST,
-        }
-        resolved: list[_Metric] = []
-        for spec in metrics:
-            match spec:
-                case str():
-                    kind_str = spec
-                    value: None | float = None
-                    unit: None | str = None
-                case (
-                    str() as kind_str,
-                    float() | int() as raw_value,
-                    str() as unit,
-                ):
-                    value = float(raw_value)
-                case _:
-                    raise TypeError(
-                        f"metric spec must be a string or a (kind, value, unit)"
-                        f" tuple; got {spec!r}"
-                    )
-            try:
-                kind = _types.SurvivalMetricKind(kind_str)
-            except ValueError:
-                valid = [member.value for member in _types.SurvivalMetricKind]
-                raise ValueError(
-                    f"unknown metric kind {kind_str!r}; valid values are {valid}"
-                ) from None
-            if kind in parametrized_kinds:
-                if value is None:
-                    raise ValueError(
-                        f"{kind_str!r} requires a (kind, value, unit) tuple"
-                    )
-            else:
-                if value is not None:
-                    raise ValueError(
-                        f"{kind_str!r} does not take parameters; got {spec!r}"
-                    )
-            resolved.append(_Metric(kind=kind, value=value, unit=unit))
-        self._metrics = resolved
-        return resolved
 
     def predict(
         self,
@@ -311,11 +234,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             )
         bare = self.predict_survival(X, event_grid, offset=None)
         combined = offset_grid * bare
-        first = self._get_metrics()[0]
-        first_kind = first.kind
-        first_value = first.value
+        first = self.metrics_[0]
         predictions = self._compute_first_metric_from_curves(
-            event_grid, combined, first_kind, first_value
+            event_grid, combined, first
         )
         return predictions
 
@@ -453,28 +374,27 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         self,
         times: numpy.typing.NDArray[numpy.floating],
         survival_matrix: numpy.typing.NDArray[numpy.floating],
-        kind: _types.SurvivalMetricKind,
-        value: None | float,
+        metric: _metric.Metric,
     ) -> numpy.typing.NDArray[numpy.floating]:
         """Compute one row of the first metric per sample from given curves."""
         n_samples = survival_matrix.shape[0]
         result = numpy.empty(n_samples, dtype=float)
         for i in range(n_samples):
             surv_row = survival_matrix[i]
-            match kind:
-                case _types.SurvivalMetricKind.MEDIAN:
+            match metric:
+                case _metric.MedianSurvivalMetric():
                     result[i] = _survival.compute_median_survival(
                         times, surv_row
                     )
-                case _types.SurvivalMetricKind.SURVIVAL:
-                    query = typing.cast(float, value)
+                case _metric.SurvivalAtMetric() as survival_at:
                     result[i] = _survival.compute_survival_at(
-                        times, surv_row, query
+                        times, surv_row, survival_at.time
                     )
-                case _types.SurvivalMetricKind.RMST:
-                    horizon = typing.cast(float, value)
-                    result[i] = _survival.compute_rmst(times, surv_row, horizon)
-                case _types.SurvivalMetricKind.RISK_SCORE:
+                case _metric.RmstMetric() as rmst:
+                    result[i] = _survival.compute_rmst(
+                        times, surv_row, rmst.horizon
+                    )
+                case _metric.RiskScoreMetric():
                     cum_haz_row = -numpy.log(
                         numpy.maximum(surv_row, _tree._OFFSET_EPS)
                     )
@@ -497,7 +417,6 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         numpy.typing.NDArray[numpy.floating],
     ]:
         """Validate inputs for survival analysis."""
-        self.__dict__.pop("_metrics", None)
         y_coerced = y if y is None else _coerce_survival_y(y)
         X_validated, y_validated = sklearn.utils.validation.validate_data(
             self,
@@ -554,6 +473,28 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             )
         return y_out_shape[0]
 
+    def _build_metrics(self) -> tuple[_metric.Metric, ...]:
+        """Parse the configured metric specifications into one descriptor each."""
+        metrics = self.metrics
+        if isinstance(metrics, (str, bytes)):
+            raise TypeError(
+                f"metrics must be a sequence of metric specs, not a string;"
+                f" wrap a single entry in a tuple: ({metrics!r},)"
+            )
+        if not isinstance(metrics, collections.abc.Sequence):
+            raise TypeError(
+                f"metrics must be a sequence; got {type(metrics).__name__}"
+            )
+        if len(metrics) == 0:
+            raise ValueError("metrics must contain at least one entry")
+        has_ci = self.ci_coverage is not None
+        descriptors: list[_metric.Metric] = []
+        for spec in metrics:
+            descriptor = _build_survival_metric(spec, has_ci)
+            descriptors.append(descriptor)
+        result = tuple(descriptors)
+        return result
+
     def _create_node(
         self,
         depth: int,
@@ -563,14 +504,14 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
         is_leaf: bool,
     ) -> _node.SurvivalNode:
-        """Build a SurvivalNode with its Kaplan-Meier curve and metrics."""
+        """Build a SurvivalNode with its Kaplan-Meier curve and metric values."""
         curve = self._compute_node_curve(y_transmuted, w_transmuted)
         survival_function = (curve.times, curve.surv)
         if is_leaf:
             survival_log_variance = curve.var_log_s
         else:
             survival_log_variance = numpy.empty(0, dtype=float)
-        metrics = self._compute_survival_metrics(curve)
+        values, ci_low, ci_high = self._compute_metric_values(curve)
         node = _node.SurvivalNode(
             depth=depth,
             n_samples=n_samples,
@@ -578,7 +519,9 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
             decoration=None,
             survival_function=survival_function,
             survival_log_variance=survival_log_variance,
-            metrics=metrics,
+            values=values,
+            ci_low=ci_low,
+            ci_high=ci_high,
         )
         return node
 
@@ -646,125 +589,93 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         )
         return curve
 
-    def _compute_survival_metrics(
+    def _compute_metric_values(
         self,
         curve: _NodeCurve,
-    ) -> list[_node.SurvivalMetric]:
-        """Compute the full per-node metric stack."""
-        records = [
-            self._compute_metric_record(resolved, curve)
-            for resolved in self._get_metrics()
-        ]
-        return records
-
-    def _compute_metric_record(
-        self,
-        resolved: _Metric,
-        curve: _NodeCurve,
-    ) -> _node.SurvivalMetric:
-        """Compute a single metric value and CI for a node."""
+    ) -> tuple[
+        numpy.typing.NDArray[numpy.floating],
+        numpy.typing.NDArray[numpy.floating],
+        numpy.typing.NDArray[numpy.floating],
+    ]:
+        """Compute the value and confidence bounds of every configured metric."""
+        count = len(self.metrics_)
+        values = numpy.empty(count, dtype=float)
+        ci_low = numpy.empty(count, dtype=float)
+        ci_high = numpy.empty(count, dtype=float)
         alpha = self._ci_alpha()
         if alpha is None:
             alpha = 0.025
-        match resolved.kind:
-            case _types.SurvivalMetricKind.MEDIAN:
-                record = self._compute_median_record(curve, alpha)
-            case _types.SurvivalMetricKind.RISK_SCORE:
-                record = self._compute_risk_score_record(curve)
-            case _types.SurvivalMetricKind.SURVIVAL:
-                record = self._compute_survival_at_record(
-                    curve, resolved, alpha
-                )
-            case _types.SurvivalMetricKind.RMST:
-                record = self._compute_rmst_record(curve, resolved, alpha)
-        return record
+        for index, metric in enumerate(self.metrics_):
+            match metric:
+                case _metric.MedianSurvivalMetric():
+                    triple = self._compute_median_value(curve, alpha)
+                case _metric.RiskScoreMetric():
+                    triple = self._compute_risk_score_value(curve)
+                case _metric.SurvivalAtMetric() as survival_at:
+                    triple = self._compute_survival_at_value(
+                        curve, survival_at, alpha
+                    )
+                case _metric.RmstMetric() as rmst:
+                    triple = self._compute_rmst_value(curve, rmst, alpha)
+            values[index], ci_low[index], ci_high[index] = triple
+        return values, ci_low, ci_high
 
-    def _compute_median_record(
+    def _compute_median_value(
         self,
         curve: _NodeCurve,
         alpha: float,
-    ) -> _node.SurvivalMetric:
+    ) -> tuple[float, float, float]:
         """Median survival time with Brookmeyer-Crowley CI."""
         value = _survival.compute_median_survival(curve.times, curve.surv)
-        ci_coverage = self.ci_coverage
-        if ci_coverage is None or len(curve.times) == 0:
-            ci_low: None | float = None if ci_coverage is None else float("nan")
-            ci_high: None | float = (
-                None if ci_coverage is None else float("nan")
-            )
+        if self.ci_coverage is None or len(curve.times) == 0:
+            ci_low = float("nan")
+            ci_high = float("nan")
         else:
             ci_low, ci_high = _survival.compute_brookmeyer_crowley_ci(
                 curve.times, curve.surv, curve.var_log_s, alpha
             )
-        record = _node.SurvivalMetric(
-            label="Median survival",
-            value=value,
-            ci_low=ci_low,
-            ci_high=ci_high,
-            style="value",
-            better_is="higher",
-        )
-        return record
+        return value, ci_low, ci_high
 
-    def _compute_risk_score_record(
+    def _compute_risk_score_value(
         self,
         curve: _NodeCurve,
-    ) -> _node.SurvivalMetric:
-        """Sum of node cumulative hazard at training event times."""
+    ) -> tuple[float, float, float]:
+        """Sum of node cumulative hazard at training event times, without CI."""
         value = _survival.compute_risk_score(
             curve.times, curve.d_w, curve.r_w, self.event_grid_
         )
-        record = _node.SurvivalMetric(
-            label="Risk score",
-            value=value,
-            ci_low=None,
-            ci_high=None,
-            style="value",
-            better_is="lower",
-        )
-        return record
+        return value, float("nan"), float("nan")
 
-    def _compute_survival_at_record(
+    def _compute_survival_at_value(
         self,
         curve: _NodeCurve,
-        resolved: _Metric,
+        metric: _metric.SurvivalAtMetric,
         alpha: float,
-    ) -> _node.SurvivalMetric:
+    ) -> tuple[float, float, float]:
         """Kaplan-Meier S(t) at a reference time with log-log CI."""
-        query = typing.cast(float, resolved.value)
-        unit = typing.cast(str, resolved.unit)
+        query = metric.time
         value = _survival.compute_survival_at(curve.times, curve.surv, query)
         if self.ci_coverage is None:
-            ci_low: None | float = None
-            ci_high: None | float = None
+            ci_low = float("nan")
+            ci_high = float("nan")
         else:
             ci_low, ci_high = _survival.compute_log_log_ci_at(
                 curve.times, curve.surv, curve.var_log_s, query, alpha
             )
-        label = f"Survival at {_format_metric_quantity(query)} {unit}"
-        record = _node.SurvivalMetric(
-            label=label,
-            value=value,
-            ci_low=ci_low,
-            ci_high=ci_high,
-            style="probability",
-            better_is="higher",
-        )
-        return record
+        return value, ci_low, ci_high
 
-    def _compute_rmst_record(
+    def _compute_rmst_value(
         self,
         curve: _NodeCurve,
-        resolved: _Metric,
+        metric: _metric.RmstMetric,
         alpha: float,
-    ) -> _node.SurvivalMetric:
+    ) -> tuple[float, float, float]:
         """Restricted mean survival time up to a horizon with integrated CI."""
-        horizon = typing.cast(float, resolved.value)
-        unit = typing.cast(str, resolved.unit)
+        horizon = metric.horizon
         value = _survival.compute_rmst(curve.times, curve.surv, horizon)
         if self.ci_coverage is None:
-            ci_low: None | float = None
-            ci_high: None | float = None
+            ci_low = float("nan")
+            ci_high = float("nan")
         else:
             ci_low, ci_high = _survival.compute_rmst_ci(
                 curve.times,
@@ -774,16 +685,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
                 horizon,
                 alpha,
             )
-        label = f"RMST at {_format_metric_quantity(horizon)} {unit}"
-        record = _node.SurvivalMetric(
-            label=label,
-            value=value,
-            ci_low=ci_low,
-            ci_high=ci_high,
-            style="value",
-            better_is="higher",
-        )
-        return record
+        return value, ci_low, ci_high
 
 
 def _coerce_survival_y(
@@ -866,6 +768,61 @@ def _evaluate_step_curve(
         indices < 0, 1.0, curve_values[numpy.maximum(indices, 0)]
     )
     return result
+
+
+def _build_survival_metric(
+    spec: _SurvivalMetricSpec, has_ci: bool
+) -> _metric.Metric:
+    """Build the descriptor of a single metric specification entry."""
+    match spec:
+        case str():
+            kind = spec
+            value: None | float = None
+            unit: None | str = None
+        case (str() as kind, float() | int() as raw_value, str() as unit):
+            value = float(raw_value)
+        case _:
+            raise TypeError(
+                f"metric spec must be a string or a (kind, value, unit)"
+                f" tuple; got {spec!r}"
+            )
+    if kind not in _METRIC_KINDS:
+        valid = list(_METRIC_KINDS)
+        raise ValueError(
+            f"unknown metric kind {kind!r}; valid values are {valid}"
+        )
+    if kind in _PARAMETRIZED_METRIC_KINDS:
+        if value is None:
+            raise ValueError(f"{kind!r} requires a (kind, value, unit) tuple")
+    else:
+        if value is not None:
+            raise ValueError(f"{kind!r} does not take parameters; got {spec!r}")
+    match kind:
+        case "median":
+            metric: _metric.Metric = _metric.MedianSurvivalMetric(
+                "Median survival", has_ci
+            )
+        case "risk_score":
+            metric = _metric.RiskScoreMetric("Risk score")
+        case "survival":
+            quantity = typing.cast(float, value)
+            unit_name = typing.cast(str, unit)
+            label = _format_metric_label("Survival at", quantity, unit_name)
+            metric = _metric.SurvivalAtMetric(label, has_ci, quantity)
+        # Only "rmst" is left: the kind was validated against _METRIC_KINDS.
+        case _:
+            quantity = typing.cast(float, value)
+            unit_name = typing.cast(str, unit)
+            label = _format_metric_label("RMST at", quantity, unit_name)
+            metric = _metric.RmstMetric(label, has_ci, quantity)
+    return metric
+
+
+def _format_metric_label(prefix: str, quantity: float, unit: str) -> str:
+    """Build the display label of a parametrized metric."""
+    formatted = _format_metric_quantity(quantity)
+    label = f"{prefix} {formatted} {unit}"
+    return label
 
 
 def _format_metric_quantity(value: float) -> str:

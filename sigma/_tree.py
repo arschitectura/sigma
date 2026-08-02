@@ -24,6 +24,7 @@ import typing_extensions
 from . import (
     _extension,
     _feature,
+    _metric,
     _node,
     _partition,
     _splitting,
@@ -124,6 +125,11 @@ class Tree(
             is a NumericFeature, BooleanFeature, CategoricalFeature, or
             PromotedBooleanFeature and carries the display name, category
             labels, and missing-value code learned for that column.
+        metrics_: One Metric per entry of the value array each node
+            carries, in the same order, describing how that value is
+            labeled, formatted, and ordered. Empty for the estimators
+            whose nodes report their values through dedicated attributes
+            (RegressionTree and ClassificationTree).
         response_name_in_: Display name captured from a named pandas Series y
             (or, for survival, the first column name of a DataFrame y) at fit
             time. None when y carries no usable name.
@@ -139,6 +145,7 @@ class Tree(
     n_features_in_: int
     feature_names_in_: numpy.typing.NDArray
     features_: tuple[_feature.Feature, ...]
+    metrics_: tuple[_metric.Metric, ...]
     response_name_in_: None | str
     correlation_enum_: _types.Correlation
     test_stat_enum_: _types.TestStat
@@ -285,6 +292,7 @@ class Tree(
                 raise ValueError(
                     "resamples must be set when test_type='monte_carlo'"
                 )
+            self.metrics_ = self._build_metrics()
             seed_seq = numpy.random.SeedSequence(self.random_state)
             ss_fit, ss_ci = seed_seq.spawn(2)
             self._rng_ = numpy.random.default_rng(ss_fit)
@@ -355,6 +363,10 @@ class Tree(
                 feature.name = str(names[feature.index])
         result = tuple(features)
         return result
+
+    def _build_metrics(self) -> tuple[_metric.Metric, ...]:
+        """Build the descriptors of the values each node reports; none by default."""
+        return ()
 
     def _encode_categorical_missing(
         self, X: numpy.typing.NDArray[numpy.floating], reset: bool
@@ -723,7 +735,10 @@ class Tree(
     def _build_leaves(self) -> None:
         """Populate leaves_ and assign each leaf its leaf_id."""
         raw_leaves = self.content_.leaves()
-        sorted_leaves = sorted(raw_leaves, key=lambda n: n.leaf_sort_key())
+        metrics = self.metrics_
+        sorted_leaves = sorted(
+            raw_leaves, key=lambda n: n.leaf_sort_key(metrics)
+        )
         if self.reverse_order:
             sorted_leaves = list(reversed(sorted_leaves))
         self.leaves_ = sorted_leaves

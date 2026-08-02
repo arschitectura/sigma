@@ -556,8 +556,7 @@ def _plot_ranking(
         color = _palette._leaf_color(slot_idx, displayed_count, leaf_palette)
         for leaf_id, leaf in enumerate(leaves):
             x = leaf_id + 1
-            metric = leaf.metrics[item_index]
-            expected_rank = float(metric.value)
+            expected_rank = float(leaf.values[item_index])
             if numpy.isnan(expected_rank):
                 continue
             axes.hlines(
@@ -569,13 +568,13 @@ def _plot_ranking(
                 zorder=3,
             )
             axes.scatter([x], [expected_rank], color=color, s=12, zorder=4)
-        line_ys = [float(leaf.metrics[item_index].value) for leaf in leaves]
+        line_ys = [float(leaf.values[item_index]) for leaf in leaves]
         axes.plot(line_xs, line_ys, color=color, linewidth=1.5, zorder=3)
     _configure_leaf_x_axis(axes, n_leaves)
     all_values: list[float] = []
     for leaf in leaves:
         for item_index in item_order:
-            value = leaf.metrics[item_index].value
+            value = float(leaf.values[item_index])
             if not numpy.isnan(value):
                 all_values.append(value)
     if all_values:

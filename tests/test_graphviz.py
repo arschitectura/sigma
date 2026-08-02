@@ -51,11 +51,17 @@ def _make_survival_tree():
 
 
 def _build_default_digraph(
-    graphviz_module, root, category_labels=None, class_names=None, **kwargs
+    graphviz_module,
+    root,
+    category_labels=None,
+    class_names=None,
+    metrics=(),
+    **kwargs,
 ):
     """Invoke _build_digraph with the default color scheme."""
     digraph = graphviz_module._build_digraph(
         root,
+        metrics,
         category_labels,
         class_names,
         graphviz_module._DEFAULT_ROOT_COLORS,
@@ -180,6 +186,7 @@ class TestBuildDigraph(unittest.TestCase):
         """A background_color sets the graph-level bgcolor attribute."""
         dot = self._graphviz._build_digraph(
             self.regression_tree.content_,
+            (),
             None,
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
@@ -194,6 +201,7 @@ class TestBuildDigraph(unittest.TestCase):
         """Non-truncation edges carry foreground_color as color and fontcolor."""
         dot = self._graphviz._build_digraph(
             self.regression_tree.content_,
+            (),
             None,
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
@@ -218,6 +226,7 @@ class TestBuildDigraph(unittest.TestCase):
 
         dot = self._graphviz._build_digraph(
             self.regression_tree.content_,
+            (),
             None,
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
@@ -237,6 +246,7 @@ class TestBuildDigraph(unittest.TestCase):
         """Truncation '...' nodes still take font/fill/border from split_colors."""
         dot = self._graphviz._build_digraph(
             self.regression_tree.content_,
+            (),
             None,
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
@@ -260,6 +270,7 @@ class TestBuildDigraph(unittest.TestCase):
         """Truncation edges take foreground_color, not split_colors[0]."""
         dot = self._graphviz._build_digraph(
             self.regression_tree.content_,
+            (),
             None,
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
@@ -505,6 +516,7 @@ class TestLeafBadges(unittest.TestCase):
         )
         dot_source = self._graphviz._build_digraph(
             reversed_tree.content_,
+            (),
             None,
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
@@ -535,6 +547,7 @@ class TestLeafBadges(unittest.TestCase):
         reversed_tree.fit(X, y)
         dot_source = self._graphviz._build_digraph(
             reversed_tree.content_,
+            (),
             None,
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
@@ -688,6 +701,7 @@ class TestBuildDigraphPrecision(unittest.TestCase):
         regression_tree.fit(X, y)
         digraph = self._graphviz._build_digraph(
             regression_tree.content_,
+            (),
             None,
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
@@ -769,6 +783,7 @@ class TestBuildDigraphMaxBranchLength(unittest.TestCase):
         """At the default max_branch_length, a long branch label ends in '...'."""
         digraph = self._graphviz._build_digraph(
             self.regression_tree.content_,
+            (),
             None,
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
@@ -894,6 +909,7 @@ class TestUniformNodeWidths(unittest.TestCase):
         forced = next(iter(uniform_widths.values()))
         natural_dot = self._graphviz._emit_digraph(
             self.three_step.content_,
+            (),
             None,
             None,
             self._graphviz._DEFAULT_ROOT_COLORS,
@@ -977,8 +993,13 @@ class TestBoldPredictionValues(unittest.TestCase):
 
     def test_survival_each_metric_value_is_bold(self):
         """Each survival metric value is wrapped in <b>...</b>."""
+        from sigma import _graphviz
+
         survival_tree = _make_survival_tree()
-        source = self._build(survival_tree.content_).source
+        digraph = _build_default_digraph(
+            _graphviz, survival_tree.content_, metrics=survival_tree.metrics_
+        )
+        source = digraph.source
         self.assertIn("Median survival = <b>", source)
         self.assertIn("Survival at 5 years = <b>", source)
 

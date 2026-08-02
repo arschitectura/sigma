@@ -123,26 +123,6 @@ class CiMethodRegressionTree(enum.Enum):
     STUDENT_T = "student_t"
 
 
-class SurvivalMetricKind(enum.Enum):
-    """Kind of per-node summary computed by SurvivalTree.
-
-    MEDIAN: Median survival time. CI: Brookmeyer-Crowley.
-    RISK_SCORE: Nelson-Aalen cumulative hazard summed across unique
-        training event times. No CI.
-    SURVIVAL: Kaplan-Meier survival probability at a fixed time supplied by
-        the user. CI: log-log Greenwood.
-    RMST: Restricted mean survival time up to a horizon supplied by the
-        user. CI: Klein-Moeschberger integrated Greenwood.
-    """
-
-    __slots__ = ()
-
-    MEDIAN = "median"
-    RISK_SCORE = "risk_score"
-    SURVIVAL = "survival"
-    RMST = "rmst"
-
-
 class CiMethodSurvival(enum.Enum):
     """Confidence interval method for survival node predictions.
 

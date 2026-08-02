@@ -203,14 +203,9 @@ def _serialize_tree(tree, n_items: int, item_names, fit_seconds: float) -> dict:
         i = node.node_id
         depth[i] = node.depth
         n_samples[i] = node.n_samples
-        for k, metric in enumerate(node.metrics):
-            metric_value[i, k] = metric.value
-            metric_ci_low[i, k] = (
-                numpy.nan if metric.ci_low is None else metric.ci_low
-            )
-            metric_ci_high[i, k] = (
-                numpy.nan if metric.ci_high is None else metric.ci_high
-            )
+        metric_value[i] = node.values
+        metric_ci_low[i] = node.ci_low
+        metric_ci_high[i] = node.ci_high
         match node.extension:
             case _partition.Partition() as partition:
                 is_leaf[i] = False

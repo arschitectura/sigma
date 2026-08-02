@@ -327,15 +327,17 @@ class TestAllFourMethodsOnSushiSubset(unittest.TestCase):
 
     def _check_metrics(self, tree):
         """Each metric satisfies low ≤ value ≤ high and is finite per item."""
+        for metric in tree.metrics_:
+            self.assertTrue(metric.has_ci)
         for node in tree.nodes_:
-            for metric in node.metrics:
-                self.assertTrue(numpy.isfinite(metric.value))
-                self.assertIsNotNone(metric.ci_low)
-                self.assertIsNotNone(metric.ci_high)
-                self.assertTrue(numpy.isfinite(metric.ci_low))
-                self.assertTrue(numpy.isfinite(metric.ci_high))
-                self.assertLessEqual(metric.ci_low, metric.value + 1e-9)
-                self.assertGreaterEqual(metric.ci_high, metric.value - 1e-9)
+            for index, value in enumerate(node.values):
+                ci_low = node.ci_low[index]
+                ci_high = node.ci_high[index]
+                self.assertTrue(numpy.isfinite(value))
+                self.assertTrue(numpy.isfinite(ci_low))
+                self.assertTrue(numpy.isfinite(ci_high))
+                self.assertLessEqual(ci_low, value + 1e-9)
+                self.assertGreaterEqual(ci_high, value - 1e-9)
 
     def test_bayesian_bootstrap(self):
         """Default Bayesian bootstrap produces valid CIs."""

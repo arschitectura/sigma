@@ -115,48 +115,17 @@ def _assert_same_tree_shape(test_case, tree_a, tree_b):
 
 
 def _assert_same_metrics(test_case, tree_a, tree_b):
-    """Compare per-node ranking metrics across two fitted RankingTrees."""
+    """Compare per-node ranking values and bounds across two fitted RankingTrees."""
     for node_a, node_b in zip(tree_a.nodes_, tree_b.nodes_):
-        values_a = numpy.array(
-            [metric.value for metric in node_a.metrics], dtype=float
-        )
-        values_b = numpy.array(
-            [metric.value for metric in node_b.metrics], dtype=float
-        )
-        numpy.testing.assert_allclose(
-            values_a,
-            values_b,
-            rtol=_RTOL,
-            atol=_ATOL,
-            err_msg=f"metric.value mismatch at node_id={node_a.node_id}",
-        )
-        for field in ("ci_low", "ci_high"):
-            arr_a = numpy.array(
-                [
-                    numpy.nan
-                    if getattr(metric, field) is None
-                    else float(getattr(metric, field))
-                    for metric in node_a.metrics
-                ],
-                dtype=float,
-            )
-            arr_b = numpy.array(
-                [
-                    numpy.nan
-                    if getattr(metric, field) is None
-                    else float(getattr(metric, field))
-                    for metric in node_b.metrics
-                ],
-                dtype=float,
-            )
+        for field in ("values", "ci_low", "ci_high"):
+            arr_a = getattr(node_a, field)
+            arr_b = getattr(node_b, field)
             numpy.testing.assert_allclose(
                 arr_a,
                 arr_b,
                 rtol=_RTOL,
                 atol=_ATOL,
-                err_msg=(
-                    f"metric.{field} mismatch at node_id={node_a.node_id}"
-                ),
+                err_msg=f"{field} mismatch at node_id={node_a.node_id}",
             )
 
 
@@ -368,25 +337,9 @@ class TestMovieLensEndToEndEquivalence(unittest.TestCase):
         ref_ci_high = reference["metric_ci_high"]
         for node in tree.nodes_:
             node_id = node.node_id
-            actual_value = numpy.array(
-                [metric.value for metric in node.metrics], dtype=float
-            )
-            actual_ci_low = numpy.array(
-                [
-                    numpy.nan if metric.ci_low is None else float(metric.ci_low)
-                    for metric in node.metrics
-                ],
-                dtype=float,
-            )
-            actual_ci_high = numpy.array(
-                [
-                    numpy.nan
-                    if metric.ci_high is None
-                    else float(metric.ci_high)
-                    for metric in node.metrics
-                ],
-                dtype=float,
-            )
+            actual_value = node.values
+            actual_ci_low = node.ci_low
+            actual_ci_high = node.ci_high
             numpy.testing.assert_allclose(
                 actual_value,
                 ref_value[node_id],

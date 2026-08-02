@@ -15,7 +15,7 @@ import sklearn.base
 import sklearn.utils.extmath
 import sklearn.utils.validation
 
-from . import _node, _ranking, _tree, _types
+from . import _metric, _node, _ranking, _tree, _tree_text, _types
 
 if typing.TYPE_CHECKING:
     import pandas
@@ -148,6 +148,8 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             falling back to integer indices 0..n_items - 1.
         n_features_in_: Number of features seen during fit.
         features_: One Feature per column of X, in column order.
+        metrics_: One Metric per catalogue item, in item-index order,
+            aligned with the value arrays of every node.
     """
 
     n_items_: int
@@ -383,9 +385,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                 or categorical columns.
         """
         indices = self.predict_index(X)
-        node_mean_ranks = numpy.array(
-            [[metric.value for metric in node.metrics] for node in self.nodes_]
-        )
+        node_mean_ranks = numpy.array([node.values for node in self.nodes_])
         predictions = node_mean_ranks[indices]
         return predictions
 
@@ -540,6 +540,17 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             )
         return y_out_shape[0]
 
+    def _build_metrics(self) -> tuple[_metric.Metric, ...]:
+        """Build one display descriptor per catalogue item."""
+        has_ci = self.ci_coverage is not None
+        descriptors: list[_metric.Metric] = []
+        for name in self.item_names_:
+            capitalized = _tree_text._capitalize_first_letter(str(name))
+            label = f"{capitalized} rank"
+            descriptors.append(_metric.ExpectedRankMetric(label, has_ci))
+        result = tuple(descriptors)
+        return result
+
     def _create_node(
         self,
         depth: int,
@@ -549,14 +560,16 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
         is_leaf: bool,
     ) -> _node.RankingNode:
-        """Build a RankingNode with its per-item expected-rank metrics."""
-        metrics = self._compute_ranking_metrics(w_transmuted)
+        """Build a RankingNode with its per-item expected ranks."""
+        values, ci_low, ci_high = self._compute_item_values(w_transmuted)
         node = _node.RankingNode(
             depth=depth,
             n_samples=n_samples,
             share=0.0,
             decoration=None,
-            metrics=metrics,
+            values=values,
+            ci_low=ci_low,
+            ci_high=ci_high,
         )
         return node
 
@@ -594,11 +607,15 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                 return False
         return True
 
-    def _compute_ranking_metrics(
+    def _compute_item_values(
         self,
         weights: numpy.typing.NDArray[numpy.floating],
-    ) -> list[_node.RankingMetric]:
-        """Compute the per-item RankingMetric list over the full catalogue."""
+    ) -> tuple[
+        numpy.typing.NDArray[numpy.floating],
+        numpy.typing.NDArray[numpy.floating],
+        numpy.typing.NDArray[numpy.floating],
+    ]:
+        """Compute the per-item expected rank and confidence bounds of a node."""
         active = weights > 0
         y_full_active = self._y_full[active]
         w_active = weights[active]
@@ -610,34 +627,14 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             max_iter=self.pl_max_iter,
         )
         expected_rank = _ranking.pl_expected_rank(alpha)
-        per_item_ci_low, per_item_ci_high = self._compute_per_item_ci(
-            y_full_active, w_active
-        )
-        metrics: list[_node.RankingMetric] = []
-        for k in range(self.n_items_):
-            label = str(self.item_names_[k])
-            value = float(expected_rank[k])
-            low = None if per_item_ci_low is None else float(per_item_ci_low[k])
-            high = (
-                None if per_item_ci_high is None else float(per_item_ci_high[k])
-            )
-            metrics.append(
-                _node.RankingMetric(
-                    label=label,
-                    value=value,
-                    ci_low=low,
-                    ci_high=high,
-                )
-            )
-        return metrics
+        ci_low, ci_high = self._compute_per_item_ci(y_full_active, w_active)
+        return expected_rank, ci_low, ci_high
 
     def _compute_displayed_indices(self, top_displayed_items: int) -> list[int]:
         """Return the union of each leaf's top items by lowest expected rank."""
         union: set[int] = set()
         for leaf in self.leaves_:
-            values = numpy.array(
-                [metric.value for metric in leaf.metrics], dtype=float
-            )
+            values = leaf.values
             valid = ~numpy.isnan(values)
             valid_indices = numpy.flatnonzero(valid)
             if valid_indices.size == 0:
@@ -654,18 +651,17 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         y_full_active: numpy.typing.NDArray[numpy.floating],
         weights_active: numpy.typing.NDArray[numpy.floating],
     ) -> tuple[
-        None | numpy.typing.NDArray[numpy.floating],
-        None | numpy.typing.NDArray[numpy.floating],
+        numpy.typing.NDArray[numpy.floating],
+        numpy.typing.NDArray[numpy.floating],
     ]:
         """Bootstrap a per-item expected-rank CI by refitting the PL MLE."""
         ci_coverage = self.ci_coverage
-        if ci_coverage is None:
-            return None, None
-        n_active = int(y_full_active.shape[0])
         n_items = self.n_items_
+        if ci_coverage is None:
+            return _undefined_ci_pair(n_items)
+        n_active = int(y_full_active.shape[0])
         if n_active == 0:
-            empty = numpy.full(n_items, numpy.nan, dtype=float)
-            return empty, empty
+            return _undefined_ci_pair(n_items)
         tail_alpha = (1.0 - ci_coverage) / 2.0
         ci_method_enum = _types.CiMethodRankingTree(self.ci_method)
         replicate_ranks = numpy.empty(
@@ -769,6 +765,18 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                     self.pl_max_iter,
                 )
         return ci_low_vec, ci_high_vec
+
+
+def _undefined_ci_pair(
+    n_items: int,
+) -> tuple[
+    numpy.typing.NDArray[numpy.floating],
+    numpy.typing.NDArray[numpy.floating],
+]:
+    """Return two all-NaN per-item bound arrays."""
+    ci_low = numpy.full(n_items, numpy.nan, dtype=float)
+    ci_high = numpy.full(n_items, numpy.nan, dtype=float)
+    return ci_low, ci_high
 
 
 def _bca_per_item_quantiles(

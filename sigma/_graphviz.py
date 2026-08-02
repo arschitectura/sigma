@@ -8,7 +8,15 @@ import graphviz
 import numpy
 import numpy.typing
 
-from . import _extension, _feature, _node, _palette, _partition, _tree_text
+from . import (
+    _extension,
+    _feature,
+    _metric,
+    _node,
+    _palette,
+    _partition,
+    _tree_text,
+)
 
 _DEFAULT_ROOT_COLORS = ("white", "black", "black")
 _DEFAULT_SPLIT_COLORS = ("black", "lightgray", "black")
@@ -34,7 +42,7 @@ def _per_node_displayed_indices(
         return []
     if not isinstance(node, _node.RankingNode):
         return []
-    values = numpy.array([metric.value for metric in node.metrics], dtype=float)
+    values = node.values
     valid_indices = numpy.flatnonzero(~numpy.isnan(values))
     if valid_indices.size == 0:
         return []
@@ -110,6 +118,7 @@ def _make_leaf_html_label(
 
 def _build_digraph(
     root: _node.Node,
+    metrics: tuple[_metric.Metric, ...],
     category_labels: None | dict[int, dict[float, str]],
     class_names: None | list[str],
     root_colors: tuple[str, str, str],
@@ -131,6 +140,7 @@ def _build_digraph(
     """Build a graphviz Digraph from a fitted tree."""
     natural_dot = _emit_digraph(
         root,
+        metrics,
         category_labels,
         class_names,
         root_colors,
@@ -155,6 +165,7 @@ def _build_digraph(
         return natural_dot
     final_dot = _emit_digraph(
         root,
+        metrics,
         category_labels,
         class_names,
         root_colors,
@@ -179,6 +190,7 @@ def _build_digraph(
 
 def _emit_digraph(
     root: _node.Node,
+    metrics: tuple[_metric.Metric, ...],
     category_labels: None | dict[int, dict[float, str]],
     class_names: None | list[str],
     root_colors: tuple[str, str, str],
@@ -239,6 +251,7 @@ def _emit_digraph(
         node_displayed = _per_node_displayed_indices(node, top_displayed_items)
         label = _tree_text._format_prediction(
             node,
+            metrics,
             class_names,
             response_name,
             prediction_formatter,
@@ -277,7 +290,7 @@ def _emit_digraph(
                 )
                 if max_depth is None or node.depth < max_depth:
                     branches = _node.display_branches(
-                        node, partition, display_reverse
+                        node, partition, display_reverse, metrics
                     )
                     branch_name = _tree_text._resolve_feature_name(
                         partition, feature_names

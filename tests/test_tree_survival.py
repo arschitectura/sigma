@@ -87,14 +87,29 @@ _REFERENCE_METRIC_CI_HIGH = (
 )
 
 
+def _survival_leaf(values):
+    """Build a survival leaf carrying the given per-metric values."""
+    undefined = numpy.full(len(values), numpy.nan, dtype=float)
+    leaf = sigma._node.SurvivalNode(
+        depth=1,
+        n_samples=10,
+        share=0.0,
+        decoration=None,
+        survival_function=(numpy.array([1.0]), numpy.array([1.0])),
+        survival_log_variance=numpy.zeros(1, dtype=float),
+        values=numpy.array(values, dtype=float),
+        ci_low=undefined,
+        ci_high=undefined.copy(),
+    )
+    return leaf
+
+
 def _flatten_metric_field(nodes, field):
-    """Return one field of every node's metric records, None mapped to NaN."""
+    """Return one per-metric array of every node, concatenated in node order."""
     flat = []
     for node in nodes:
-        for metric in node.metrics:
-            entry = getattr(metric, field)
-            value = _NAN if entry is None else entry
-            flat.append(value)
+        entries = getattr(node, field)
+        flat.extend(float(entry) for entry in entries)
     return flat
 
 
@@ -340,11 +355,11 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
             min_splits=10, min_buckets=5, max_depth=2
         )
         estimator.fit(X, y)
+        labels = [metric.label for metric in estimator.metrics_]
+        self.assertEqual(labels, ["Median survival"])
         for leaf in estimator.leaves_:
-            assert leaf.metrics is not None
-            self.assertEqual(len(leaf.metrics), 1)
-            self.assertEqual(leaf.metrics[0].label, "Median survival")
-            value = leaf.metrics[0].value
+            self.assertEqual(len(leaf.values), 1)
+            value = float(leaf.values[0])
             prediction = leaf.prediction
             if numpy.isnan(value):
                 self.assertTrue(numpy.isnan(prediction))
@@ -352,7 +367,7 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
                 self.assertEqual(value, prediction)
 
     def test_multiple_metrics_render_each_on_own_line(self):
-        """Multi-metric leaves expose one record per configured metric."""
+        """Multi-metric trees expose one descriptor per configured metric."""
         X, y = self._build_dataset()
         estimator = sigma._tree_survival.SurvivalTree(
             min_splits=10,
@@ -365,13 +380,12 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
             ),
         )
         estimator.fit(X, y)
+        labels = [metric.label for metric in estimator.metrics_]
+        self.assertEqual(
+            labels, ["Median survival", "Survival at 5 units", "Risk score"]
+        )
         for leaf in estimator.leaves_:
-            assert leaf.metrics is not None
-            self.assertEqual(len(leaf.metrics), 3)
-            labels = [m.label for m in leaf.metrics]
-            self.assertEqual(labels[0], "Median survival")
-            self.assertEqual(labels[1], "Survival at 5 units")
-            self.assertEqual(labels[2], "Risk score")
+            self.assertEqual(len(leaf.values), 3)
 
     def test_first_metric_drives_prediction_slot(self):
         """The first metric's value mirrors Node.prediction."""
@@ -384,8 +398,7 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
         )
         estimator.fit(X, y)
         for leaf in estimator.leaves_:
-            assert leaf.metrics is not None
-            self.assertEqual(leaf.prediction, leaf.metrics[0].value)
+            self.assertEqual(leaf.prediction, float(leaf.values[0]))
         predictions = estimator.predict(X[:5])
         for prediction in predictions:
             self.assertTrue(numpy.isfinite(prediction))
@@ -507,6 +520,89 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
         for k in range(len(ordered) - 1):
             self.assertLessEqual(ordered[k], ordered[k + 1])
 
+    def test_each_specification_form_parses_to_its_class(self):
+        """Every metric spec resolves to the descriptor class of its kind."""
+        X, y = self._build_dataset()
+        estimator = sigma._tree_survival.SurvivalTree(
+            min_splits=10,
+            min_buckets=5,
+            max_depth=2,
+            metrics=(
+                "median",
+                "risk_score",
+                ("survival", 3.0, "units"),
+                ("rmst", 4.0, "units"),
+            ),
+        )
+        estimator.fit(X, y)
+        classes = [type(metric) for metric in estimator.metrics_]
+        self.assertEqual(
+            classes,
+            [
+                sigma.MedianSurvivalMetric,
+                sigma.RiskScoreMetric,
+                sigma.SurvivalAtMetric,
+                sigma.RmstMetric,
+            ],
+        )
+
+    def test_parametrized_metrics_carry_their_time(self):
+        """The parsed reference time and horizon reach their descriptors."""
+        X, y = self._build_dataset()
+        estimator = sigma._tree_survival.SurvivalTree(
+            min_splits=10,
+            min_buckets=5,
+            max_depth=2,
+            metrics=(("survival", 3.0, "units"), ("rmst", 4.0, "units")),
+        )
+        estimator.fit(X, y)
+        survival_at, rmst = estimator.metrics_
+        assert isinstance(survival_at, sigma.SurvivalAtMetric)
+        assert isinstance(rmst, sigma.RmstMetric)
+        self.assertEqual(survival_at.time, 3.0)
+        self.assertEqual(rmst.horizon, 4.0)
+
+    def test_pickle_round_trip_preserves_descriptor_classes(self):
+        """A round-tripped estimator reports the same metric classes."""
+        import pickle
+
+        X, y = self._build_dataset()
+        estimator = sigma._tree_survival.SurvivalTree(
+            min_splits=10,
+            min_buckets=5,
+            max_depth=2,
+            metrics=("median", ("survival", 3.0, "units")),
+        )
+        estimator.fit(X, y)
+        payload = pickle.dumps(estimator)
+        restored = pickle.loads(payload)
+        original = [type(metric) for metric in estimator.metrics_]
+        observed = [type(metric) for metric in restored.metrics_]
+        self.assertEqual(observed, original)
+        numpy.testing.assert_array_equal(
+            restored.predict(X), estimator.predict(X)
+        )
+
+    def test_dumps_copy_and_compact_leave_the_original_intact(self):
+        """Serializing, copying, or compacting does not strip estimator state."""
+        import copy
+        import pickle
+
+        X, y = self._build_dataset()
+        estimator = sigma._tree_survival.SurvivalTree(
+            min_splits=10,
+            min_buckets=5,
+            max_depth=2,
+            metrics=("median", "risk_score"),
+        )
+        estimator.fit(X, y)
+        expected = sorted(estimator.__dict__)
+        pickle.dumps(estimator)
+        copy.copy(estimator)
+        estimator.compact()
+        self.assertEqual(sorted(estimator.__dict__), expected)
+        self.assertEqual(len(estimator.metrics_), 2)
+
     def test_set_params_metrics_invalidates_cached_parse(self):
         """set_params(metrics=...) followed by re-fit honors the new metric."""
         X, y = self._build_dataset()
@@ -532,54 +628,14 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
 
     def test_lexicographic_tie_break_uses_secondary_metric(self):
         """With two metrics, a tie on the first falls through to the second."""
-        median_metric = sigma._node.SurvivalMetric(
-            label="Median survival",
-            value=float("inf"),
-            ci_low=None,
-            ci_high=None,
-            style="value",
-            better_is="higher",
+        metrics = (
+            sigma.MedianSurvivalMetric("Median survival", False),
+            sigma.SurvivalAtMetric("Survival at 5 units", False, 5.0),
         )
-        leaf_a = sigma._node.SurvivalNode(
-            depth=1,
-            n_samples=10,
-            share=0.0,
-            decoration=None,
-            survival_function=(numpy.array([1.0]), numpy.array([1.0])),
-            survival_log_variance=numpy.zeros(1, dtype=float),
-            metrics=[
-                median_metric,
-                sigma._node.SurvivalMetric(
-                    label="Survival at 5 units",
-                    value=0.7,
-                    ci_low=None,
-                    ci_high=None,
-                    style="probability",
-                    better_is="higher",
-                ),
-            ],
-        )
-        leaf_b = sigma._node.SurvivalNode(
-            depth=1,
-            n_samples=10,
-            share=0.0,
-            decoration=None,
-            survival_function=(numpy.array([1.0]), numpy.array([1.0])),
-            survival_log_variance=numpy.zeros(1, dtype=float),
-            metrics=[
-                median_metric,
-                sigma._node.SurvivalMetric(
-                    label="Survival at 5 units",
-                    value=0.4,
-                    ci_low=None,
-                    ci_high=None,
-                    style="probability",
-                    better_is="higher",
-                ),
-            ],
-        )
-        key_a = leaf_a.leaf_sort_key()
-        key_b = leaf_b.leaf_sort_key()
+        leaf_a = _survival_leaf([float("inf"), 0.7])
+        leaf_b = _survival_leaf([float("inf"), 0.4])
+        key_a = leaf_a.leaf_sort_key(metrics)
+        key_b = leaf_b.leaf_sort_key(metrics)
         self.assertLess(key_b, key_a)
 
 
@@ -646,7 +702,7 @@ class TestSurvivalMetricReferenceValues(unittest.TestCase):
     def test_every_node_value_matches_reference(self):
         """Every node reproduces the reference value of all four metric kinds."""
         estimator = self._fit()
-        observed = _flatten_metric_field(estimator.nodes_, "value")
+        observed = _flatten_metric_field(estimator.nodes_, "values")
         numpy.testing.assert_array_equal(observed, _REFERENCE_METRIC_VALUES)
 
     def test_every_node_interval_matches_reference(self):
@@ -660,13 +716,14 @@ class TestSurvivalMetricReferenceValues(unittest.TestCase):
         )
 
     def test_risk_score_carries_no_interval(self):
-        """The risk-score record exposes no confidence interval on any node."""
+        """The risk-score metric declares no confidence interval."""
         estimator = self._fit()
+        descriptor = estimator.metrics_[1]
+        self.assertEqual(descriptor.label, "Risk score")
+        self.assertFalse(descriptor.has_ci)
         for node in estimator.nodes_:
-            record = node.metrics[1]
-            self.assertEqual(record.label, "Risk score")
-            self.assertIsNone(record.ci_low)
-            self.assertIsNone(record.ci_high)
+            self.assertTrue(numpy.isnan(node.ci_low[1]))
+            self.assertTrue(numpy.isnan(node.ci_high[1]))
 
 
 class TestSurvivalTreeSklearnTags(unittest.TestCase):

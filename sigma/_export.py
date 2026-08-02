@@ -138,6 +138,7 @@ def export_text(
     root = tree.content_
     text_rows = _tree_text._collect_text_rows(
         root,
+        tree.metrics_,
         resolved_category_labels,
         names,
         prediction_formatter,
@@ -147,7 +148,11 @@ def export_text(
         displayed_indices,
     )
     prediction_headers = _tree_text._table_prediction_headers(
-        root, effective_class_names, effective_response_name, displayed_indices
+        root,
+        tree.metrics_,
+        effective_class_names,
+        effective_response_name,
+        displayed_indices,
     )
     has_split = False
     has_decoration = False
@@ -300,6 +305,7 @@ def export_sql(
     )
     result = _tree_sql._collect_sql(
         tree.content_,
+        tree.metrics_,
         names,
         resolved_category_labels,
         target_class_index,
@@ -488,6 +494,7 @@ def export_graphviz(
     effective_foreground_color = foreground_color or "black"
     dot = _graphviz._build_digraph(
         tree.content_,
+        tree.metrics_,
         resolved_category_labels,
         effective_class_names,
         effective_root_colors,
@@ -754,6 +761,7 @@ def export_image(
     effective_root_colors = root_colors or _graphviz._DEFAULT_ROOT_COLORS
     dot = _graphviz._build_digraph(
         tree.content_,
+        tree.metrics_,
         resolved_category_labels,
         effective_class_names,
         effective_root_colors,

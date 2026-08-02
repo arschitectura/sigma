@@ -9,7 +9,7 @@ import numpy
 import numpy.typing
 import typing_extensions
 
-from . import _extension, _partition
+from . import _extension, _metric, _partition
 
 if typing.TYPE_CHECKING:
     import polars
@@ -148,8 +148,19 @@ class Node(abc.ABC):
         return expression
 
     @abc.abstractmethod
-    def leaf_sort_key(self) -> tuple[float, ...]:
-        """Sort key for ordering leaves of this task type."""
+    def leaf_sort_key(
+        self, metrics: tuple[_metric.Metric, ...]
+    ) -> tuple[float, ...]:
+        """Build the sort key ordering the leaves of this task type.
+
+        Args:
+            metrics: Metric descriptors of the tree this node belongs to,
+                in the order of the node's own value array.
+
+        Returns:
+            A tuple compared lexicographically, ascending, against the key
+            of any other node of the same tree.
+        """
 
     @property
     @abc.abstractmethod
@@ -195,7 +206,9 @@ class RegressionNode(Node):
         """Weighted mean of the response in this node's active samples."""
         return self._prediction
 
-    def leaf_sort_key(self) -> tuple[float, ...]:
+    def leaf_sort_key(
+        self, metrics: tuple[_metric.Metric, ...]
+    ) -> tuple[float, ...]:
         """Sort key: ascending by predicted mean."""
         key = (self.prediction,)
         return key
@@ -250,55 +263,12 @@ class ClassificationNode(Node):
         """Index of the majority class within the estimator's classes_ array."""
         return self._prediction
 
-    def leaf_sort_key(self) -> tuple[float, ...]:
+    def leaf_sort_key(
+        self, metrics: tuple[_metric.Metric, ...]
+    ) -> tuple[float, ...]:
         """Sort key: descending by class distribution tuple."""
         key = tuple(-p for p in self.class_distribution)
         return key
-
-
-class SurvivalMetric:
-    """Single per-node summary for a SurvivalTree estimator.
-
-    Attributes:
-        label: Display label, e.g., "Median survival" or "Survival at
-            5 years".
-        value: Numeric value of the metric. NaN and +/- inf are allowed.
-        ci_low: Lower confidence-interval bound, or None when no CI is
-            defined for this metric.
-        ci_high: Upper confidence-interval bound, or None when no CI is
-            defined for this metric.
-        style: Formatting style; "value" for floats, "probability" for
-            percentages.
-        better_is: "higher" when larger values indicate a better
-            prognosis (median, RMST, S(t)); "lower" when smaller values
-            do (risk score).
-    """
-
-    __slots__ = (
-        "__weakref__",
-        "better_is",
-        "ci_high",
-        "ci_low",
-        "label",
-        "style",
-        "value",
-    )
-
-    def __init__(
-        self,
-        label: str,
-        value: float,
-        ci_low: None | float,
-        ci_high: None | float,
-        style: typing.Literal["value", "probability"],
-        better_is: typing.Literal["higher", "lower"],
-    ) -> None:
-        self.label = label
-        self.value = value
-        self.ci_low = ci_low
-        self.ci_high = ci_high
-        self.style = style
-        self.better_is = better_is
 
 
 class SurvivalNode(Node):
@@ -310,10 +280,22 @@ class SurvivalNode(Node):
         survival_log_variance: Greenwood variance of log S(t) at the same
             times as survival_function, shape (n,). Empty on internal
             nodes.
-        metrics: Non-empty ordered list of per-node summary metrics.
+        values: Value of each metric of the fitted tree, shape
+            (n_metrics,), aligned with its metrics_. NaN and +/- inf are
+            allowed.
+        ci_low: Lower confidence-interval bound of each metric, shape
+            (n_metrics,). NaN wherever the bound is undefined.
+        ci_high: Upper confidence-interval bound of each metric, shape
+            (n_metrics,). NaN wherever the bound is undefined.
     """
 
-    __slots__ = ("metrics", "survival_function", "survival_log_variance")
+    __slots__ = (
+        "ci_high",
+        "ci_low",
+        "survival_function",
+        "survival_log_variance",
+        "values",
+    )
 
     def __init__(
         self,
@@ -326,94 +308,54 @@ class SurvivalNode(Node):
             numpy.typing.NDArray[numpy.floating],
         ],
         survival_log_variance: numpy.typing.NDArray[numpy.floating],
-        metrics: list[SurvivalMetric],
+        values: numpy.typing.NDArray[numpy.floating],
+        ci_low: numpy.typing.NDArray[numpy.floating],
+        ci_high: numpy.typing.NDArray[numpy.floating],
     ) -> None:
         super().__init__(depth, n_samples, share, decoration)
         self.survival_function = survival_function
         self.survival_log_variance = survival_log_variance
-        self.metrics = metrics
+        self.values = values
+        self.ci_low = ci_low
+        self.ci_high = ci_high
 
     @property
     def prediction(self) -> float:
         """First configured metric's value (typically median survival)."""
-        value = self.metrics[0].value
+        value = float(self.values[0])
         return value
 
-    @property
-    def ci_low(self) -> None | float:
-        """Lower CI bound of the first configured metric."""
-        bound = self.metrics[0].ci_low
-        return bound
-
-    @property
-    def ci_high(self) -> None | float:
-        """Upper CI bound of the first configured metric."""
-        bound = self.metrics[0].ci_high
-        return bound
-
-    def leaf_sort_key(self) -> tuple[float, ...]:
-        """Sort key: lexicographic on metrics, worst-prognosis-first."""
+    def leaf_sort_key(
+        self, metrics: tuple[_metric.Metric, ...]
+    ) -> tuple[float, ...]:
+        """Sort key: lexicographic on metric values, worst-prognosis-first."""
         components: list[float] = []
-        for metric in self.metrics:
+        for index, metric in enumerate(metrics):
+            value = float(self.values[index])
             sign = 1.0 if metric.better_is == "higher" else -1.0
-            if numpy.isnan(metric.value):
+            if numpy.isnan(value):
                 component = float("inf")
             else:
-                component = sign * metric.value
+                component = sign * value
             components.append(component)
         key = tuple(components)
         return key
-
-
-class RankingMetric:
-    """Single per-item summary for a RankingTree estimator.
-
-    Attributes:
-        label: Display label of the item being ranked.
-        value: Plackett-Luce expected rank of the item, in [1, n_items].
-        ci_low: Lower confidence-interval bound on the expected rank, or
-            None when no CI is defined.
-        ci_high: Upper confidence-interval bound on the expected rank,
-            or None when no CI is defined.
-        style: Formatting style; always "value" for ranking metrics.
-        better_is: Prognostic direction; always "lower" because rank 1
-            is the most-preferred position.
-    """
-
-    __slots__ = (
-        "__weakref__",
-        "better_is",
-        "ci_high",
-        "ci_low",
-        "label",
-        "style",
-        "value",
-    )
-
-    def __init__(
-        self,
-        label: str,
-        value: float,
-        ci_low: None | float,
-        ci_high: None | float,
-    ) -> None:
-        self.label = label
-        self.value = value
-        self.ci_low = ci_low
-        self.ci_high = ci_high
-        self.style: typing.Literal["value", "probability"] = "value"
-        self.better_is: typing.Literal["higher", "lower"] = "lower"
 
 
 class RankingNode(Node):
     """Node of a fitted RankingTree.
 
     Attributes:
-        metrics: Ordered list of per-item RankingMetric records, one
-            entry per item in item-index order. Non-empty.
+        values: Plackett-Luce expected rank of each item, shape
+            (n_items,), in item-index order. Each finite entry lies in
+            [1, n_items].
+        ci_low: Lower confidence-interval bound on each expected rank,
+            shape (n_items,). NaN wherever the bound is undefined.
+        ci_high: Upper confidence-interval bound on each expected rank,
+            shape (n_items,). NaN wherever the bound is undefined.
     """
 
-    __slots__ = ("metrics",)
+    __slots__ = ("ci_high", "ci_low", "values")
 
     def __init__(
         self,
@@ -421,42 +363,32 @@ class RankingNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        metrics: list[RankingMetric],
+        values: numpy.typing.NDArray[numpy.floating],
+        ci_low: numpy.typing.NDArray[numpy.floating],
+        ci_high: numpy.typing.NDArray[numpy.floating],
     ) -> None:
         super().__init__(depth, n_samples, share, decoration)
-        self.metrics = metrics
+        self.values = values
+        self.ci_low = ci_low
+        self.ci_high = ci_high
 
     @property
     def prediction(self) -> int:
         """Index of the item with the lowest expected rank."""
-        values = numpy.array(
-            [metric.value for metric in self.metrics], dtype=float
-        )
-        nan_mask = numpy.isnan(values)
+        nan_mask = numpy.isnan(self.values)
         if numpy.all(nan_mask):
             return 0
-        safe = numpy.where(nan_mask, numpy.inf, values)
+        safe = numpy.where(nan_mask, numpy.inf, self.values)
         index = int(numpy.argmin(safe))
         return index
 
-    @property
-    def ci_low(self) -> None | float:
-        """Lower CI bound on the favorite item's expected rank."""
-        bound = self.metrics[self.prediction].ci_low
-        return bound
-
-    @property
-    def ci_high(self) -> None | float:
-        """Upper CI bound on the favorite item's expected rank."""
-        bound = self.metrics[self.prediction].ci_high
-        return bound
-
-    def leaf_sort_key(self) -> tuple[float, ...]:
+    def leaf_sort_key(
+        self, metrics: tuple[_metric.Metric, ...]
+    ) -> tuple[float, ...]:
         """Sort key: ascending lexicographic on per-item expected ranks."""
         components: list[float] = []
-        for metric in self.metrics:
-            value = metric.value
-            sort_value = float("inf") if numpy.isnan(value) else value
+        for value in self.values:
+            sort_value = float("inf") if numpy.isnan(value) else float(value)
             components.append(sort_value)
         key = tuple(components)
         return key
@@ -478,17 +410,21 @@ def _assign_share(node: Node, total: int) -> None:
 
 
 def display_branches(
-    node: Node, partition: _partition.Partition, best_first: bool
+    node: Node,
+    partition: _partition.Partition,
+    best_first: bool,
+    metrics: tuple[_metric.Metric, ...],
 ) -> list[tuple[_partition.BranchCondition, Node]]:
     """Order a partition's branches for display as (condition, child) pairs.
 
-    Branches are ordered ascending by their child's leaf sort key, then
+    Branches are ordered ascending by their child's leaf sort key, built
+    against the metric descriptors of the tree being rendered, then
     reversed in full when best_first is True.
     """
     conditions = partition.branch_conditions
     children = partition.children
     pairs = list(zip(conditions, children))
-    pairs.sort(key=lambda pair: pair[1].leaf_sort_key())
+    pairs.sort(key=lambda pair: pair[1].leaf_sort_key(metrics))
     if best_first:
         pairs.reverse()
     return pairs

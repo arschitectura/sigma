@@ -7,7 +7,7 @@ import typing
 import numpy
 import numpy.typing
 
-from . import _extension, _feature, _node, _partition, _tree_text
+from . import _extension, _feature, _metric, _node, _partition, _tree_text
 
 if typing.TYPE_CHECKING:
     from . import _tree
@@ -15,6 +15,7 @@ if typing.TYPE_CHECKING:
 
 def _collect_sql(
     root: _node.Node,
+    metrics: tuple[_metric.Metric, ...],
     feature_names: None | numpy.typing.NDArray,
     category_labels: None | dict[int, dict[float, str]],
     target_class_index: None | int,
@@ -24,6 +25,7 @@ def _collect_sql(
     """Build the expectations comment and SQL CASE expression for the tree rooted at root."""
     body = _build_sql_case(
         root,
+        metrics,
         feature_names,
         category_labels,
         target_class_index,
@@ -104,6 +106,7 @@ def _expected_sql_kind(
 
 def _build_sql_case(
     node: _node.Node,
+    metrics: tuple[_metric.Metric, ...],
     feature_names: None | numpy.typing.NDArray,
     category_labels: None | dict[int, dict[float, str]],
     target_class_index: None | int,
@@ -120,7 +123,7 @@ def _build_sql_case(
         )
         return line
     partition = typing.cast(_partition.Partition, extension)
-    branches = _node.display_branches(node, partition, best_first)
+    branches = _node.display_branches(node, partition, best_first, metrics)
     raw_name = _tree_text._resolve_feature_name(partition, feature_names)
     feature = _format_sql_identifier(raw_name)
     labels = _tree_text._feature_category_labels(partition, category_labels)
@@ -145,6 +148,7 @@ def _build_sql_case(
             sql_condition = f"{sql_condition} OR {feature} IS NULL"
         subexpression = _build_sql_case(
             child,
+            metrics,
             feature_names,
             category_labels,
             target_class_index,
