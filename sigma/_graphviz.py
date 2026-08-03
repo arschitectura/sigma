@@ -42,7 +42,7 @@ def _per_node_displayed_indices(
         return []
     if not isinstance(node, _node.RankingNode):
         return []
-    values = node.values
+    values = node.predicted_ranks
     valid_indices = numpy.flatnonzero(~numpy.isnan(values))
     if valid_indices.size == 0:
         return []

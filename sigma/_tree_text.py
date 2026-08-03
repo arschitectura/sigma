@@ -252,14 +252,16 @@ def _format_classification_prediction(
     formatter = prediction_formatter or (
         lambda v: _format_probability(v, precision)
     )
-    class_distribution = node.class_distribution
+    predicted_proba = node.predicted_proba
     ci_low = node.ci_low
     ci_high = node.ci_high
     parts: list[str] = []
-    for i in range(len(class_distribution)):
+    class_count = len(predicted_proba)
+    for i in range(class_count):
         raw = str(i) if class_names is None else class_names[i]
         name = _capitalize_first_letter(raw)
-        value_text = _bold(formatter(class_distribution[i]), bold_value)
+        formatted_value = formatter(predicted_proba[i])
+        value_text = _bold(formatted_value, bold_value)
         part = f"{name} proba. = {value_text}"
         if ci_low is not None and ci_high is not None:
             part += _format_ci_pair(
@@ -286,7 +288,8 @@ def _format_regression_prediction(
         label = "Predicted"
     else:
         label = _capitalize_first_letter(response_name)
-    value_text = _bold(formatter(node.prediction), bold_value)
+    formatted_value = formatter(node.predicted_mean)
+    value_text = _bold(formatted_value, bold_value)
     prediction_part = f"{label} mean = {value_text}"
     ci_low = node.ci_low
     ci_high = node.ci_high
@@ -311,7 +314,7 @@ def _format_survival_prediction(
     for index, metric in enumerate(metrics):
         line = _format_metric_line(
             metric,
-            node.values[index],
+            node.predicted_metrics[index],
             node.ci_low[index],
             node.ci_high[index],
             response_name,
@@ -340,7 +343,7 @@ def _format_ranking_prediction(
     for index in displayed_indices:
         line = _format_metric_line(
             metrics[index],
-            node.values[index],
+            node.predicted_ranks[index],
             node.ci_low[index],
             node.ci_high[index],
             None,
@@ -428,7 +431,8 @@ def _table_classification_prediction_headers(
 ) -> list[str]:
     """Headers for a classification node's prediction columns."""
     headers: list[str] = []
-    for i in range(len(node.class_distribution)):
+    class_count = len(node.predicted_proba)
+    for i in range(class_count):
         raw = str(i) if class_names is None else class_names[i]
         name = _capitalize_first_letter(raw)
         headers.append(f"{name} proba.")
@@ -513,12 +517,13 @@ def _table_classification_prediction_cells(
     formatter = prediction_formatter or (
         lambda v: _format_probability(v, precision)
     )
-    class_distribution = node.class_distribution
+    predicted_proba = node.predicted_proba
     ci_low = node.ci_low
     ci_high = node.ci_high
     cells: list[str] = []
-    for i in range(len(class_distribution)):
-        cell = formatter(class_distribution[i])
+    class_count = len(predicted_proba)
+    for i in range(class_count):
+        cell = formatter(predicted_proba[i])
         if ci_low is not None and ci_high is not None:
             cell += _format_ci_pair(
                 formatter, float(ci_low[i]), float(ci_high[i])
@@ -536,7 +541,7 @@ def _table_regression_prediction_cells(
 ) -> list[str]:
     """Cells for a regression node's prediction columns."""
     formatter = prediction_formatter or (lambda v: _format_value(v, precision))
-    cell = formatter(node.prediction)
+    cell = formatter(node.predicted_mean)
     ci_low = node.ci_low
     ci_high = node.ci_high
     if ci_low is not None and ci_high is not None:
@@ -556,7 +561,7 @@ def _table_survival_prediction_cells(
     for index, metric in enumerate(metrics):
         cell = _format_metric_cell(
             metric,
-            node.values[index],
+            node.predicted_metrics[index],
             node.ci_low[index],
             node.ci_high[index],
             prediction_formatter,
@@ -580,7 +585,7 @@ def _table_ranking_prediction_cells(
     for index in displayed_indices:
         cell = _format_metric_cell(
             metrics[index],
-            node.values[index],
+            node.predicted_ranks[index],
             node.ci_low[index],
             node.ci_high[index],
             prediction_formatter,

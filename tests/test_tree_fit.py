@@ -34,8 +34,8 @@ class TestRegressionTreeFit(unittest.TestCase):
         self.assertEqual(partition.thresholds[0], 20.0)
         left = typing.cast(sigma._node.RegressionNode, partition.children[0])
         right = typing.cast(sigma._node.RegressionNode, partition.children[1])
-        numpy.testing.assert_allclose(left.prediction, 0.0)
-        numpy.testing.assert_allclose(right.prediction, 10.0)
+        numpy.testing.assert_allclose(left.predicted_mean, 0.0)
+        numpy.testing.assert_allclose(right.predicted_mean, 10.0)
 
     def test_stump_max_depth_one(self):
         """Produces a stump with exactly two leaf children."""
@@ -70,7 +70,7 @@ class TestRegressionTreeFit(unittest.TestCase):
         )
         expected_mean = y.mean()
         numpy.testing.assert_allclose(
-            regression_tree.content_.prediction, expected_mean
+            regression_tree.content_.predicted_mean, expected_mean
         )
 
     def test_constant_response_returns_leaf(self):
@@ -84,7 +84,9 @@ class TestRegressionTreeFit(unittest.TestCase):
         assert isinstance(
             regression_tree.content_.extension, sigma._extension.Leaf
         )
-        numpy.testing.assert_allclose(regression_tree.content_.prediction, 5.0)
+        numpy.testing.assert_allclose(
+            regression_tree.content_.predicted_mean, 5.0
+        )
 
     def test_min_splits_prevents_split(self):
         """Returns a leaf when min_splits exceeds sample count."""

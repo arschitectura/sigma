@@ -33,8 +33,8 @@ class TestRegressionTreeCI(unittest.TestCase):
             self.assertIsNotNone(node.ci_low, f"node {index} ci_low")
             self.assertIsNotNone(node.ci_high, f"node {index} ci_high")
 
-    def test_ci_brackets_prediction(self):
-        """Verify ci_low <= prediction <= ci_high for every node."""
+    def test_ci_brackets_predicted_mean(self):
+        """Verify ci_low <= predicted_mean <= ci_high for every node."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
@@ -47,8 +47,8 @@ class TestRegressionTreeCI(unittest.TestCase):
             ci_high = node.ci_high
             assert ci_low is not None
             assert ci_high is not None
-            self.assertLessEqual(ci_low, node.prediction)
-            self.assertGreaterEqual(ci_high, node.prediction)
+            self.assertLessEqual(ci_low, node.predicted_mean)
+            self.assertGreaterEqual(ci_high, node.predicted_mean)
 
     def test_ci_coverage_none_disables_ci(self):
         """Verify ci_low and ci_high are None when ci_coverage is None."""
@@ -200,15 +200,16 @@ class TestClassificationTreeCI(unittest.TestCase):
         classification_tree.fit(X, y)
         nodes = _helpers._collect_nodes(classification_tree.content_)
         for node in nodes:
-            if node.class_distribution is None:
+            if node.predicted_proba is None:
                 continue
             ci_low = node.ci_low
             ci_high = node.ci_high
             assert ci_low is not None
             assert ci_high is not None
-            for k in range(len(node.class_distribution)):
-                self.assertLessEqual(ci_low[k], node.class_distribution[k])
-                self.assertGreaterEqual(ci_high[k], node.class_distribution[k])
+            n_classes = len(node.predicted_proba)
+            for k in range(n_classes):
+                self.assertLessEqual(ci_low[k], node.predicted_proba[k])
+                self.assertGreaterEqual(ci_high[k], node.predicted_proba[k])
 
     def test_per_class_ci_none_when_disabled(self):
         """Per-class CI fields are None when ci_coverage is None."""
@@ -417,8 +418,8 @@ class TestRegressionTreeCiMethod(unittest.TestCase):
         assert low_u is not None and high_u is not None
         self.assertGreater(high_u - low_u, high_e - low_e)
 
-    def test_fitted_tree_brackets_prediction_for_bracket_mean_methods(self):
-        """After fit, bracket-mean methods satisfy ci_low <= prediction <=
+    def test_fitted_tree_brackets_predicted_mean_for_bracket_mean_methods(self):
+        """After fit, bracket-mean methods satisfy ci_low <= predicted_mean <=
         ci_high.
         """
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
@@ -436,8 +437,8 @@ class TestRegressionTreeCiMethod(unittest.TestCase):
                 ci_low = node.ci_low
                 ci_high = node.ci_high
                 assert ci_low is not None and ci_high is not None
-                self.assertLessEqual(ci_low, node.prediction + 1e-12)
-                self.assertGreaterEqual(ci_high, node.prediction - 1e-12)
+                self.assertLessEqual(ci_low, node.predicted_mean + 1e-12)
+                self.assertGreaterEqual(ci_high, node.predicted_mean - 1e-12)
 
 
 class TestRegressionTreeBayesianBootstrapCi(unittest.TestCase):
@@ -509,7 +510,9 @@ class TestRegressionTreeBcaCi(unittest.TestCase):
         self.assertEqual(ci_high, 3.0)
 
     def test_bounds_finite_at_extreme_coverage(self):
-        """Adjusted percentiles stay in [0, 1] and CI bounds are finite at 99% coverage."""
+        """Adjusted percentiles stay in [0, 1] and CI bounds are finite at
+        99% coverage.
+        """
         rng = numpy.random.default_rng(11)
         y = numpy.exp(rng.standard_normal(30))
         weights = numpy.ones(30)
@@ -632,7 +635,9 @@ class TestRegressionTreeLogNormalCi(unittest.TestCase):
             regression_tree._compute_ci(y, weights, None)
 
     def test_uses_t_quantile_not_z(self):
-        """CI uses the Student-t quantile with df = n_eff - 1, not the standard normal."""
+        """CI uses the Student-t quantile with df = n_eff - 1, not the
+        standard normal.
+        """
         log_y = numpy.array([0.0, 0.5, 1.0, 0.2, -0.3, 0.8, -0.1, 0.4])
         y = numpy.exp(log_y)
         weights = numpy.ones(8)
@@ -682,7 +687,9 @@ class TestRegressionTreeLogNormalGciCi(unittest.TestCase):
         self.assertGreater(ci_high, 0.0)
 
     def test_brackets_cox_mean_estimate(self):
-        """Generalized CI brackets the log-normal mean MLE exp(mu + sigma^2 / 2)."""
+        """Generalized CI brackets the log-normal mean MLE
+        exp(mu + sigma^2 / 2).
+        """
         rng = numpy.random.default_rng(3)
         y = numpy.exp(rng.standard_normal(50))
         weights = numpy.ones(50)
@@ -863,7 +870,9 @@ class TestRegressionTreePoissonJeffreysCi(unittest.TestCase):
             regression_tree._compute_ci(y, weights, None)
 
     def test_shorter_than_garwood_at_moderate_rate(self):
-        """Jeffreys interval is strictly shorter than Garwood at lambda in [2, 4]."""
+        """Jeffreys interval is strictly shorter than Garwood at lambda in
+        [2, 4].
+        """
         rng = numpy.random.default_rng(11)
         y = rng.poisson(lam=3.0, size=10).astype(float)
         weights = numpy.ones(10)
@@ -1185,17 +1194,18 @@ class TestClassificationTreeCiMethod(unittest.TestCase):
             classification_tree.fit(X, y)
             nodes = _helpers._collect_nodes(classification_tree.content_)
             for node in nodes:
-                if node.class_distribution is None:
+                if node.predicted_proba is None:
                     continue
                 ci_low = node.ci_low
                 ci_high = node.ci_high
                 assert ci_low is not None and ci_high is not None
-                for k in range(len(node.class_distribution)):
+                n_classes = len(node.predicted_proba)
+                for k in range(n_classes):
                     self.assertLessEqual(
-                        ci_low[k], node.class_distribution[k] + 1e-12
+                        ci_low[k], node.predicted_proba[k] + 1e-12
                     )
                     self.assertGreaterEqual(
-                        ci_high[k], node.class_distribution[k] - 1e-12
+                        ci_high[k], node.predicted_proba[k] - 1e-12
                     )
 
     def test_mid_p_exact_is_narrower_than_clopper_pearson(self):
@@ -1262,7 +1272,9 @@ class TestClassificationTreeCiMethod(unittest.TestCase):
         self.assertLess(abs(cc_high - w_high), 1e-3)
 
     def test_newcombe_1998_table_i_reference_values(self):
-        """Wilson-CC and mid-p match Newcombe (1998) Table I across four (n, r)."""
+        """Wilson-CC and mid-p match Newcombe (1998) Table I across four
+        (n, r).
+        """
         alpha = 0.025
         cases = [
             (263, 81, (0.2535, 0.3682), (0.2544, 0.3658)),
@@ -1292,7 +1304,9 @@ class TestClassificationTreeCiMethod(unittest.TestCase):
             self.assertAlmostEqual(mid_high, m6_high, places=4)
 
     def test_agresti_coull_center_is_pseudo_proportion(self):
-        """Endpoint midpoint equals (w_k + z^2/2) / (w_total + z^2) when no clipping."""
+        """Endpoint midpoint equals (w_k + z^2/2) / (w_total + z^2) when no
+        clipping.
+        """
         alpha = 0.025
         z = float(scipy.stats.norm.ppf(1.0 - alpha))
         z_sq = z * z
@@ -1373,7 +1387,9 @@ class TestClassificationTreeCiMethod(unittest.TestCase):
         self.assertLess(abs(ac_high - w_high), 1e-3)
 
     def test_agresti_coull_explicit_formula_at_balanced_sample(self):
-        """At (w_k=50, w_total=100, alpha=0.025) endpoints match the closed form."""
+        """At (w_k=50, w_total=100, alpha=0.025) endpoints match the closed
+        form.
+        """
         alpha = 0.025
         w_k = 50.0
         w_total = 100.0

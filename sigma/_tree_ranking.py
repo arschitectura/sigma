@@ -355,10 +355,10 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                 or categorical columns.
         """
         indices = self.predict_index(X)
-        node_predictions = numpy.array(
-            [int(node.prediction) for node in self.nodes_]
+        node_item_indices = numpy.array(
+            [node.predicted_item_index for node in self.nodes_]
         )
-        favorite_indices = node_predictions[indices]
+        favorite_indices = node_item_indices[indices]
         predictions = self.item_names_[favorite_indices]
         return predictions
 
@@ -385,7 +385,9 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
                 or categorical columns.
         """
         indices = self.predict_index(X)
-        node_mean_ranks = numpy.array([node.values for node in self.nodes_])
+        node_mean_ranks = numpy.array(
+            [node.predicted_ranks for node in self.nodes_]
+        )
         predictions = node_mean_ranks[indices]
         return predictions
 
@@ -567,7 +569,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             n_samples=n_samples,
             share=0.0,
             decoration=None,
-            values=values,
+            predicted_ranks=values,
             ci_low=ci_low,
             ci_high=ci_high,
         )
@@ -634,7 +636,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         """Return the union of each leaf's top items by lowest expected rank."""
         union: set[int] = set()
         for leaf in self.leaves_:
-            values = leaf.values
+            values = leaf.predicted_ranks
             valid = ~numpy.isnan(values)
             valid_indices = numpy.flatnonzero(valid)
             if valid_indices.size == 0:

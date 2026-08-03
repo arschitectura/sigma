@@ -203,7 +203,7 @@ def _serialize_tree(tree, n_items: int, item_names, fit_seconds: float) -> dict:
         i = node.node_id
         depth[i] = node.depth
         n_samples[i] = node.n_samples
-        metric_value[i] = node.values
+        metric_value[i] = node.predicted_ranks
         metric_ci_low[i] = node.ci_low
         metric_ci_high[i] = node.ci_high
         match node.extension:

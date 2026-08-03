@@ -57,11 +57,11 @@ class TestRegressionTreePartykitEquivalence(unittest.TestCase):
         self.assertEqual(feature_columns[right_partition.feature_index], "Wind")
         leaves_by_n = {leaf.n_samples: leaf for leaf in estimator.leaves_}
         self.assertEqual(sorted(leaves_by_n.keys()), [7, 10, 21, 30, 48])
-        self.assertAlmostEqual(leaves_by_n[10].prediction, 55.600, places=3)
-        self.assertAlmostEqual(leaves_by_n[48].prediction, 18.479, places=3)
-        self.assertAlmostEqual(leaves_by_n[21].prediction, 31.143, places=3)
-        self.assertAlmostEqual(leaves_by_n[30].prediction, 81.633, places=3)
-        self.assertAlmostEqual(leaves_by_n[7].prediction, 48.714, places=3)
+        self.assertAlmostEqual(leaves_by_n[10].predicted_mean, 55.600, places=3)
+        self.assertAlmostEqual(leaves_by_n[48].predicted_mean, 18.479, places=3)
+        self.assertAlmostEqual(leaves_by_n[21].predicted_mean, 31.143, places=3)
+        self.assertAlmostEqual(leaves_by_n[30].predicted_mean, 81.633, places=3)
+        self.assertAlmostEqual(leaves_by_n[7].predicted_mean, 48.714, places=3)
 
 
 class TestClassificationTreePartykitEquivalence(unittest.TestCase):
@@ -100,22 +100,22 @@ class TestClassificationTreePartykitEquivalence(unittest.TestCase):
         leaves_by_n = {leaf.n_samples: leaf for leaf in estimator.leaves_}
         self.assertEqual(sorted(leaves_by_n.keys()), [8, 44, 65, 79])
         numpy.testing.assert_allclose(
-            leaves_by_n[79].class_distribution,
+            leaves_by_n[79].predicted_proba,
             numpy.array([74.0 / 79.0, 5.0 / 79.0]),
             atol=1e-6,
         )
         numpy.testing.assert_allclose(
-            leaves_by_n[8].class_distribution,
+            leaves_by_n[8].predicted_proba,
             numpy.array([1.0 / 8.0, 7.0 / 8.0]),
             atol=1e-6,
         )
         numpy.testing.assert_allclose(
-            leaves_by_n[65].class_distribution,
+            leaves_by_n[65].predicted_proba,
             numpy.array([6.0 / 65.0, 59.0 / 65.0]),
             atol=1e-6,
         )
         numpy.testing.assert_allclose(
-            leaves_by_n[44].class_distribution,
+            leaves_by_n[44].predicted_proba,
             numpy.array([17.0 / 44.0, 27.0 / 44.0]),
             atol=1e-6,
         )

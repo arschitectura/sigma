@@ -12,14 +12,14 @@ import sigma._node
 import sigma._partition
 
 
-def _leaf(prediction: float) -> sigma._node.RegressionNode:
-    """Build a regression leaf with the given prediction."""
+def _leaf(predicted_mean: float) -> sigma._node.RegressionNode:
+    """Build a regression leaf with the given predicted mean."""
     leaf = sigma._node.RegressionNode(
         depth=1,
         n_samples=10,
         share=0.0,
         decoration=None,
-        prediction=prediction,
+        predicted_mean=predicted_mean,
         ci_low=None,
         ci_high=None,
         response_samples=numpy.empty(0, dtype=float),
@@ -34,7 +34,7 @@ def _root(extension) -> sigma._node.RegressionNode:
         n_samples=20,
         share=1.0,
         decoration=None,
-        prediction=0.0,
+        predicted_mean=0.0,
         ci_low=None,
         ci_high=None,
         response_samples=numpy.empty(0, dtype=float),

@@ -210,7 +210,7 @@ class TestRankingTreeFit(unittest.TestCase):
         tree.fit(X, y)
         self.assertGreaterEqual(len(tree.leaves_), 2)
         leaf_predictions = sorted(
-            {int(leaf.prediction) for leaf in tree.leaves_}
+            {leaf.predicted_item_index for leaf in tree.leaves_}
         )
         self.assertIn(0, leaf_predictions)
         self.assertIn(3, leaf_predictions)
@@ -335,7 +335,7 @@ class TestRankingTreeFit(unittest.TestCase):
         tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         self.assertGreaterEqual(len(tree.leaves_), 2)
-        leaf_predictions = {int(leaf.prediction) for leaf in tree.leaves_}
+        leaf_predictions = {leaf.predicted_item_index for leaf in tree.leaves_}
         self.assertEqual(leaf_predictions, {0, 1})
 
     def test_ci_coverage_none_disables_per_item_ci(self):
@@ -426,7 +426,7 @@ class TestRankingTreeFit(unittest.TestCase):
         )
 
     def test_per_node_metrics_cover_full_catalogue(self):
-        """node.values has length equal to the full catalogue, not M+1."""
+        """predicted_ranks has length equal to the full catalogue, not M+1."""
         rng = numpy.random.default_rng(12)
         n_samples = 200
         n_items = 30
@@ -443,7 +443,7 @@ class TestRankingTreeFit(unittest.TestCase):
         tree.fit(X, y)
         self.assertEqual(len(tree.metrics_), n_items)
         for node in tree.nodes_:
-            self.assertEqual(len(node.values), n_items)
+            self.assertEqual(len(node.predicted_ranks), n_items)
 
     def test_leaf_metric_values_lie_in_rank_interval(self):
         """Every leaf value falls in [1, n_items_] (PL expected rank)."""
@@ -460,7 +460,7 @@ class TestRankingTreeFit(unittest.TestCase):
         tree = sigma.RankingTree(random_state=0, ci_replicates=5)
         tree.fit(X, y)
         for leaf in tree.leaves_:
-            for value in leaf.values:
+            for value in leaf.predicted_ranks:
                 self.assertGreaterEqual(value, 1.0 - 1.0e-9)
                 self.assertLessEqual(value, n_items + 1.0e-9)
 
@@ -522,9 +522,9 @@ class TestTopDisplayedItems(unittest.TestCase):
         tree = self._build_two_leaf_tree([0, 1, 2], [7, 8, 9])
         union = set(tree._compute_displayed_indices(3))
         for leaf in tree.leaves_:
-            leaf_top = set(
-                numpy.argsort(leaf.values, kind="stable")[:3].tolist()
-            )
+            order = numpy.argsort(leaf.predicted_ranks, kind="stable")
+            top_indices = order[:3].tolist()
+            leaf_top = set(top_indices)
             self.assertTrue(leaf_top.issubset(union))
 
     def test_top_displayed_items_rejected_for_non_ranking_trees(self):

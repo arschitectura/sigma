@@ -80,7 +80,8 @@ class ClassificationTree(
 
     Attributes:
         content_: Root node of the fitted tree structure.
-        leaves_: List of leaf nodes, ordered by ascending prediction value.
+        leaves_: List of leaf nodes, ordered by descending class shares,
+            compared class by class in classes_ order.
         nodes_: List of all nodes in pre-order DFS, ordered by node_id.
             Indices match the output of predict_index.
         classes_: Unique class labels, shape (n_classes,).
@@ -240,7 +241,7 @@ class ClassificationTree(
         prediction = self._compute_prediction(
             y_transmuted, w_transmuted, offset_transmuted
         )
-        class_distribution = self._compute_class_distribution(
+        predicted_proba = self._compute_predicted_proba(
             y_transmuted, w_transmuted
         )
         ci_low, ci_high = self._compute_per_class_ci(y_transmuted, w_transmuted)
@@ -253,8 +254,8 @@ class ClassificationTree(
             n_samples=n_samples,
             share=0.0,
             decoration=None,
-            prediction=prediction_index,
-            class_distribution=class_distribution,
+            predicted_class_index=prediction_index,
+            predicted_proba=predicted_proba,
             ci_low=ci_low,
             ci_high=ci_high,
             mean_offset_proba=mean_offset_proba,
@@ -390,7 +391,7 @@ class ClassificationTree(
             ci_high[k] = high_k
         return ci_low, ci_high
 
-    def _compute_class_distribution(
+    def _compute_predicted_proba(
         self,
         y: numpy.typing.NDArray[numpy.floating],
         weights: numpy.typing.NDArray[numpy.floating],
@@ -432,7 +433,7 @@ class ClassificationTree(
         if offset is None and not self._fit_with_offset:
             node_indices = self.predict_index(X)
             class_indices = numpy.array(
-                [int(node.prediction) for node in self.nodes_]
+                [node.predicted_class_index for node in self.nodes_]
             )
             predictions = self.classes_[class_indices[node_indices]]
             return predictions
@@ -469,7 +470,7 @@ class ClassificationTree(
         node_indices = self.predict_index(X)
         nodes = self.nodes_
         all_distributions = numpy.array(
-            [node.class_distribution for node in nodes]
+            [node.predicted_proba for node in nodes]
         )
         node_p = all_distributions[node_indices]
         n_pred = len(node_indices)
@@ -644,7 +645,7 @@ def _compute_class_ci_wilson_cc(
     w_total: float,
     alpha: float,
 ) -> tuple[float, float]:
-    """Continuity-corrected Wilson score interval for a single class proportion."""
+    """Continuity-corrected Wilson score interval for a class proportion."""
     z = float(scipy.stats.norm.ppf(1.0 - alpha))
     z_sq = z * z
     p_hat = w_k / w_total

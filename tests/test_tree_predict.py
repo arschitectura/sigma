@@ -488,7 +488,7 @@ class TestRegressionTreePredictIndex(unittest.TestCase):
         regression_tree.fit(X, y)
         indices = regression_tree.predict_index(X)
         from_index = numpy.array(
-            [regression_tree.nodes_[i].prediction for i in indices]
+            [regression_tree.nodes_[i].predicted_mean for i in indices]
         )
         from_predict = regression_tree.predict(X)
         numpy.testing.assert_allclose(from_index, from_predict)
@@ -541,7 +541,10 @@ class TestClassificationTreePredictIndex(unittest.TestCase):
         classification_tree.fit(X, y)
         indices = classification_tree.predict_index(X)
         class_indices = numpy.array(
-            [int(classification_tree.nodes_[i].prediction) for i in indices]
+            [
+                classification_tree.nodes_[i].predicted_class_index
+                for i in indices
+            ]
         )
         from_index = classification_tree.classes_[class_indices]
         from_predict = classification_tree.predict(X)
@@ -557,7 +560,7 @@ class TestClassificationTreePredictIndex(unittest.TestCase):
         classification_tree.fit(X, y)
         indices = classification_tree.predict_index(X)
         from_index = numpy.array(
-            [classification_tree.nodes_[i].class_distribution for i in indices]
+            [classification_tree.nodes_[i].predicted_proba for i in indices]
         )
         from_proba = classification_tree.predict_proba(X)
         numpy.testing.assert_allclose(from_index, from_proba)
@@ -654,9 +657,11 @@ class TestLeafId(unittest.TestCase):
             reverse_order=True,
         )
         reversed_tree.fit(X, y)
-        natural_predictions = [leaf.prediction for leaf in natural_tree.leaves_]
+        natural_predictions = [
+            leaf.predicted_mean for leaf in natural_tree.leaves_
+        ]
         reversed_predictions = [
-            leaf.prediction for leaf in reversed_tree.leaves_
+            leaf.predicted_mean for leaf in reversed_tree.leaves_
         ]
         self.assertEqual(
             reversed_predictions, list(reversed(natural_predictions))
@@ -869,15 +874,15 @@ class TestRegressionTreeLeaves(unittest.TestCase):
         total_share = sum(leaf.share for leaf in regression_tree.leaves_)
         numpy.testing.assert_allclose(total_share, 1.0)
 
-    def test_ordered_by_prediction(self):
-        """Leaves are sorted by ascending prediction value."""
+    def test_ordered_by_predicted_mean(self):
+        """Leaves are sorted by ascending predicted mean."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
             correlation="normal", min_splits=2, min_buckets=1
         )
         regression_tree.fit(X, y)
-        predictions = [leaf.prediction for leaf in regression_tree.leaves_]
+        predictions = [leaf.predicted_mean for leaf in regression_tree.leaves_]
         self.assertEqual(predictions, sorted(predictions))
 
     def test_n_samples_sum_equals_total(self):
@@ -928,7 +933,8 @@ class TestRegressionTreeLeaves(unittest.TestCase):
         regression_tree.fit(X, y)
         for leaf in regression_tree.leaves_:
             self.assertIsInstance(leaf, sigma._node.RegressionNode)
-            self.assertFalse(hasattr(leaf, "class_distribution"))
+            has_predicted_proba = hasattr(leaf, "predicted_proba")
+            self.assertFalse(has_predicted_proba)
 
 
 class TestClassificationTreeLeaves(unittest.TestCase):
@@ -962,8 +968,8 @@ class TestClassificationTreeLeaves(unittest.TestCase):
         total_share = sum(leaf.share for leaf in classification_tree.leaves_)
         numpy.testing.assert_allclose(total_share, 1.0)
 
-    def test_leaves_have_class_distribution(self):
-        """Classification leaves include a class distribution array."""
+    def test_leaves_have_predicted_proba(self):
+        """Classification leaves include a predicted_proba array."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
         classification_tree = sigma._tree_classification.ClassificationTree(
@@ -971,8 +977,8 @@ class TestClassificationTreeLeaves(unittest.TestCase):
         )
         classification_tree.fit(X, y)
         for leaf in classification_tree.leaves_:
-            self.assertIsNotNone(leaf.class_distribution)
-            distribution = leaf.class_distribution
+            self.assertIsNotNone(leaf.predicted_proba)
+            distribution = leaf.predicted_proba
             if distribution is None:
                 continue
             dist_sum = distribution.sum()
@@ -1060,7 +1066,9 @@ class TestPredictFallbackOnUnknownCategorical(unittest.TestCase):
         X_new = numpy.array([[2.0]])
         predictions = tree.predict(X_new)
         self.assertEqual(predictions.shape, (1,))
-        self.assertAlmostEqual(float(predictions[0]), tree.content_.prediction)
+        self.assertAlmostEqual(
+            float(predictions[0]), tree.content_.predicted_mean
+        )
 
     def test_regression_predict_index_returns_holding_node_id(self):
         """RegressionTree.predict_index returns the holding node id for an unseen category."""
@@ -1077,11 +1085,9 @@ class TestPredictFallbackOnUnknownCategorical(unittest.TestCase):
         )
         X_new = numpy.array([[2.0]])
         proba = tree.predict_proba(X_new)
-        numpy.testing.assert_allclose(
-            proba[0], tree.content_.class_distribution
-        )
+        numpy.testing.assert_allclose(proba[0], tree.content_.predicted_proba)
         predictions = tree.predict(X_new)
-        expected = tree.classes_[int(tree.content_.prediction)]
+        expected = tree.classes_[tree.content_.predicted_class_index]
         self.assertEqual(predictions[0], expected)
 
     def test_survival_predict_uses_holding_node(self):
@@ -1093,4 +1099,6 @@ class TestPredictFallbackOnUnknownCategorical(unittest.TestCase):
         X_new = numpy.array([[2.0]])
         predictions = tree.predict(X_new)
         self.assertEqual(predictions.shape, (1,))
-        self.assertAlmostEqual(float(predictions[0]), tree.content_.prediction)
+        self.assertAlmostEqual(
+            float(predictions[0]), tree.content_.predicted_metrics[0]
+        )

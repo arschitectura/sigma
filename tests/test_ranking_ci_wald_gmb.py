@@ -330,7 +330,7 @@ class TestAllFourMethodsOnSushiSubset(unittest.TestCase):
         for metric in tree.metrics_:
             self.assertTrue(metric.has_ci)
         for node in tree.nodes_:
-            for index, value in enumerate(node.values):
+            for index, value in enumerate(node.predicted_ranks):
                 ci_low = node.ci_low[index]
                 ci_high = node.ci_high[index]
                 self.assertTrue(numpy.isfinite(value))

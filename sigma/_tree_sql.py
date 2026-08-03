@@ -22,7 +22,8 @@ def _collect_sql(
     max_depth: None | int,
     best_first: bool,
 ) -> str:
-    """Build the expectations comment and SQL CASE expression for the tree rooted at root."""
+    """Build the expectations comment and SQL CASE expression for the tree
+    rooted at root."""
     body = _build_sql_case(
         root,
         metrics,
@@ -172,7 +173,8 @@ def _format_leaf_line(
     indent_level: int,
     is_truncated: bool,
 ) -> str:
-    """Render a single leaf (or truncated subtree) line with trailing comment."""
+    """Render a single leaf (or truncated subtree) line with trailing
+    comment."""
     indent = "    " * indent_level
     value = _leaf_numeric_value(node, target_class_index)
     value_literal = _format_sql_numeric_literal(value)
@@ -197,10 +199,10 @@ def _leaf_numeric_value(
                 "target_class_index must be resolved before rendering a"
                 " classification leaf"
             )
-        value = float(node.class_distribution[target_class_index])
+        value = float(node.predicted_proba[target_class_index])
         return value
     if isinstance(node, _node.SurvivalNode):
-        value = float(node.prediction)
+        value = float(node.predicted_metrics[0])
         return value
     if isinstance(node, _node.RankingNode):
         raise NotImplementedError(
@@ -209,7 +211,7 @@ def _leaf_numeric_value(
             " predicted at each leaf."
         )
     regression_node = typing.cast(_node.RegressionNode, node)
-    value = float(regression_node.prediction)
+    value = regression_node.predicted_mean
     return value
 
 
@@ -298,7 +300,8 @@ def _format_sql_subset_condition(
 
 
 def _format_sql_identifier(name: str) -> str:
-    """Quote name as a SQL-92 double-quoted identifier with embedded escaping."""
+    """Quote name as a SQL-92 double-quoted identifier with embedded
+    escaping."""
     escaped = name.replace('"', '""')
     quoted = f'"{escaped}"'
     return quoted

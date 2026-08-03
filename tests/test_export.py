@@ -472,7 +472,7 @@ class TestExportGraphviz(unittest.TestCase):
         assert isinstance(natural_partition, sigma.Partition)
         natural_left = natural_partition.children[0]
         natural_right = natural_partition.children[1]
-        if natural_left.prediction <= natural_right.prediction:
+        if natural_left.predicted_mean <= natural_right.predicted_mean:
             natural_smaller_child = natural_left
             natural_larger_child = natural_right
         else:
@@ -488,7 +488,7 @@ class TestExportGraphviz(unittest.TestCase):
         assert isinstance(reversed_partition, sigma.Partition)
         reversed_left = reversed_partition.children[0]
         reversed_right = reversed_partition.children[1]
-        if reversed_left.prediction <= reversed_right.prediction:
+        if reversed_left.predicted_mean <= reversed_right.predicted_mean:
             reversed_smaller_child = reversed_left
             reversed_larger_child = reversed_right
         else:
@@ -1789,7 +1789,7 @@ class TestExportSql(unittest.TestCase):
         """A categorical split's ELSE emits the internal node's prediction."""
         regression_tree = _helpers._fit_categorical_regression_tree()
         result = sigma.export_sql(regression_tree)
-        root_prediction = regression_tree.content_.prediction
+        root_prediction = regression_tree.content_.predicted_mean
         expected_literal = repr(float(root_prediction))
         self.assertIn(f"ELSE {expected_literal}", result)
         self.assertNotIn("ELSE NULL", result)
@@ -1971,21 +1971,23 @@ class TestExportSql(unittest.TestCase):
             sigma.export_sql(regression_tree, bad_out_file)
 
     def test_export_sql_classification_default_target_class_last(self):
-        """Default target_class=None emits class_distribution[-1] per leaf."""
+        """Default target_class=None emits predicted_proba[-1] per leaf."""
         classification_tree = _helpers._fit_step_classification_tree()
         result = classification_tree.to_sql()
         last_class_index = len(classification_tree.classes_) - 1
         for leaf in classification_tree.leaves_:
-            expected = repr(float(leaf.class_distribution[last_class_index]))
+            probability = float(leaf.predicted_proba[last_class_index])
+            expected = repr(probability)
             self.assertIn(expected, result)
 
     def test_export_sql_classification_explicit_target_class(self):
-        """target_class=<first class> emits class_distribution[0] per leaf."""
+        """target_class=<first class> emits predicted_proba[0] per leaf."""
         classification_tree = _helpers._fit_step_classification_tree()
         first_class = classification_tree.classes_[0]
         result = classification_tree.to_sql(target_class=first_class)
         for leaf in classification_tree.leaves_:
-            expected = repr(float(leaf.class_distribution[0]))
+            probability = float(leaf.predicted_proba[0])
+            expected = repr(probability)
             self.assertIn(expected, result)
 
     def test_export_sql_classification_string_target_class_resolves(self):
@@ -1999,7 +2001,8 @@ class TestExportSql(unittest.TestCase):
         low_index = list(classification_tree.classes_).index("low")
         result = classification_tree.to_sql(target_class="low")
         for leaf in classification_tree.leaves_:
-            expected = repr(float(leaf.class_distribution[low_index]))
+            probability = float(leaf.predicted_proba[low_index])
+            expected = repr(probability)
             self.assertIn(expected, result)
 
     def test_export_sql_target_class_for_regression_raises(self):
@@ -2034,11 +2037,11 @@ class TestExportSql(unittest.TestCase):
         self.assertIn("-- Leaf 1", result)
 
     def test_export_sql_survival_renders_first_metric_value(self):
-        """A SurvivalTree emits node.prediction (first metric) at each leaf."""
+        """A SurvivalTree emits node.predicted_metrics[0] at each leaf."""
         survival_tree = _helpers._fit_step_survival_tree()
         result = survival_tree.to_sql()
         for leaf in survival_tree.leaves_:
-            expected = _format_sql_numeric(leaf.prediction)
+            expected = _format_sql_numeric(leaf.predicted_metrics[0])
             self.assertIn(expected, result)
 
     def test_export_sql_survival_undefined_median_matches_predict(self):
@@ -2083,7 +2086,7 @@ class TestExportSql(unittest.TestCase):
         """A non-finite leaf prediction renders as the bare NULL keyword."""
         regression_tree = _helpers._fit_step_regression_tree()
         first_leaf = regression_tree.leaves_[0]
-        first_leaf._prediction = float("nan")
+        first_leaf.predicted_mean = float("nan")
         result = regression_tree.to_sql()
         self.assertIn("NULL -- Leaf 1", result)
 

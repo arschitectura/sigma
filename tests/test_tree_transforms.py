@@ -152,7 +152,7 @@ class TestTransmuterClassificationTree(unittest.TestCase):
 
     __slots__ = ()
 
-    def test_transmuter_flips_class_distribution(self):
+    def test_transmuter_flips_predicted_proba(self):
         """Transmuter that flips labels reverses class distributions."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 1.0)
@@ -177,8 +177,8 @@ class TestTransmuterClassificationTree(unittest.TestCase):
         right = typing.cast(
             sigma._node.ClassificationNode, partition.children[1]
         )
-        numpy.testing.assert_allclose(left.class_distribution[1], 1.0)
-        numpy.testing.assert_allclose(right.class_distribution[0], 1.0)
+        numpy.testing.assert_allclose(left.predicted_proba[1], 1.0)
+        numpy.testing.assert_allclose(right.predicted_proba[0], 1.0)
 
     def test_transmuter_identity_matches_no_transmuter(self):
         """Identity transmuter produces the same predictions."""
@@ -212,8 +212,8 @@ class TestTransmuterInternalNodes(unittest.TestCase):
 
     __slots__ = ()
 
-    def test_internal_node_prediction_uses_transmuted_data(self):
-        """Internal node prediction reflects the transmuted y values."""
+    def test_internal_node_predicted_mean_uses_transmuted_data(self):
+        """Internal node predicted_mean reflects the transmuted y values."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
 
@@ -235,11 +235,11 @@ class TestTransmuterInternalNodes(unittest.TestCase):
         )
         expected_root_mean = numpy.mean(y) + 5.0
         self.assertAlmostEqual(
-            regression_tree.content_.prediction, expected_root_mean
+            regression_tree.content_.predicted_mean, expected_root_mean
         )
 
     def test_internal_node_without_transmuter_uses_raw_data(self):
-        """Internal node prediction uses raw y when no transmuter."""
+        """Internal node predicted_mean uses raw y when no transmuter."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         regression_tree = sigma._tree_regression.RegressionTree(
@@ -254,7 +254,7 @@ class TestTransmuterInternalNodes(unittest.TestCase):
         )
         expected_root_mean = numpy.mean(y)
         self.assertAlmostEqual(
-            regression_tree.content_.prediction, expected_root_mean
+            regression_tree.content_.predicted_mean, expected_root_mean
         )
 
     def test_classification_tree_internal_node_uses_transmuted_data(self):
@@ -277,9 +277,9 @@ class TestTransmuterInternalNodes(unittest.TestCase):
         assert isinstance(
             classification_tree.content_.extension, sigma._partition.Partition
         )
-        root_dist = classification_tree.content_.class_distribution
+        root_dist = classification_tree.content_.predicted_proba
         if root_dist is None:
-            raise AssertionError("expected non-None class_distribution")
+            raise AssertionError("expected non-None predicted_proba")
         numpy.testing.assert_allclose(root_dist[0], 0.5)
         numpy.testing.assert_allclose(root_dist[1], 0.5)
 
@@ -515,7 +515,7 @@ class TestRegressionTreeOffset(unittest.TestCase):
         offset_new = numpy.full(3, 100.0)
         predictions = tree.predict(X[:3], offset=offset_new)
         node_values = numpy.array(
-            [tree.nodes_[i].prediction for i in tree.predict_index(X[:3])]
+            [tree.nodes_[i].predicted_mean for i in tree.predict_index(X[:3])]
         )
         numpy.testing.assert_allclose(predictions, node_values + 100.0)
 
@@ -528,7 +528,7 @@ class TestRegressionTreeOffset(unittest.TestCase):
         )
         tree.fit(X, y, offset=baseline)
         node_values = numpy.array(
-            [tree.nodes_[i].prediction for i in tree.predict_index(X)]
+            [tree.nodes_[i].predicted_mean for i in tree.predict_index(X)]
         )
         numpy.testing.assert_array_equal(tree.predict(X), node_values)
 
@@ -617,8 +617,9 @@ class TestClassificationTreeOffset(unittest.TestCase):
         tree.fit(X, y, offset=uniform)
         uniform_new = numpy.full((len(y), 2), 0.5)
         proba = tree.predict_proba(X, offset=uniform_new)
+        leaf_indices = tree.predict_index(X)
         empirical = numpy.array(
-            [tree.nodes_[i].class_distribution for i in tree.predict_index(X)]
+            [tree.nodes_[i].predicted_proba for i in leaf_indices]
         )
         numpy.testing.assert_allclose(proba, empirical, atol=1e-9)
 
@@ -683,8 +684,8 @@ class TestClassificationTreeOffset(unittest.TestCase):
             assert leaf.mean_offset_proba is not None
             numpy.testing.assert_allclose(leaf.mean_offset_proba.sum(), 1.0)
 
-    def test_class_distribution_unchanged_with_offset(self):
-        """class_distribution remains the empirical leaf class frequency."""
+    def test_predicted_proba_unchanged_with_offset(self):
+        """predicted_proba remains the empirical leaf class frequency."""
         X, y = _helpers._step_X_y_classification()
         offset = numpy.full((len(y), 2), 0.5)
         offset[:20, 0] = 0.7
@@ -694,8 +695,9 @@ class TestClassificationTreeOffset(unittest.TestCase):
         )
         tree.fit(X, y, offset=offset)
         for leaf in tree.leaves_:
-            assert leaf.class_distribution is not None
-            numpy.testing.assert_allclose(leaf.class_distribution.sum(), 1.0)
+            assert leaf.predicted_proba is not None
+            proba_sum = leaf.predicted_proba.sum()
+            numpy.testing.assert_allclose(proba_sum, 1.0)
 
     def test_offset_passed_to_transmuter(self):
         """The transmuter receives the active subset of the offset matrix."""
@@ -973,7 +975,7 @@ class TestBiasedSubspaceOffset(unittest.TestCase):
         assert isinstance(tree.content_.extension, sigma._partition.Partition)
         split_features = _helpers._collect_split_features(tree.content_)
         self.assertSetEqual(split_features, {0, 1})
-        leaf_predictions = sorted(leaf.prediction for leaf in tree.leaves_)
+        leaf_predictions = sorted(leaf.predicted_mean for leaf in tree.leaves_)
         self.assertAlmostEqual(leaf_predictions[0], -5.0, places=6)
         for leaf_value in leaf_predictions[1:]:
             self.assertAlmostEqual(leaf_value, 0.0, places=6)
@@ -1038,8 +1040,9 @@ class TestPostTransmutationConsistency(unittest.TestCase):
 
     __slots__ = ()
 
-    def test_regression_prediction_uses_transmuted_offset(self):
-        """RegressionTree leaf prediction equals weighted mean of transmuted residuals."""
+    def test_regression_predicted_mean_uses_transmuted_offset(self):
+        """RegressionTree leaf predicted_mean equals the weighted mean of
+        the transmuted residuals."""
         rng = numpy.random.default_rng(0)
         n = 200
         X = rng.normal(size=(n, 1))
@@ -1059,8 +1062,8 @@ class TestPostTransmutationConsistency(unittest.TestCase):
         )
         tree.fit(X, y, offset=offset)
         leaf = tree.leaves_[0]
-        self.assertIsInstance(leaf.prediction, float)
-        self.assertTrue(numpy.isfinite(leaf.prediction))
+        self.assertIsInstance(leaf.predicted_mean, float)
+        self.assertTrue(numpy.isfinite(leaf.predicted_mean))
 
     def test_classification_mean_offset_uses_transmuted_offset(self):
         """ClassificationTree leaf.mean_offset_proba reflects the transmuted offset."""

@@ -107,7 +107,7 @@ class RegressionTree(
 
     Attributes:
         content_: Root node of the fitted tree structure.
-        leaves_: List of leaf nodes, ordered by ascending prediction value.
+        leaves_: List of leaf nodes, ordered by ascending predicted mean.
         nodes_: List of all nodes in pre-order DFS, ordered by node_id.
             Indices match the output of predict_index.
         n_features_in_: Number of features seen during fit.
@@ -244,8 +244,9 @@ class RegressionTree(
         offset_transmuted: None | numpy.typing.NDArray[numpy.floating],
         is_leaf: bool,
     ) -> _node.RegressionNode:
-        """Build a RegressionNode with its prediction, CI, and leaf samples."""
-        prediction = self._compute_prediction(
+        """Build a RegressionNode with its predicted mean, CI, and leaf
+        samples."""
+        predicted_mean = self._compute_prediction(
             y_transmuted, w_transmuted, offset_transmuted
         )
         ci_low, ci_high = self._compute_ci(
@@ -262,7 +263,7 @@ class RegressionTree(
             n_samples=n_samples,
             share=0.0,
             decoration=None,
-            prediction=prediction,
+            predicted_mean=predicted_mean,
             ci_low=ci_low,
             ci_high=ci_high,
             response_samples=response_samples,
@@ -716,7 +717,8 @@ class RegressionTree(
                 or categorical columns.
         """
         indices = self.predict_index(X)
-        base = self._gather_node_predictions(indices)
+        node_means = numpy.array([node.predicted_mean for node in self.nodes_])
+        base = node_means[indices]
         if offset is None:
             return base
         offset_new = self._validate_predict_offset(offset, len(base))

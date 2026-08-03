@@ -115,9 +115,9 @@ def _assert_same_tree_shape(test_case, tree_a, tree_b):
 
 
 def _assert_same_metrics(test_case, tree_a, tree_b):
-    """Compare per-node ranking values and bounds across two fitted RankingTrees."""
+    """Compare per-node predicted_ranks and bounds across two RankingTrees."""
     for node_a, node_b in zip(tree_a.nodes_, tree_b.nodes_):
-        for field in ("values", "ci_low", "ci_high"):
+        for field in ("predicted_ranks", "ci_low", "ci_high"):
             arr_a = getattr(node_a, field)
             arr_b = getattr(node_b, field)
             numpy.testing.assert_allclose(
@@ -331,13 +331,13 @@ class TestMovieLensEndToEndEquivalence(unittest.TestCase):
         self.assertEqual(actual_leaf_ids, ref_leaf_ids)
 
     def _assert_metric_arrays_match_reference(self, tree, reference):
-        """Compare per-node (value, ci_low, ci_high) arrays at rtol=1e-9."""
+        """Compare node predicted_ranks, ci_low and ci_high at rtol=1e-9."""
         ref_value = reference["metric_value"]
         ref_ci_low = reference["metric_ci_low"]
         ref_ci_high = reference["metric_ci_high"]
         for node in tree.nodes_:
             node_id = node.node_id
-            actual_value = node.values
+            actual_value = node.predicted_ranks
             actual_ci_low = node.ci_low
             actual_ci_high = node.ci_high
             numpy.testing.assert_allclose(

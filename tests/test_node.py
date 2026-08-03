@@ -11,14 +11,14 @@ import sigma._node
 import sigma._partition
 
 
-def _leaf_regression(prediction: float) -> sigma._node.RegressionNode:
-    """Build a regression leaf with the given prediction."""
+def _leaf_regression(predicted_mean: float) -> sigma._node.RegressionNode:
+    """Build a regression leaf with the given predicted mean."""
     leaf = sigma._node.RegressionNode(
         depth=1,
         n_samples=10,
         share=0.0,
         decoration=None,
-        prediction=prediction,
+        predicted_mean=predicted_mean,
         ci_low=None,
         ci_high=None,
         response_samples=numpy.empty(0, dtype=float),
@@ -33,14 +33,17 @@ def _survival_node(
 ) -> sigma._node.SurvivalNode:
     """Build a survival leaf carrying the given per-metric values and bounds."""
     undefined = [numpy.nan] * len(values)
+    times = numpy.array([1.0])
+    survival = numpy.array([1.0])
+    metric_values = numpy.array(values, dtype=float)
     node = sigma._node.SurvivalNode(
         depth=0,
         n_samples=10,
         share=1.0,
         decoration=None,
-        survival_function=(numpy.array([1.0]), numpy.array([1.0])),
+        predicted_survival=(times, survival),
         survival_log_variance=numpy.zeros(1, dtype=float),
-        values=numpy.array(values, dtype=float),
+        predicted_metrics=metric_values,
         ci_low=numpy.array(ci_low or undefined, dtype=float),
         ci_high=numpy.array(ci_high or undefined, dtype=float),
     )
@@ -65,7 +68,7 @@ def _numeric_partition(left, right) -> sigma._partition.NumericalPartition:
 
 
 def _regression_root(
-    extension, prediction, n_samples, share=1.0
+    extension, predicted_mean, n_samples, share=1.0
 ) -> sigma._node.RegressionNode:
     """Build a depth-0 regression root carrying the given extension."""
     root = sigma._node.RegressionNode(
@@ -73,7 +76,7 @@ def _regression_root(
         n_samples=n_samples,
         share=share,
         decoration=None,
-        prediction=prediction,
+        predicted_mean=predicted_mean,
         ci_low=None,
         ci_high=None,
         response_samples=numpy.empty(0, dtype=float),
@@ -92,26 +95,27 @@ class TestRegressionNode(unittest.TestCase):
         leaf = _leaf_regression(3.5)
         self.assertIsInstance(leaf.extension, sigma._extension.Leaf)
 
-    def test_stores_prediction_and_ci(self):
-        """RegressionNode stores prediction and the scalar CI bounds."""
+    def test_stores_predicted_mean_and_ci(self):
+        """RegressionNode stores predicted_mean and the scalar CI bounds."""
         leaf = sigma._node.RegressionNode(
             depth=2,
             n_samples=42,
             share=0.42,
             decoration=None,
-            prediction=7.0,
+            predicted_mean=7.0,
             ci_low=6.0,
             ci_high=8.0,
             response_samples=numpy.empty(0, dtype=float),
         )
-        self.assertEqual(leaf.prediction, 7.0)
+        self.assertEqual(leaf.predicted_mean, 7.0)
         self.assertEqual(leaf.ci_low, 6.0)
         self.assertEqual(leaf.ci_high, 8.0)
         self.assertEqual(leaf.n_samples, 42)
         self.assertAlmostEqual(leaf.share, 0.42)
 
     def test_leaf_sort_key_orders_ascending(self):
-        """RegressionNode.leaf_sort_key returns (prediction,) for ascending sort."""
+        """RegressionNode.leaf_sort_key returns (predicted_mean,) for
+        ascending sort."""
         low = _leaf_regression(1.0)
         high = _leaf_regression(5.0)
         self.assertLess(low.leaf_sort_key(()), high.leaf_sort_key(()))
@@ -122,8 +126,8 @@ class TestClassificationNode(unittest.TestCase):
 
     __slots__ = ()
 
-    def test_stores_class_distribution_and_per_class_ci(self):
-        """ClassificationNode stores class_distribution and per-class CI arrays."""
+    def test_stores_predicted_proba_and_per_class_ci(self):
+        """ClassificationNode stores predicted_proba and per-class CI arrays."""
         distribution = numpy.array([0.3, 0.7])
         ci_low = numpy.array([0.1, 0.5])
         ci_high = numpy.array([0.5, 0.9])
@@ -132,42 +136,44 @@ class TestClassificationNode(unittest.TestCase):
             n_samples=20,
             share=1.0,
             decoration=None,
-            prediction=1,
-            class_distribution=distribution,
+            predicted_class_index=1,
+            predicted_proba=distribution,
             ci_low=ci_low,
             ci_high=ci_high,
             mean_offset_proba=None,
         )
-        numpy.testing.assert_array_equal(leaf.class_distribution, distribution)
+        numpy.testing.assert_array_equal(leaf.predicted_proba, distribution)
         leaf_ci_low = leaf.ci_low
         leaf_ci_high = leaf.ci_high
         assert leaf_ci_low is not None
         assert leaf_ci_high is not None
         numpy.testing.assert_array_equal(leaf_ci_low, ci_low)
         numpy.testing.assert_array_equal(leaf_ci_high, ci_high)
-        self.assertEqual(leaf.prediction, 1)
+        self.assertEqual(leaf.predicted_class_index, 1)
         self.assertIsNone(leaf.mean_offset_proba)
 
     def test_leaf_sort_key_orders_descending_distribution(self):
         """ClassificationNode.leaf_sort_key negates probabilities for descending sort."""
+        majority_zero_proba = numpy.array([0.9, 0.1])
         majority_zero = sigma._node.ClassificationNode(
             depth=0,
             n_samples=10,
             share=1.0,
             decoration=None,
-            prediction=0,
-            class_distribution=numpy.array([0.9, 0.1]),
+            predicted_class_index=0,
+            predicted_proba=majority_zero_proba,
             ci_low=None,
             ci_high=None,
             mean_offset_proba=None,
         )
+        majority_one_proba = numpy.array([0.4, 0.6])
         majority_one = sigma._node.ClassificationNode(
             depth=0,
             n_samples=10,
             share=1.0,
             decoration=None,
-            prediction=1,
-            class_distribution=numpy.array([0.4, 0.6]),
+            predicted_class_index=1,
+            predicted_proba=majority_one_proba,
             ci_low=None,
             ci_high=None,
             mean_offset_proba=None,
@@ -182,10 +188,11 @@ class TestSurvivalNode(unittest.TestCase):
 
     __slots__ = ()
 
-    def test_prediction_property_reads_first_value(self):
-        """SurvivalNode.prediction returns the first entry of values."""
+    def test_stores_per_metric_values(self):
+        """SurvivalNode stores one value per metric."""
         leaf = _survival_node([2.5])
-        self.assertEqual(leaf.prediction, 2.5)
+        expected = numpy.array([2.5])
+        numpy.testing.assert_array_equal(leaf.predicted_metrics, expected)
 
     def test_stores_per_metric_ci_arrays(self):
         """SurvivalNode stores one CI bound pair per metric."""
@@ -227,13 +234,13 @@ class TestTraverse(unittest.TestCase):
         """Values <= threshold route to the left child."""
         root = self._build_numeric_tree()
         result = root.traverse(numpy.array([2.0]))
-        self.assertEqual(result.prediction, 1.0)
+        self.assertEqual(result.predicted_mean, 1.0)
 
     def test_numeric_routes_right_when_above_threshold(self):
         """Values > threshold route to the right child."""
         root = self._build_numeric_tree()
         result = root.traverse(numpy.array([7.0]))
-        self.assertEqual(result.prediction, 9.0)
+        self.assertEqual(result.predicted_mean, 9.0)
 
     def test_categorical_routes_by_membership(self):
         """Categorical traversal routes by membership in left_categories / right_categories."""
@@ -277,7 +284,7 @@ class TestLeavesAndShare(unittest.TestCase):
             n_samples=15,
             share=0.0,
             decoration=None,
-            prediction=1.0,
+            predicted_mean=1.0,
             ci_low=None,
             ci_high=None,
             response_samples=numpy.empty(0, dtype=float),
@@ -287,7 +294,7 @@ class TestLeavesAndShare(unittest.TestCase):
             n_samples=5,
             share=0.0,
             decoration=None,
-            prediction=9.0,
+            predicted_mean=9.0,
             ci_low=None,
             ci_high=None,
             response_samples=numpy.empty(0, dtype=float),
@@ -445,24 +452,26 @@ class TestWeakReferenceable(unittest.TestCase):
             sigma.RmstMetric("RMST at 2 years", False, 2.0),
             sigma.ExpectedRankMetric("Ebi rank", False),
         ]
+        classification_proba = numpy.array([0.6, 0.4])
         classification = sigma._node.ClassificationNode(
             depth=0,
             n_samples=10,
             share=1.0,
             decoration=None,
-            prediction=0,
-            class_distribution=numpy.array([0.6, 0.4]),
+            predicted_class_index=0,
+            predicted_proba=classification_proba,
             ci_low=None,
             ci_high=None,
             mean_offset_proba=None,
         )
         survival = _survival_node([2.5])
+        ranking_ranks = numpy.array([1.0])
         ranking = sigma._node.RankingNode(
             depth=0,
             n_samples=10,
             share=1.0,
             decoration=None,
-            values=numpy.array([1.0]),
+            predicted_ranks=ranking_ranks,
             ci_low=numpy.array([numpy.nan]),
             ci_high=numpy.array([numpy.nan]),
         )

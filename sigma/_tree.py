@@ -114,7 +114,8 @@ class Tree(
 
     Attributes:
         content_: Root node of the fitted tree structure.
-        leaves_: List of leaf nodes, ordered by ascending prediction value.
+        leaves_: List of leaf nodes, in the leaf order of the estimator's
+            task, as documented by each estimator.
         nodes_: List of all nodes in pre-order DFS, ordered by node_id
             (so nodes_[k].node_id == k). Indices match the output of
             predict_index.
@@ -554,16 +555,6 @@ class Tree(
             node = self.content_.traverse(X_array[i])
             indices[i] = node.node_id
         return indices
-
-    def _gather_node_predictions(
-        self, indices: numpy.typing.NDArray[numpy.intp]
-    ) -> numpy.typing.NDArray[numpy.floating]:
-        """Per-sample node prediction value gathered by node index."""
-        node_predictions = numpy.array(
-            [node.prediction for node in self.nodes_]
-        )
-        gathered = node_predictions[indices]
-        return gathered
 
     def apply(
         self,

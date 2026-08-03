@@ -137,8 +137,8 @@ class TestSampleWeight(unittest.TestCase):
         preds_weighted = reg_weighted.predict(X)
         numpy.testing.assert_allclose(preds_weighted, preds_expanded)
 
-    def test_sample_weight_shifts_prediction(self):
-        """Heavy weights on high-value samples shift the leaf prediction."""
+    def test_sample_weight_shifts_predicted_mean(self):
+        """Heavy weights on high-value samples shift the leaf predicted mean."""
         X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
         y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
         weights = numpy.ones(40)
@@ -150,9 +150,11 @@ class TestSampleWeight(unittest.TestCase):
         unweighted_mean = y.mean()
         weighted_mean = numpy.dot(weights, y) / weights.sum()
         numpy.testing.assert_allclose(
-            regression_tree.content_.prediction, weighted_mean
+            regression_tree.content_.predicted_mean, weighted_mean
         )
-        self.assertGreater(regression_tree.content_.prediction, unweighted_mean)
+        self.assertGreater(
+            regression_tree.content_.predicted_mean, unweighted_mean
+        )
 
     def test_classification_tree_sample_weight_shifts_majority(self):
         """Heavy weight on one class changes the majority prediction."""
@@ -164,7 +166,9 @@ class TestSampleWeight(unittest.TestCase):
             correlation="normal", alpha=0.0
         )
         classification_tree.fit(X, y, sample_weight=weights)
-        self.assertEqual(classification_tree.content_.prediction, 1.0)
+        self.assertEqual(
+            classification_tree.content_.predicted_class_index, 1.0
+        )
 
     def test_min_splits_uses_weight_sum(self):
         """Few observations with high weights pass the min_splits threshold."""

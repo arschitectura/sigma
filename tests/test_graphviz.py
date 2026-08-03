@@ -299,12 +299,13 @@ class TestBuildDigraph(unittest.TestCase):
         self.assertIn("rankdir=LR", dot.source)
 
     def test_left_to_right_inverts_child_emission_order(self):
-        """LR mode emits the higher-prediction child first so green sits on top."""
+        """LR mode emits the higher predicted-mean child first so green sits
+        on top."""
         root = self.regression_tree.content_
         partition = root.extension
         assert isinstance(partition, sigma._partition.Partition)
         first_child, second_child = partition.children[0], partition.children[1]
-        if first_child.prediction <= second_child.prediction:
+        if first_child.predicted_mean <= second_child.predicted_mean:
             smaller_child, larger_child = first_child, second_child
         else:
             smaller_child, larger_child = second_child, first_child
@@ -329,7 +330,7 @@ class TestBuildDigraph(unittest.TestCase):
         partition = root.extension
         assert isinstance(partition, sigma._partition.Partition)
         first_child, second_child = partition.children[0], partition.children[1]
-        if first_child.prediction <= second_child.prediction:
+        if first_child.predicted_mean <= second_child.predicted_mean:
             smaller_child, larger_child = first_child, second_child
         else:
             smaller_child, larger_child = second_child, first_child
@@ -366,11 +367,17 @@ class TestBuildDigraph(unittest.TestCase):
         reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         natural_leaves = self.regression_tree.content_.leaves()
         reversed_leaves = reversed_tree.content_.leaves()
-        natural_lowest = min(natural_leaves, key=lambda node: node.prediction)
-        natural_highest = max(natural_leaves, key=lambda node: node.prediction)
-        reversed_lowest = min(reversed_leaves, key=lambda node: node.prediction)
+        natural_lowest = min(
+            natural_leaves, key=lambda node: node.predicted_mean
+        )
+        natural_highest = max(
+            natural_leaves, key=lambda node: node.predicted_mean
+        )
+        reversed_lowest = min(
+            reversed_leaves, key=lambda node: node.predicted_mean
+        )
         reversed_highest = max(
-            reversed_leaves, key=lambda node: node.prediction
+            reversed_leaves, key=lambda node: node.predicted_mean
         )
         natural_source = self.default_source
         reversed_source = self._build_digraph(
@@ -464,9 +471,10 @@ class TestLeafBadges(unittest.TestCase):
             self.assertIn(f"<b>{i}</b>", source)
 
     def test_badge_order_regression(self):
-        """Tree.leaves_ orders leaves by ascending prediction with leaf_id 0..N-1."""
+        """Tree.leaves_ orders leaves by ascending predicted mean with
+        leaf_id 0..N-1."""
         leaves = self.regression_tree.leaves_
-        ranked = sorted(leaves, key=lambda node: node.prediction)
+        ranked = sorted(leaves, key=lambda node: node.predicted_mean)
         for expected_index, node in enumerate(ranked):
             extension = node.extension
             assert isinstance(extension, sigma._extension.Leaf)
@@ -474,11 +482,12 @@ class TestLeafBadges(unittest.TestCase):
             self.assertIs(self.regression_tree.leaves_[expected_index], node)
 
     def test_badge_order_classification(self):
-        """Tree.leaves_ orders classification leaves by descending distribution tuple."""
+        """Tree.leaves_ orders classification leaves by descending
+        predicted_proba tuple."""
         leaves = self.classification_tree.leaves_
         ranked = sorted(
             leaves,
-            key=lambda node: tuple(node.class_distribution),
+            key=lambda node: tuple(node.predicted_proba),
             reverse=True,
         )
         for expected_index, node in enumerate(ranked):
@@ -509,8 +518,8 @@ class TestLeafBadges(unittest.TestCase):
         reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         natural_leaves = natural_tree.leaves_
         reversed_leaves = reversed_tree.leaves_
-        natural_predictions = [leaf.prediction for leaf in natural_leaves]
-        reversed_predictions = [leaf.prediction for leaf in reversed_leaves]
+        natural_predictions = [leaf.predicted_mean for leaf in natural_leaves]
+        reversed_predictions = [leaf.predicted_mean for leaf in reversed_leaves]
         self.assertEqual(
             reversed_predictions, list(reversed(natural_predictions))
         )

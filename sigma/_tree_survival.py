@@ -219,7 +219,10 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         """
         indices = self.predict_index(X)
         if offset is None and not self._fit_with_offset:
-            predictions = self._gather_node_predictions(indices)
+            node_values = numpy.array(
+                [node.predicted_metrics[0] for node in self.nodes_]
+            )
+            predictions = node_values[indices]
             return predictions
         event_grid = self.event_grid_
         n_indices = len(indices)
@@ -272,7 +275,7 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         n_samples = len(node_indices)
         n_times = len(times_array)
         result = numpy.empty((n_samples, n_times), dtype=float)
-        node_curves = [node.survival_function for node in self.nodes_]
+        node_curves = [node.predicted_survival for node in self.nodes_]
         for i in range(n_samples):
             curve = node_curves[node_indices[i]]
             if curve is None:
@@ -506,20 +509,20 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
     ) -> _node.SurvivalNode:
         """Build a SurvivalNode with its Kaplan-Meier curve and metric values."""
         curve = self._compute_node_curve(y_transmuted, w_transmuted)
-        survival_function = (curve.times, curve.surv)
+        predicted_survival = (curve.times, curve.surv)
         if is_leaf:
             survival_log_variance = curve.var_log_s
         else:
             survival_log_variance = numpy.empty(0, dtype=float)
-        values, ci_low, ci_high = self._compute_metric_values(curve)
+        predicted_metrics, ci_low, ci_high = self._compute_metric_values(curve)
         node = _node.SurvivalNode(
             depth=depth,
             n_samples=n_samples,
             share=0.0,
             decoration=None,
-            survival_function=survival_function,
+            predicted_survival=predicted_survival,
             survival_log_variance=survival_log_variance,
-            values=values,
+            predicted_metrics=predicted_metrics,
             ci_low=ci_low,
             ci_high=ci_high,
         )

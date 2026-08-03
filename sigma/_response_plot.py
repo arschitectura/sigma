@@ -223,16 +223,16 @@ def _plot_regression(
                 linewidth=1.0,
                 zorder=2,
             )
-        prediction = leaf.prediction
+        predicted_mean = leaf.predicted_mean
         axes.hlines(
-            prediction,
+            predicted_mean,
             x - width / 2.0,
             x + width / 2.0,
             colors=color,
             linewidth=2.0,
             zorder=3,
         )
-        axes.scatter([x], [prediction], color=color, s=12, zorder=4)
+        axes.scatter([x], [predicted_mean], color=color, s=12, zorder=4)
     _configure_leaf_x_axis(axes, n_leaves)
     if response_name is None:
         y_label = "Response mean"
@@ -382,7 +382,7 @@ def _plot_classification(
         color = _palette._leaf_color(slot_idx, n_classes, leaf_palette)
         for leaf_id, leaf in enumerate(leaves):
             x = leaf_id + 1
-            proportion = float(leaf.class_distribution[class_index]) * 100.0
+            proportion = float(leaf.predicted_proba[class_index]) * 100.0
             ci_low = leaf.ci_low
             ci_high = leaf.ci_high
             if ci_low is not None and ci_high is not None:
@@ -410,8 +410,7 @@ def _plot_classification(
             )
             axes.scatter([x], [proportion], color=color, s=12, zorder=4)
         line_ys = [
-            float(leaf.class_distribution[class_index]) * 100.0
-            for leaf in leaves
+            float(leaf.predicted_proba[class_index]) * 100.0 for leaf in leaves
         ]
         axes.plot(line_xs, line_ys, color=color, linewidth=1.5, zorder=3)
     _configure_leaf_x_axis(axes, n_leaves)
@@ -465,7 +464,7 @@ def _plot_survival(
     for leaf_id, leaf in enumerate(leaves):
         badge_number = leaf_id + 1
         color = _palette._leaf_color(leaf_id, n_leaves, leaf_palette)
-        times, surv = leaf.survival_function
+        times, surv = leaf.predicted_survival
         times_with_origin = numpy.concatenate(
             [[0.0], numpy.asarray(times, dtype=float)]
         )
@@ -556,7 +555,7 @@ def _plot_ranking(
         color = _palette._leaf_color(slot_idx, displayed_count, leaf_palette)
         for leaf_id, leaf in enumerate(leaves):
             x = leaf_id + 1
-            expected_rank = float(leaf.values[item_index])
+            expected_rank = float(leaf.predicted_ranks[item_index])
             if numpy.isnan(expected_rank):
                 continue
             axes.hlines(
@@ -568,13 +567,13 @@ def _plot_ranking(
                 zorder=3,
             )
             axes.scatter([x], [expected_rank], color=color, s=12, zorder=4)
-        line_ys = [float(leaf.values[item_index]) for leaf in leaves]
+        line_ys = [float(leaf.predicted_ranks[item_index]) for leaf in leaves]
         axes.plot(line_xs, line_ys, color=color, linewidth=1.5, zorder=3)
     _configure_leaf_x_axis(axes, n_leaves)
     all_values: list[float] = []
     for leaf in leaves:
         for item_index in item_order:
-            value = float(leaf.values[item_index])
+            value = float(leaf.predicted_ranks[item_index])
             if not numpy.isnan(value):
                 all_values.append(value)
     if all_values:

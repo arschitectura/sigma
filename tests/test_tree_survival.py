@@ -90,14 +90,17 @@ _REFERENCE_METRIC_CI_HIGH = (
 def _survival_leaf(values):
     """Build a survival leaf carrying the given per-metric values."""
     undefined = numpy.full(len(values), numpy.nan, dtype=float)
+    curve_times = numpy.array([1.0])
+    curve_surv = numpy.array([1.0])
+    metric_values = numpy.array(values, dtype=float)
     leaf = sigma._node.SurvivalNode(
         depth=1,
         n_samples=10,
         share=0.0,
         decoration=None,
-        survival_function=(numpy.array([1.0]), numpy.array([1.0])),
+        predicted_survival=(curve_times, curve_surv),
         survival_log_variance=numpy.zeros(1, dtype=float),
-        values=numpy.array(values, dtype=float),
+        predicted_metrics=metric_values,
         ci_low=undefined,
         ci_high=undefined.copy(),
     )
@@ -183,7 +186,7 @@ class TestSurvivalTreeFit(unittest.TestCase):
         )
         estimator.fit(X, y)
         predictions = estimator.predict(X[:6])
-        leaf_medians = [leaf.prediction for leaf in estimator.leaves_]
+        leaf_medians = [leaf.predicted_metrics[0] for leaf in estimator.leaves_]
         any_leaf_nan = any(numpy.isnan(median) for median in leaf_medians)
         for prediction in predictions:
             if numpy.isnan(prediction):
@@ -242,7 +245,7 @@ class TestSurvivalTreeFit(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "0 and 1"):
             estimator.fit(X, y)
 
-    def test_leaf_carries_survival_function(self):
+    def test_leaf_carries_predicted_survival(self):
         """Each survival leaf stores a (times, surv) tuple, not None."""
         rng = numpy.random.RandomState(0)
         n = 60
@@ -255,8 +258,8 @@ class TestSurvivalTreeFit(unittest.TestCase):
         )
         estimator.fit(X, y)
         for leaf in estimator.leaves_:
-            assert leaf.survival_function is not None
-            leaf_times, leaf_surv = leaf.survival_function
+            assert leaf.predicted_survival is not None
+            leaf_times, leaf_surv = leaf.predicted_survival
             self.assertEqual(len(leaf_times), len(leaf_surv))
             if len(leaf_times) > 1:
                 self.assertTrue(numpy.all(numpy.diff(leaf_surv) <= 1e-12))
@@ -358,13 +361,8 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
         labels = [metric.label for metric in estimator.metrics_]
         self.assertEqual(labels, ["Median survival"])
         for leaf in estimator.leaves_:
-            self.assertEqual(len(leaf.values), 1)
-            value = float(leaf.values[0])
-            prediction = leaf.prediction
-            if numpy.isnan(value):
-                self.assertTrue(numpy.isnan(prediction))
-            else:
-                self.assertEqual(value, prediction)
+            n_metrics = len(leaf.predicted_metrics)
+            self.assertEqual(n_metrics, 1)
 
     def test_multiple_metrics_render_each_on_own_line(self):
         """Multi-metric trees expose one descriptor per configured metric."""
@@ -385,10 +383,11 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
             labels, ["Median survival", "Survival at 5 units", "Risk score"]
         )
         for leaf in estimator.leaves_:
-            self.assertEqual(len(leaf.values), 3)
+            n_metrics = len(leaf.predicted_metrics)
+            self.assertEqual(n_metrics, 3)
 
-    def test_first_metric_drives_prediction_slot(self):
-        """The first metric's value mirrors Node.prediction."""
+    def test_first_metric_drives_predict(self):
+        """predict returns the reached node's first metric, not its median."""
         X, y = self._build_dataset()
         estimator = sigma._tree_survival.SurvivalTree(
             min_splits=10,
@@ -397,10 +396,11 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
             metrics=("risk_score", "median"),
         )
         estimator.fit(X, y)
-        for leaf in estimator.leaves_:
-            self.assertEqual(leaf.prediction, float(leaf.values[0]))
+        indices = estimator.predict_index(X[:5])
         predictions = estimator.predict(X[:5])
-        for prediction in predictions:
+        for prediction, index in zip(predictions, indices):
+            node = estimator.nodes_[index]
+            self.assertEqual(prediction, node.predicted_metrics[0])
             self.assertTrue(numpy.isfinite(prediction))
 
     def test_survival_value_matches_step_curve(self):
@@ -500,7 +500,7 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
         )
         estimator.fit(X, y)
         assert len(estimator.leaves_) >= 2
-        risk_scores = [leaf.prediction for leaf in estimator.leaves_]
+        risk_scores = [leaf.predicted_metrics[0] for leaf in estimator.leaves_]
         for k in range(len(risk_scores) - 1):
             self.assertGreaterEqual(risk_scores[k], risk_scores[k + 1])
 
@@ -512,7 +512,7 @@ class TestSurvivalTreeMetrics(unittest.TestCase):
         )
         estimator.fit(X, y)
         assert len(estimator.leaves_) >= 2
-        medians = [leaf.prediction for leaf in estimator.leaves_]
+        medians = [leaf.predicted_metrics[0] for leaf in estimator.leaves_]
         ordered = [
             float("inf") if numpy.isnan(median) else median
             for median in medians
@@ -657,7 +657,7 @@ class TestSurvivalLogVariance(unittest.TestCase):
         tree = self._fit()
         self.assertGreater(len(tree.leaves_), 1)
         for leaf in tree.leaves_:
-            times, _ = leaf.survival_function
+            times, _ = leaf.predicted_survival
             self.assertEqual(leaf.survival_log_variance.shape, times.shape)
 
     def test_internal_nodes_carry_no_variance(self):
@@ -702,7 +702,7 @@ class TestSurvivalMetricReferenceValues(unittest.TestCase):
     def test_every_node_value_matches_reference(self):
         """Every node reproduces the reference value of all four metric kinds."""
         estimator = self._fit()
-        observed = _flatten_metric_field(estimator.nodes_, "values")
+        observed = _flatten_metric_field(estimator.nodes_, "predicted_metrics")
         numpy.testing.assert_array_equal(observed, _REFERENCE_METRIC_VALUES)
 
     def test_every_node_interval_matches_reference(self):
@@ -914,7 +914,7 @@ class TestSurvivalTreeLiteratureCrosscheck(unittest.TestCase):
         )
         self.assertEqual(right_partition.thresholds[0], 20)
         leaves_by_n = {leaf.n_samples: leaf for leaf in estimator.leaves_}
-        self.assertEqual(leaves_by_n[248].prediction, 2093.0)
-        self.assertTrue(numpy.isnan(leaves_by_n[128].prediction))
-        self.assertEqual(leaves_by_n[144].prediction, 624.0)
-        self.assertEqual(leaves_by_n[166].prediction, 1701.0)
+        self.assertEqual(leaves_by_n[248].predicted_metrics[0], 2093.0)
+        self.assertTrue(numpy.isnan(leaves_by_n[128].predicted_metrics[0]))
+        self.assertEqual(leaves_by_n[144].predicted_metrics[0], 624.0)
+        self.assertEqual(leaves_by_n[166].predicted_metrics[0], 1701.0)

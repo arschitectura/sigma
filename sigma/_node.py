@@ -162,27 +162,23 @@ class Node(abc.ABC):
             of any other node of the same tree.
         """
 
-    @property
-    @abc.abstractmethod
-    def prediction(self) -> float:
-        """The node's point prediction for its task."""
-
 
 class RegressionNode(Node):
     """Node of a fitted RegressionTree.
 
     Attributes:
-        prediction: Weighted mean of the response in this node's active
-            samples.
-        ci_low: Lower bound of the confidence interval for the prediction,
-            or None when CI is disabled.
-        ci_high: Upper bound of the confidence interval for the prediction,
-            or None when CI is disabled.
+        predicted_mean: Weighted mean of the response in this node's
+            active samples. When the tree was fit with an offset, the mean
+            is taken over the response minus that offset.
+        ci_low: Lower bound of the confidence interval for the predicted
+            mean, or None when CI is disabled.
+        ci_high: Upper bound of the confidence interval for the predicted
+            mean, or None when CI is disabled.
         response_samples: Per-leaf array of response samples. Empty on
             internal nodes and on leaves when response_sample_size=0.
     """
 
-    __slots__ = ("_prediction", "ci_high", "ci_low", "response_samples")
+    __slots__ = ("ci_high", "ci_low", "predicted_mean", "response_samples")
 
     def __init__(
         self,
@@ -190,27 +186,22 @@ class RegressionNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        prediction: float,
+        predicted_mean: float,
         ci_low: None | float,
         ci_high: None | float,
         response_samples: numpy.typing.NDArray[numpy.floating],
     ) -> None:
         super().__init__(depth, n_samples, share, decoration)
-        self._prediction = prediction
+        self.predicted_mean = predicted_mean
         self.ci_low = ci_low
         self.ci_high = ci_high
         self.response_samples = response_samples
-
-    @property
-    def prediction(self) -> float:
-        """Weighted mean of the response in this node's active samples."""
-        return self._prediction
 
     def leaf_sort_key(
         self, metrics: tuple[_metric.Metric, ...]
     ) -> tuple[float, ...]:
         """Sort key: ascending by predicted mean."""
-        key = (self.prediction,)
+        key = (self.predicted_mean,)
         return key
 
 
@@ -218,9 +209,9 @@ class ClassificationNode(Node):
     """Node of a fitted ClassificationTree.
 
     Attributes:
-        prediction: Index of the majority class within the estimator's
-            classes_ array.
-        class_distribution: Class probability vector for this node, shape
+        predicted_class_index: Position of the predicted class within the
+            estimator's classes_ array.
+        predicted_proba: Class probability vector for this node, shape
             (n_classes,).
         ci_low: Lower CI bounds per class, shape (n_classes,), or None
             when CI is disabled.
@@ -232,11 +223,11 @@ class ClassificationNode(Node):
     """
 
     __slots__ = (
-        "_prediction",
         "ci_high",
         "ci_low",
-        "class_distribution",
         "mean_offset_proba",
+        "predicted_class_index",
+        "predicted_proba",
     )
 
     def __init__(
@@ -245,29 +236,24 @@ class ClassificationNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        prediction: int,
-        class_distribution: numpy.typing.NDArray[numpy.floating],
+        predicted_class_index: int,
+        predicted_proba: numpy.typing.NDArray[numpy.floating],
         ci_low: None | numpy.typing.NDArray[numpy.floating],
         ci_high: None | numpy.typing.NDArray[numpy.floating],
         mean_offset_proba: None | numpy.typing.NDArray[numpy.floating],
     ) -> None:
         super().__init__(depth, n_samples, share, decoration)
-        self._prediction = prediction
-        self.class_distribution = class_distribution
+        self.predicted_class_index = predicted_class_index
+        self.predicted_proba = predicted_proba
         self.ci_low = ci_low
         self.ci_high = ci_high
         self.mean_offset_proba = mean_offset_proba
 
-    @property
-    def prediction(self) -> int:
-        """Index of the majority class within the estimator's classes_ array."""
-        return self._prediction
-
     def leaf_sort_key(
         self, metrics: tuple[_metric.Metric, ...]
     ) -> tuple[float, ...]:
-        """Sort key: descending by class distribution tuple."""
-        key = tuple(-p for p in self.class_distribution)
+        """Sort key: descending by class probability tuple."""
+        key = tuple(-p for p in self.predicted_proba)
         return key
 
 
@@ -275,12 +261,12 @@ class SurvivalNode(Node):
     """Node of a fitted SurvivalTree.
 
     Attributes:
-        survival_function: Pair (times, surv) describing the
+        predicted_survival: Pair (times, surv) describing the
             Kaplan-Meier estimate of S(t) at this node.
         survival_log_variance: Greenwood variance of log S(t) at the same
-            times as survival_function, shape (n,). Empty on internal
+            times as predicted_survival, shape (n,). Empty on internal
             nodes.
-        values: Value of each metric of the fitted tree, shape
+        predicted_metrics: Value of each metric of the fitted tree, shape
             (n_metrics,), aligned with its metrics_. NaN and +/- inf are
             allowed.
         ci_low: Lower confidence-interval bound of each metric, shape
@@ -292,9 +278,9 @@ class SurvivalNode(Node):
     __slots__ = (
         "ci_high",
         "ci_low",
-        "survival_function",
+        "predicted_metrics",
+        "predicted_survival",
         "survival_log_variance",
-        "values",
     )
 
     def __init__(
@@ -303,27 +289,21 @@ class SurvivalNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        survival_function: tuple[
+        predicted_survival: tuple[
             numpy.typing.NDArray[numpy.floating],
             numpy.typing.NDArray[numpy.floating],
         ],
         survival_log_variance: numpy.typing.NDArray[numpy.floating],
-        values: numpy.typing.NDArray[numpy.floating],
+        predicted_metrics: numpy.typing.NDArray[numpy.floating],
         ci_low: numpy.typing.NDArray[numpy.floating],
         ci_high: numpy.typing.NDArray[numpy.floating],
     ) -> None:
         super().__init__(depth, n_samples, share, decoration)
-        self.survival_function = survival_function
+        self.predicted_survival = predicted_survival
         self.survival_log_variance = survival_log_variance
-        self.values = values
+        self.predicted_metrics = predicted_metrics
         self.ci_low = ci_low
         self.ci_high = ci_high
-
-    @property
-    def prediction(self) -> float:
-        """First configured metric's value (typically median survival)."""
-        value = float(self.values[0])
-        return value
 
     def leaf_sort_key(
         self, metrics: tuple[_metric.Metric, ...]
@@ -331,7 +311,7 @@ class SurvivalNode(Node):
         """Sort key: lexicographic on metric values, worst-prognosis-first."""
         components: list[float] = []
         for index, metric in enumerate(metrics):
-            value = float(self.values[index])
+            value = float(self.predicted_metrics[index])
             sign = 1.0 if metric.better_is == "higher" else -1.0
             if numpy.isnan(value):
                 component = float("inf")
@@ -346,7 +326,7 @@ class RankingNode(Node):
     """Node of a fitted RankingTree.
 
     Attributes:
-        values: Plackett-Luce expected rank of each item, shape
+        predicted_ranks: Plackett-Luce expected rank of each item, shape
             (n_items,), in item-index order. Each finite entry lies in
             [1, n_items].
         ci_low: Lower confidence-interval bound on each expected rank,
@@ -355,7 +335,7 @@ class RankingNode(Node):
             shape (n_items,). NaN wherever the bound is undefined.
     """
 
-    __slots__ = ("ci_high", "ci_low", "values")
+    __slots__ = ("ci_high", "ci_low", "predicted_ranks")
 
     def __init__(
         self,
@@ -363,22 +343,23 @@ class RankingNode(Node):
         n_samples: int,
         share: float,
         decoration: None | object,
-        values: numpy.typing.NDArray[numpy.floating],
+        predicted_ranks: numpy.typing.NDArray[numpy.floating],
         ci_low: numpy.typing.NDArray[numpy.floating],
         ci_high: numpy.typing.NDArray[numpy.floating],
     ) -> None:
         super().__init__(depth, n_samples, share, decoration)
-        self.values = values
+        self.predicted_ranks = predicted_ranks
         self.ci_low = ci_low
         self.ci_high = ci_high
 
     @property
-    def prediction(self) -> int:
-        """Index of the item with the lowest expected rank."""
-        nan_mask = numpy.isnan(self.values)
+    def predicted_item_index(self) -> int:
+        """Position of the predicted item, the one with the lowest expected
+        rank, within the estimator's item_names_ array."""
+        nan_mask = numpy.isnan(self.predicted_ranks)
         if numpy.all(nan_mask):
             return 0
-        safe = numpy.where(nan_mask, numpy.inf, self.values)
+        safe = numpy.where(nan_mask, numpy.inf, self.predicted_ranks)
         index = int(numpy.argmin(safe))
         return index
 
@@ -387,7 +368,7 @@ class RankingNode(Node):
     ) -> tuple[float, ...]:
         """Sort key: ascending lexicographic on per-item expected ranks."""
         components: list[float] = []
-        for value in self.values:
+        for value in self.predicted_ranks:
             sort_value = float("inf") if numpy.isnan(value) else float(value)
             components.append(sort_value)
         key = tuple(components)
