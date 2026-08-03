@@ -5,7 +5,6 @@ from __future__ import annotations
 import typing
 
 import graphviz
-import numpy
 import numpy.typing
 
 from . import (
@@ -21,36 +20,6 @@ from . import (
 _DEFAULT_ROOT_COLORS = ("white", "black", "black")
 _DEFAULT_SPLIT_COLORS = ("black", "lightgray", "black")
 _DEFAULT_LEAF_PALETTE = _palette._DEFAULT_LEAF_PALETTE
-
-
-def _per_node_displayed_indices(
-    node: _node.Node, top_displayed_items: None | int
-) -> list[int]:
-    """Return the node's own top items by lowest non-NaN expected rank.
-
-    Args:
-        node: Tree node. Returns [] for non-ranking nodes.
-        top_displayed_items: Maximum number of items to return. None
-            yields [].
-
-    Returns:
-        Sorted-by-expected-rank-ascending list of item indices (length
-        at most top_displayed_items). Items with NaN expected rank are
-        excluded.
-    """
-    if top_displayed_items is None:
-        return []
-    if not isinstance(node, _node.RankingNode):
-        return []
-    values = node.predicted_ranks
-    valid_indices = numpy.flatnonzero(~numpy.isnan(values))
-    if valid_indices.size == 0:
-        return []
-    take = min(top_displayed_items, valid_indices.size)
-    valid_values = values[valid_indices]
-    order = numpy.argsort(valid_values, kind="stable")[:take]
-    result = [int(idx) for idx in valid_indices[order]]
-    return result
 
 
 def _escape_html_with_bold(text: str) -> str:
@@ -248,17 +217,17 @@ def _emit_digraph(
     stack: list[_node.Node] = [root]
     while stack:
         node = stack.pop()
-        node_displayed = _per_node_displayed_indices(node, top_displayed_items)
+        node_displayed = node._top_displayed_indices(top_displayed_items)
         label = _tree_text._format_prediction(
             node,
             metrics,
             class_names,
             response_name,
+            node_displayed,
             prediction_formatter,
             separator="\n",
             precision=precision,
             bold_value=True,
-            displayed_indices=node_displayed,
         )
         node_object_id = id(node)
         node_id = str(node_object_id)

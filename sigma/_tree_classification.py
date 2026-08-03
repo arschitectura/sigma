@@ -13,9 +13,10 @@ import sklearn.base
 import sklearn.utils.multiclass
 import sklearn.utils.validation
 
-from . import _node, _tree, _types
+from . import _node, _tree, _tree_text, _types
 
 if typing.TYPE_CHECKING:
+    import matplotlib.axes
     import pandas
     import polars
 
@@ -187,14 +188,36 @@ class ClassificationTree(
         self,
         class_names: None | list[str] = None,
     ) -> None | list[str]:
-        """Return display class names: explicit override, else classes_."""
-        if class_names is not None:
-            return class_names
-        classes = getattr(self, "classes_", None)
-        if classes is None:
-            return None
-        names = [str(value) for value in classes]
+        """Return capitalized display class names: explicit override, else classes_."""
+        if class_names is None:
+            classes = getattr(self, "classes_", None)
+            if classes is None:
+                return None
+            raw_names = [str(value) for value in classes]
+        else:
+            raw_names = class_names
+        names = [
+            _tree_text._capitalize_first_letter(name) for name in raw_names
+        ]
         return names
+
+    def _resolve_target_class_index(
+        self,
+        target_class: None | object,
+    ) -> None | int:
+        """Resolve target_class to an integer index into classes_."""
+        classes = self.classes_
+        if target_class is None:
+            index = len(classes) - 1
+            return index
+        matches = numpy.where(classes == target_class)[0]
+        if len(matches) == 0:
+            raise ValueError(
+                f"target_class={target_class!r} not found in tree.classes_;"
+                f" valid options are {list(classes)}"
+            )
+        index = int(matches[0])
+        return index
 
     def _validate_offset(
         self,
@@ -214,6 +237,22 @@ class ClassificationTree(
         if not numpy.allclose(row_sums, 1.0, atol=1e-6):
             raise ValueError("offset rows must sum to 1 within 1e-6 tolerance")
         return offset_array
+
+    def _plot_response(
+        self,
+        axes: matplotlib.axes.Axes,
+        response_name: None | str,
+        class_names: None | list[str],
+        displayed_indices: list[int],
+        leaf_palette: tuple[str, str, str],
+        background_color: str,
+    ) -> None:
+        """Draw the per (leaf, class) probability dots with their intervals."""
+        from . import _response_plot
+
+        _response_plot._plot_classification(
+            axes, self, class_names, leaf_palette
+        )
 
     def _validate_transmuted_y_shape(
         self,

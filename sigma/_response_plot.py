@@ -1,6 +1,7 @@
 """Per-leaf response plots produced by export_image with kind="response".
 
-Four private renderers, dispatched by tree task type:
+Four private renderers, one per tree task type, each selected by the
+_plot_response hook of the tree that draws itself:
 
 - _plot_regression: per-leaf box [ci_low, ci_high] with a tick at the mean.
 - _plot_classification: per (leaf, class) box [ci_low, ci_high] with a
@@ -26,20 +27,19 @@ import numpy
 import numpy.typing
 import scipy.stats
 
-from . import (
-    _palette,
-    _survival,
-    _tree,
-    _tree_classification,
-    _tree_ranking,
-    _tree_regression,
-    _tree_survival,
-    _tree_text,
-)
+from . import _palette, _survival, _tree_text
 
 if typing.TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
+
+    from . import (
+        _tree,
+        _tree_classification,
+        _tree_ranking,
+        _tree_regression,
+        _tree_survival,
+    )
 
 
 def _render_response_image(
@@ -49,7 +49,7 @@ def _render_response_image(
     class_names: None | list[str],
     dpi: int,
     background_color: None | str,
-    displayed_indices: None | list[int],
+    displayed_indices: list[int],
     leaf_palette: tuple[str, str, str],
     foreground_color: str,
 ) -> bytes:
@@ -70,25 +70,14 @@ def _render_response_image(
     figure = matplotlib.figure.Figure(figsize=(8.0, 4.5), dpi=dpi)
     matplotlib.backends.backend_agg.FigureCanvasAgg(figure)
     axes = figure.add_subplot(111)
-    if isinstance(tree, _tree_regression.RegressionTree):
-        _plot_regression(
-            axes,
-            tree,
-            response_name,
-            leaf_palette=leaf_palette,
-            background_color=effective_background,
-        )
-    elif isinstance(tree, _tree_classification.ClassificationTree):
-        _plot_classification(axes, tree, class_names, leaf_palette=leaf_palette)
-    elif isinstance(tree, _tree_survival.SurvivalTree):
-        _plot_survival(axes, tree, response_name, leaf_palette=leaf_palette)
-    elif isinstance(tree, _tree_ranking.RankingTree):
-        ranking_indices = _tree_text._normalize_displayed_indices(
-            displayed_indices
-        )
-        _plot_ranking(axes, tree, ranking_indices, leaf_palette=leaf_palette)
-    else:
-        raise TypeError(f"unsupported tree type: {type(tree).__name__}")
+    tree._plot_response(
+        axes,
+        response_name,
+        class_names,
+        displayed_indices,
+        leaf_palette,
+        effective_background,
+    )
     _apply_axes_colors(axes, foreground_color, effective_background)
     if transparent:
         figure.patch.set_alpha(0.0)
@@ -237,7 +226,7 @@ def _plot_regression(
     if response_name is None:
         y_label = "Response mean"
     else:
-        y_label = f"{_tree_text._capitalize_first_letter(response_name)} mean"
+        y_label = f"{response_name} mean"
     axes.set_ylabel(y_label)
     axes.grid(axis="y", linestyle=":", alpha=0.4)
 
@@ -438,12 +427,9 @@ def _resolve_class_labels(
 ) -> list[str]:
     """Return display labels per class, falling back to tree.classes_."""
     if class_names is None:
-        raw_labels = [str(c) for c in tree.classes_]
+        labels = [str(value) for value in tree.classes_]
     else:
-        raw_labels = list(class_names)
-    labels = [
-        _tree_text._capitalize_first_letter(label) for label in raw_labels
-    ]
+        labels = list(class_names)
     return labels
 
 
@@ -511,7 +497,7 @@ def _plot_survival(
     if response_name is None:
         x_label = "Time"
     else:
-        x_label = _tree_text._capitalize_first_letter(response_name)
+        x_label = response_name
     axes.set_xlabel(x_label)
     axes.grid(linestyle=":", alpha=0.4)
     handles, legend_labels = axes.get_legend_handles_labels()

@@ -1075,10 +1075,13 @@ class TestExportImageResponse(unittest.TestCase):
         classification_tree = _helpers._fit_step_classification_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
+        class_names = classification_tree._effective_class_names(
+            ["died", "survived"]
+        )
         _response_plot._plot_classification(
             axes,
             classification_tree,
-            class_names=["died", "survived"],
+            class_names=class_names,
         )
         legend = axes.get_legend()
         if legend is None:
@@ -1102,10 +1105,11 @@ class TestExportImageResponse(unittest.TestCase):
         regression_tree = _helpers._fit_step_regression_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
+        response_name = regression_tree._effective_response_name("my_response")
         _response_plot._plot_regression(
             axes,
             regression_tree,
-            response_name="my_response",
+            response_name=response_name,
         )
         self.assertEqual(axes.get_ylabel(), "My_response mean")
 
@@ -1120,10 +1124,11 @@ class TestExportImageResponse(unittest.TestCase):
         survival_tree = _helpers._fit_step_survival_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
+        response_name = survival_tree._effective_response_name("time")
         _response_plot._plot_survival(
             axes,
             survival_tree,
-            response_name="time",
+            response_name=response_name,
         )
         self.assertEqual(axes.get_xlabel(), "Time")
 
@@ -2022,6 +2027,21 @@ class TestExportSql(unittest.TestCase):
         classification_tree = _helpers._fit_step_classification_tree()
         with self.assertRaises(ValueError):
             classification_tree.to_sql(target_class=42.0)
+
+    def test_export_sql_ranking_raises_not_implemented(self):
+        """A RankingTree leaf predicts a vector, so SQL export is refused."""
+        rng = numpy.random.default_rng(19)
+        X = rng.normal(size=(120, 1))
+        y = numpy.empty((120, 3), dtype=float)
+        for row in range(120):
+            if X[row, 0] > 0.0:
+                y[row] = [1.0, 2.0, 3.0]
+            else:
+                y[row] = [3.0, 2.0, 1.0]
+        ranking_tree = sigma.RankingTree(random_state=0, ci_replicates=5)
+        ranking_tree.fit(X, y)
+        with self.assertRaises(NotImplementedError):
+            ranking_tree.to_sql()
 
     def test_export_sql_single_leaf_tree_has_no_case(self):
         """A tree with a single leaf renders as a single leaf-value line."""

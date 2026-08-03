@@ -15,6 +15,7 @@ import sklearn.utils.validation
 from . import _node, _tree, _tree_classification, _types
 
 if typing.TYPE_CHECKING:
+    import matplotlib.axes
     import pandas
     import polars
 
@@ -221,6 +222,22 @@ class RegressionTree(
             return None
         offset_array = self._validate_offset_shape_finite(offset, (n_samples,))
         return offset_array
+
+    def _plot_response(
+        self,
+        axes: matplotlib.axes.Axes,
+        response_name: None | str,
+        class_names: None | list[str],
+        displayed_indices: list[int],
+        leaf_palette: tuple[str, str, str],
+        background_color: str,
+    ) -> None:
+        """Draw the per-leaf raincloud with its mean and confidence interval."""
+        from . import _response_plot
+
+        _response_plot._plot_regression(
+            axes, self, response_name, leaf_palette, background_color
+        )
 
     def _validate_transmuted_y_shape(
         self,

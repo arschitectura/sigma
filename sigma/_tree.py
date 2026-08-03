@@ -29,10 +29,12 @@ from . import (
     _partition,
     _splitting,
     _statistics,
+    _tree_text,
     _types,
 )
 
 if typing.TYPE_CHECKING:
+    import matplotlib.axes
     import pandas
     import polars
 
@@ -466,11 +468,15 @@ class Tree(
         self,
         response_name: None | str = None,
     ) -> None | str:
-        """Return the active response-name source, or None if unset."""
-        if response_name is not None:
-            return response_name
-        name_in = getattr(self, "response_name_in_", None)
-        return name_in
+        """Return the active response-name source capitalized, or None if unset."""
+        if response_name is None:
+            name = getattr(self, "response_name_in_", None)
+        else:
+            name = response_name
+        if name is None:
+            return None
+        capitalized = _tree_text._capitalize_first_letter(name)
+        return capitalized
 
     def _effective_class_names(
         self,
@@ -478,6 +484,38 @@ class Tree(
     ) -> None | list[str]:
         """Return the active class-name source, or None if unset."""
         return class_names
+
+    def _resolve_top_displayed_items(
+        self,
+        top_displayed_items: None | int,
+    ) -> None | int:
+        """Reject a displayed-item count, which only a RankingTree reports."""
+        if top_displayed_items is not None:
+            raise ValueError(
+                "top_displayed_items is only supported for RankingTree"
+                " estimators"
+            )
+        return None
+
+    def _resolve_displayed_indices(
+        self,
+        top_displayed_items: None | int,
+    ) -> list[int]:
+        """Return the value positions to display, none outside RankingTree."""
+        self._resolve_top_displayed_items(top_displayed_items)
+        return []
+
+    def _resolve_target_class_index(
+        self,
+        target_class: None | object,
+    ) -> None | int:
+        """Reject a target class, which only a ClassificationTree reports."""
+        if target_class is not None:
+            raise ValueError(
+                "target_class is only valid for ClassificationTree;"
+                f" got {type(self).__name__}"
+            )
+        return None
 
     def _resolve_category_labels(
         self,
@@ -1106,6 +1144,18 @@ class Tree(
             return None
         slice_ = offset[active]
         return slice_
+
+    @abc.abstractmethod
+    def _plot_response(
+        self,
+        axes: matplotlib.axes.Axes,
+        response_name: None | str,
+        class_names: None | list[str],
+        displayed_indices: list[int],
+        leaf_palette: tuple[str, str, str],
+        background_color: str,
+    ) -> None:
+        """Draw the task's per-leaf response summary on axes."""
 
     @abc.abstractmethod
     def _validate_transmuted_y_shape(

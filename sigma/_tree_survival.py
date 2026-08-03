@@ -13,6 +13,7 @@ import sklearn.utils.validation
 from . import _metric, _node, _survival, _tree, _types
 
 if typing.TYPE_CHECKING:
+    import matplotlib.axes
     import pandas
     import polars
 
@@ -462,6 +463,20 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         if numpy.any(offset_array <= 0.0) or numpy.any(offset_array > 1.0):
             raise ValueError("offset survival probabilities must lie in (0, 1]")
         return offset_array
+
+    def _plot_response(
+        self,
+        axes: matplotlib.axes.Axes,
+        response_name: None | str,
+        class_names: None | list[str],
+        displayed_indices: list[int],
+        leaf_palette: tuple[str, str, str],
+        background_color: str,
+    ) -> None:
+        """Draw one Kaplan-Meier step curve per leaf."""
+        from . import _response_plot
+
+        _response_plot._plot_survival(axes, self, response_name, leaf_palette)
 
     def _validate_transmuted_y_shape(
         self,

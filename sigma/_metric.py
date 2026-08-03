@@ -28,6 +28,11 @@ class Metric(abc.ABC):
         self.label = label
         self.has_ci = has_ci
 
+    def _display_label(self, response_name: None | str) -> str:
+        """Label shown by the renderers, left unchanged by the response name."""
+        label = self.label
+        return label
+
 
 class MedianSurvivalMetric(Metric):
     """Median survival time, bounded by a Brookmeyer-Crowley interval.
@@ -36,6 +41,14 @@ class MedianSurvivalMetric(Metric):
     """
 
     __slots__ = ()
+
+    def _display_label(self, response_name: None | str) -> str:
+        """Label naming the response instead of survival when one is given."""
+        if response_name is None:
+            label = self.label
+        else:
+            label = f"Median {response_name}"
+        return label
 
 
 class RiskScoreMetric(Metric):

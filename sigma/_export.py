@@ -19,7 +19,7 @@ import typing
 
 import sklearn.utils.validation
 
-from . import _tree, _tree_ranking, _tree_text
+from . import _tree, _tree_text
 
 
 @typing.overload
@@ -128,7 +128,7 @@ def export_text(
     _validate_precision(precision)
     _validate_out_file(out_file)
     sklearn.utils.validation.check_is_fitted(tree, "content_")
-    displayed_indices = _resolve_displayed_indices(tree, top_displayed_items)
+    displayed_indices = tree._resolve_displayed_indices(top_displayed_items)
     names = tree._effective_feature_names(feature_names)
     resolved_category_labels = tree._resolve_category_labels(
         category_labels, names
@@ -141,11 +141,13 @@ def export_text(
         tree.metrics_,
         resolved_category_labels,
         names,
+        effective_class_names,
+        effective_response_name,
+        displayed_indices,
         prediction_formatter,
         max_depth,
         precision,
         not tree.reverse_order,
-        displayed_indices,
     )
     prediction_headers = _tree_text._table_prediction_headers(
         root,
@@ -300,9 +302,7 @@ def export_sql(
     resolved_category_labels = tree._resolve_category_labels(
         category_labels, names
     )
-    target_class_index = _tree_sql._resolve_target_class_index(
-        tree, target_class
-    )
+    target_class_index = tree._resolve_target_class_index(target_class)
     result = _tree_sql._collect_sql(
         tree.content_,
         tree.metrics_,
@@ -735,9 +735,7 @@ def export_image(
     if kind == "response":
         from . import _response_plot
 
-        displayed_indices = _resolve_displayed_indices(
-            tree, top_displayed_items
-        )
+        displayed_indices = tree._resolve_displayed_indices(top_displayed_items)
         payload = _response_plot._render_response_image(
             tree,
             format,
@@ -751,8 +749,8 @@ def export_image(
         )
         emitted = _write_bytes_output(payload, out_file)
         return emitted
-    effective_top_displayed_items = _resolve_top_displayed_items(
-        tree, top_displayed_items
+    effective_top_displayed_items = tree._resolve_top_displayed_items(
+        top_displayed_items
     )
     names = tree._effective_feature_names(feature_names)
     resolved_category_labels = tree._resolve_category_labels(
@@ -783,50 +781,6 @@ def export_image(
     payload = dot.pipe(format=format)
     emitted = _write_bytes_output(payload, out_file)
     return emitted
-
-
-_DEFAULT_TOP_DISPLAYED_ITEMS = 3
-
-
-def _resolve_top_displayed_items(
-    tree: _tree.Tree,
-    top_displayed_items: None | int,
-) -> None | int:
-    """Return the validated top-N count for a RankingTree, else None."""
-    if isinstance(tree, _tree_ranking.RankingTree):
-        effective = (
-            _DEFAULT_TOP_DISPLAYED_ITEMS
-            if top_displayed_items is None
-            else top_displayed_items
-        )
-        if (
-            not isinstance(effective, int)
-            or isinstance(effective, bool)
-            or effective < 1
-        ):
-            raise ValueError(
-                f"top_displayed_items must be a positive integer,"
-                f" got {effective!r}"
-            )
-        return effective
-    if top_displayed_items is not None:
-        raise ValueError(
-            "top_displayed_items is only supported for RankingTree estimators"
-        )
-    return None
-
-
-def _resolve_displayed_indices(
-    tree: _tree.Tree,
-    top_displayed_items: None | int,
-) -> None | list[int]:
-    """Return the leaf-union top-N displayed item indices for a RankingTree."""
-    effective = _resolve_top_displayed_items(tree, top_displayed_items)
-    if effective is None:
-        return None
-    ranking_tree = typing.cast(_tree_ranking.RankingTree, tree)
-    result = ranking_tree._compute_displayed_indices(effective)
-    return result
 
 
 def _write_text_output(

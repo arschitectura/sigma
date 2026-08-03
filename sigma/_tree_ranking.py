@@ -18,8 +18,12 @@ import sklearn.utils.validation
 from . import _metric, _node, _ranking, _tree, _tree_text, _types
 
 if typing.TYPE_CHECKING:
+    import matplotlib.axes
     import pandas
     import polars
+
+
+_DEFAULT_TOP_DISPLAYED_ITEMS = 3
 
 
 class RankingTree(_tree.Tree[_node.RankingNode]):
@@ -529,6 +533,22 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
             return None
         raise ValueError("RankingTree does not support fit-time offsets")
 
+    def _plot_response(
+        self,
+        axes: matplotlib.axes.Axes,
+        response_name: None | str,
+        class_names: None | list[str],
+        displayed_indices: list[int],
+        leaf_palette: tuple[str, str, str],
+        background_color: str,
+    ) -> None:
+        """Draw the per (leaf, item) expected-rank dots."""
+        from . import _response_plot
+
+        _response_plot._plot_ranking(
+            axes, self, displayed_indices, leaf_palette
+        )
+
     def _validate_transmuted_y_shape(
         self,
         y_out: numpy.typing.NDArray[numpy.floating],
@@ -631,6 +651,35 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         expected_rank = _ranking.pl_expected_rank(alpha)
         ci_low, ci_high = self._compute_per_item_ci(y_full_active, w_active)
         return expected_rank, ci_low, ci_high
+
+    def _resolve_top_displayed_items(
+        self,
+        top_displayed_items: None | int,
+    ) -> int:
+        """Validate the displayed-item count, defaulting when none is given."""
+        if top_displayed_items is None:
+            effective = _DEFAULT_TOP_DISPLAYED_ITEMS
+        else:
+            effective = top_displayed_items
+        if (
+            not isinstance(effective, int)
+            or isinstance(effective, bool)
+            or effective < 1
+        ):
+            raise ValueError(
+                f"top_displayed_items must be a positive integer,"
+                f" got {effective!r}"
+            )
+        return effective
+
+    def _resolve_displayed_indices(
+        self,
+        top_displayed_items: None | int,
+    ) -> list[int]:
+        """Return the union of each leaf's top items by lowest expected rank."""
+        count = self._resolve_top_displayed_items(top_displayed_items)
+        indices = self._compute_displayed_indices(count)
+        return indices
 
     def _compute_displayed_indices(self, top_displayed_items: int) -> list[int]:
         """Return the union of each leaf's top items by lowest expected rank."""

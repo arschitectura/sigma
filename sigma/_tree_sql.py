@@ -9,9 +9,6 @@ import numpy.typing
 
 from . import _extension, _feature, _metric, _node, _partition, _tree_text
 
-if typing.TYPE_CHECKING:
-    from . import _tree
-
 
 def _collect_sql(
     root: _node.Node,
@@ -159,7 +156,7 @@ def _build_sql_case(
         )
         lines.append(f"{when_indent}WHEN {sql_condition} THEN")
         lines.append(subexpression)
-    fallback_value = _leaf_numeric_value(node, target_class_index)
+    fallback_value = node._sql_value(target_class_index)
     fallback_literal = _format_sql_numeric_literal(fallback_value)
     lines.append(f"{when_indent}ELSE {fallback_literal}")
     lines.append(f"{indent}END")
@@ -176,7 +173,7 @@ def _format_leaf_line(
     """Render a single leaf (or truncated subtree) line with trailing
     comment."""
     indent = "    " * indent_level
-    value = _leaf_numeric_value(node, target_class_index)
+    value = node._sql_value(target_class_index)
     value_literal = _format_sql_numeric_literal(value)
     if is_truncated:
         comment = f"Truncated at depth {node.depth}"
@@ -186,33 +183,6 @@ def _format_leaf_line(
         comment = f"Leaf {leaf_number}"
     line = f"{indent}{value_literal} -- {comment}"
     return line
-
-
-def _leaf_numeric_value(
-    node: _node.Node, target_class_index: None | int
-) -> float:
-    """Return the numeric value emitted at a SQL terminal (leaf, truncated
-    subtree, or internal-node categorical fallback)."""
-    if isinstance(node, _node.ClassificationNode):
-        if target_class_index is None:
-            raise RuntimeError(
-                "target_class_index must be resolved before rendering a"
-                " classification leaf"
-            )
-        value = float(node.predicted_proba[target_class_index])
-        return value
-    if isinstance(node, _node.SurvivalNode):
-        value = float(node.predicted_metrics[0])
-        return value
-    if isinstance(node, _node.RankingNode):
-        raise NotImplementedError(
-            "SQL export is not supported for RankingTree: a single SQL"
-            " scalar cannot represent the per-item expected-rank vector"
-            " predicted at each leaf."
-        )
-    regression_node = typing.cast(_node.RegressionNode, node)
-    value = regression_node.predicted_mean
-    return value
 
 
 def _format_sql_condition(
@@ -330,33 +300,3 @@ def _format_sql_numeric_literal(value: object) -> str:
         return "NULL"
     literal = repr(float_value)
     return literal
-
-
-def _resolve_target_class_index(
-    tree: _tree.Tree, target_class: None | object
-) -> None | int:
-    """Resolve target_class to an integer index into tree.classes_."""
-    from . import _tree_classification
-
-    is_classification = isinstance(
-        tree, _tree_classification.ClassificationTree
-    )
-    if not is_classification:
-        if target_class is not None:
-            raise ValueError(
-                "target_class is only valid for ClassificationTree;"
-                f" got {type(tree).__name__}"
-            )
-        return None
-    classes = tree.classes_
-    if target_class is None:
-        index = len(classes) - 1
-        return index
-    matches = numpy.where(classes == target_class)[0]
-    if len(matches) == 0:
-        raise ValueError(
-            f"target_class={target_class!r} not found in tree.classes_;"
-            f" valid options are {list(classes)}"
-        )
-    index = int(matches[0])
-    return index

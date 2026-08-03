@@ -128,89 +128,50 @@ def _bold(text: str, bold: bool) -> str:
 def _format_prediction(
     node: _node.Node,
     metrics: tuple[_metric.Metric, ...],
-    class_names: None | list[str] = None,
-    response_name: None | str = None,
+    class_names: None | list[str],
+    response_name: None | str,
+    displayed_indices: list[int],
     prediction_formatter: None | typing.Callable[[float], str] = None,
     separator: str = ", ",
     precision: int = 3,
     bold_value: bool = False,
-    displayed_indices: None | list[int] = None,
 ) -> str:
-    """Format prediction value with optional CI for display.
-
-    Args:
-        node: Tree node whose prediction to format.
-        metrics: Metric descriptors of the tree the node belongs to,
-            aligned with the node's value array (survival and ranking
-            only).
-        class_names: Optional display names for class labels (classification
-            only).
-        response_name: Optional name for the response variable (regression
-            and survival only). For regression the label reads "{response_name}
-            mean" instead of "Predicted mean"; for survival it reads "Median
-            {response_name}" instead of "Median survival".
-        prediction_formatter: Optional callable taking a float and returning a
-            string. For regression and survival, applied to the prediction and
-            each confidence interval bound. For classification, applied to each
-            class probability and its confidence interval bounds.
-        separator: String inserted between parts. Defaults to ", " for
-            single-line text output; pass "\n" for multi-line graphviz labels.
-        precision: Number of digits after the decimal point used by the default
-            formatters for predictions, CI bounds, and class probabilities.
-            Ignored when prediction_formatter is supplied.
-        bold_value: When True, the predicted value (regression mean,
-            classification probability, or survival metric value) is wrapped
-            with bold sentinel markers, suitable for HTML rendering by the
-            graphviz visualizer. Confidence interval bounds are not bolded.
-    """
-    share = _format_share(node.share)
-    count_part = f"Obs. count = {node.n_samples}, Obs. share = {share}"
-    if isinstance(node, _node.ClassificationNode):
-        text = _format_classification_prediction(
-            node,
-            class_names,
-            prediction_formatter,
-            separator,
-            precision,
-            count_part,
-            bold_value,
-        )
-        return text
-    if isinstance(node, _node.SurvivalNode):
-        text = _format_survival_prediction(
-            node,
-            metrics,
-            response_name,
-            prediction_formatter,
-            separator,
-            precision,
-            count_part,
-            bold_value,
-        )
-        return text
-    if isinstance(node, _node.RankingNode):
-        ranking_indices = _normalize_displayed_indices(displayed_indices)
-        text = _format_ranking_prediction(
-            node,
-            metrics,
-            prediction_formatter,
-            separator,
-            precision,
-            count_part,
-            bold_value,
-            ranking_indices,
-        )
-        return text
-    regression_node = typing.cast(_node.RegressionNode, node)
-    text = _format_regression_prediction(
-        regression_node,
-        response_name,
-        prediction_formatter,
-        separator,
-        precision,
-        count_part,
-        bold_value,
+    """Join a node's labeled values and its observation counts into one line."""
+    displayed_values = node._displayed_values(
+        metrics, class_names, response_name, displayed_indices
     )
+    parts: list[str] = []
+    for displayed in displayed_values:
+        value_text = _format_displayed_value(
+            displayed, prediction_formatter, precision, bold_value
+        )
+        parts.append(f"{displayed.label} = {value_text}")
+    share = _format_share(node.share)
+    parts.append(f"Obs. count = {node.n_samples}, Obs. share = {share}")
+    text = separator.join(parts)
+    return text
+
+
+def _format_displayed_value(
+    displayed: _node._DisplayedValue,
+    prediction_formatter: None | typing.Callable[[float], str],
+    precision: int,
+    bold_value: bool,
+) -> str:
+    """Render one displayed value with optional bolding and trailing CI bounds."""
+
+    def default_formatter(value: float) -> str:
+        if displayed.style == "probability":
+            formatted = _format_probability(value, precision)
+        else:
+            formatted = _format_value(value, precision)
+        return formatted
+
+    formatter = prediction_formatter or default_formatter
+    formatted_value = formatter(displayed.value)
+    text = _bold(formatted_value, bold_value)
+    if displayed.has_ci:
+        text += _format_ci_pair(formatter, displayed.ci_low, displayed.ci_high)
     return text
 
 
@@ -218,15 +179,6 @@ def _capitalize_first_letter(text: str) -> str:
     """Return text with its first character upper-cased."""
     result = text[:1].upper() + text[1:]
     return result
-
-
-def _normalize_displayed_indices(
-    displayed_indices: None | list[int],
-) -> list[int]:
-    """Return the displayed item indices, treating None as an empty list."""
-    if displayed_indices is None:
-        return []
-    return displayed_indices
 
 
 def _ellipsize(s: str, max_length: int) -> str:
@@ -237,160 +189,6 @@ def _ellipsize(s: str, max_length: int) -> str:
         result = s[: max_length - 3] + "..."
         return result
     return "..."[:max_length]
-
-
-def _format_classification_prediction(
-    node: _node.ClassificationNode,
-    class_names: None | list[str],
-    prediction_formatter: None | typing.Callable[[float], str],
-    separator: str,
-    precision: int,
-    count_part: str,
-    bold_value: bool,
-) -> str:
-    """Format the classification line of a node display."""
-    formatter = prediction_formatter or (
-        lambda v: _format_probability(v, precision)
-    )
-    predicted_proba = node.predicted_proba
-    ci_low = node.ci_low
-    ci_high = node.ci_high
-    parts: list[str] = []
-    class_count = len(predicted_proba)
-    for i in range(class_count):
-        raw = str(i) if class_names is None else class_names[i]
-        name = _capitalize_first_letter(raw)
-        formatted_value = formatter(predicted_proba[i])
-        value_text = _bold(formatted_value, bold_value)
-        part = f"{name} proba. = {value_text}"
-        if ci_low is not None and ci_high is not None:
-            part += _format_ci_pair(
-                formatter, float(ci_low[i]), float(ci_high[i])
-            )
-        parts.append(part)
-    parts.append(count_part)
-    text = separator.join(parts)
-    return text
-
-
-def _format_regression_prediction(
-    node: _node.RegressionNode,
-    response_name: None | str,
-    prediction_formatter: None | typing.Callable[[float], str],
-    separator: str,
-    precision: int,
-    count_part: str,
-    bold_value: bool,
-) -> str:
-    """Format the regression line of a node display."""
-    formatter = prediction_formatter or (lambda v: _format_value(v, precision))
-    if response_name is None:
-        label = "Predicted"
-    else:
-        label = _capitalize_first_letter(response_name)
-    formatted_value = formatter(node.predicted_mean)
-    value_text = _bold(formatted_value, bold_value)
-    prediction_part = f"{label} mean = {value_text}"
-    ci_low = node.ci_low
-    ci_high = node.ci_high
-    if ci_low is not None and ci_high is not None:
-        prediction_part += _format_ci_pair(formatter, ci_low, ci_high)
-    text = f"{prediction_part}{separator}{count_part}"
-    return text
-
-
-def _format_survival_prediction(
-    node: _node.SurvivalNode,
-    metrics: tuple[_metric.Metric, ...],
-    response_name: None | str,
-    prediction_formatter: None | typing.Callable[[float], str],
-    separator: str,
-    precision: int,
-    count_part: str,
-    bold_value: bool,
-) -> str:
-    """Format one labeled line per configured survival metric."""
-    parts: list[str] = []
-    for index, metric in enumerate(metrics):
-        line = _format_metric_line(
-            metric,
-            node.predicted_metrics[index],
-            node.ci_low[index],
-            node.ci_high[index],
-            response_name,
-            prediction_formatter,
-            precision,
-            bold_value,
-        )
-        parts.append(line)
-    parts.append(count_part)
-    text = separator.join(parts)
-    return text
-
-
-def _format_ranking_prediction(
-    node: _node.RankingNode,
-    metrics: tuple[_metric.Metric, ...],
-    prediction_formatter: None | typing.Callable[[float], str],
-    separator: str,
-    precision: int,
-    count_part: str,
-    bold_value: bool,
-    displayed_indices: list[int],
-) -> str:
-    """Format one labeled line per displayed ranking metric."""
-    parts: list[str] = []
-    for index in displayed_indices:
-        line = _format_metric_line(
-            metrics[index],
-            node.predicted_ranks[index],
-            node.ci_low[index],
-            node.ci_high[index],
-            None,
-            prediction_formatter,
-            precision,
-            bold_value,
-        )
-        parts.append(line)
-    parts.append(count_part)
-    text = separator.join(parts)
-    return text
-
-
-def _format_metric_line(
-    metric: _metric.Metric,
-    value: float,
-    ci_low: float,
-    ci_high: float,
-    response_name: None | str,
-    prediction_formatter: None | typing.Callable[[float], str],
-    precision: int,
-    bold_value: bool,
-) -> str:
-    """Format a single metric line with optional CI."""
-    display_label = _apply_response_name(metric.label, response_name)
-    value_text = _format_metric_value(
-        metric,
-        value,
-        ci_low,
-        ci_high,
-        prediction_formatter,
-        precision,
-        bold_value,
-    )
-    line = f"{display_label} = {value_text}"
-    return line
-
-
-def _apply_response_name(label: str, response_name: None | str) -> str:
-    """Substitute response_name into the canonical 'Median survival' label."""
-    if response_name is None:
-        return label
-    if label == "Median survival":
-        capitalized = _capitalize_first_letter(response_name)
-        text = f"Median {capitalized}"
-        return text
-    return label
 
 
 class _TextRow(typing.NamedTuple):
@@ -408,70 +206,13 @@ def _table_prediction_headers(
     metrics: tuple[_metric.Metric, ...],
     class_names: None | list[str],
     response_name: None | str,
-    displayed_indices: None | list[int],
-) -> list[str]:
-    """Header strings for the prediction columns of node."""
-    if isinstance(node, _node.ClassificationNode):
-        result = _table_classification_prediction_headers(node, class_names)
-        return result
-    if isinstance(node, _node.SurvivalNode):
-        result = _table_survival_prediction_headers(metrics, response_name)
-        return result
-    if isinstance(node, _node.RankingNode):
-        ranking_indices = _normalize_displayed_indices(displayed_indices)
-        result = _table_ranking_prediction_headers(metrics, ranking_indices)
-        return result
-    result = _table_regression_prediction_headers(response_name)
-    return result
-
-
-def _table_classification_prediction_headers(
-    node: _node.ClassificationNode,
-    class_names: None | list[str],
-) -> list[str]:
-    """Headers for a classification node's prediction columns."""
-    headers: list[str] = []
-    class_count = len(node.predicted_proba)
-    for i in range(class_count):
-        raw = str(i) if class_names is None else class_names[i]
-        name = _capitalize_first_letter(raw)
-        headers.append(f"{name} proba.")
-    headers.append("Obs. count")
-    headers.append("Obs. share")
-    return headers
-
-
-def _table_regression_prediction_headers(
-    response_name: None | str,
-) -> list[str]:
-    """Headers for a regression node's prediction columns."""
-    if response_name is None:
-        label = "Predicted"
-    else:
-        label = _capitalize_first_letter(response_name)
-    headers = [f"{label} mean", "Obs. count", "Obs. share"]
-    return headers
-
-
-def _table_survival_prediction_headers(
-    metrics: tuple[_metric.Metric, ...],
-    response_name: None | str,
-) -> list[str]:
-    """Headers for a survival node's prediction columns."""
-    headers = [
-        _apply_response_name(metric.label, response_name) for metric in metrics
-    ]
-    headers.append("Obs. count")
-    headers.append("Obs. share")
-    return headers
-
-
-def _table_ranking_prediction_headers(
-    metrics: tuple[_metric.Metric, ...],
     displayed_indices: list[int],
 ) -> list[str]:
-    """Headers for a ranking node's displayed-item prediction columns."""
-    headers = [metrics[index].label for index in displayed_indices]
+    """Header strings for the prediction columns of node."""
+    displayed_values = node._displayed_values(
+        metrics, class_names, response_name, displayed_indices
+    )
+    headers = [displayed.label for displayed in displayed_values]
     headers.append("Obs. count")
     headers.append("Obs. share")
     return headers
@@ -480,166 +221,27 @@ def _table_ranking_prediction_headers(
 def _table_prediction_cells(
     node: _node.Node,
     metrics: tuple[_metric.Metric, ...],
+    class_names: None | list[str],
+    response_name: None | str,
+    displayed_indices: list[int],
     prediction_formatter: None | typing.Callable[[float], str],
     precision: int,
-    displayed_indices: None | list[int],
 ) -> list[str]:
     """Cell strings for the prediction columns of node."""
-    if isinstance(node, _node.ClassificationNode):
-        result = _table_classification_prediction_cells(
-            node, prediction_formatter, precision
-        )
-        return result
-    if isinstance(node, _node.SurvivalNode):
-        result = _table_survival_prediction_cells(
-            node, metrics, prediction_formatter, precision
-        )
-        return result
-    if isinstance(node, _node.RankingNode):
-        ranking_indices = _normalize_displayed_indices(displayed_indices)
-        result = _table_ranking_prediction_cells(
-            node, metrics, prediction_formatter, precision, ranking_indices
-        )
-        return result
-    regression_node = typing.cast(_node.RegressionNode, node)
-    result = _table_regression_prediction_cells(
-        regression_node, prediction_formatter, precision
+    displayed_values = node._displayed_values(
+        metrics, class_names, response_name, displayed_indices
     )
-    return result
-
-
-def _table_classification_prediction_cells(
-    node: _node.ClassificationNode,
-    prediction_formatter: None | typing.Callable[[float], str],
-    precision: int,
-) -> list[str]:
-    """Cells for a classification node's prediction columns."""
-    formatter = prediction_formatter or (
-        lambda v: _format_probability(v, precision)
-    )
-    predicted_proba = node.predicted_proba
-    ci_low = node.ci_low
-    ci_high = node.ci_high
-    cells: list[str] = []
-    class_count = len(predicted_proba)
-    for i in range(class_count):
-        cell = formatter(predicted_proba[i])
-        if ci_low is not None and ci_high is not None:
-            cell += _format_ci_pair(
-                formatter, float(ci_low[i]), float(ci_high[i])
-            )
-        cells.append(cell)
-    cells.append(str(node.n_samples))
-    cells.append(_format_share(node.share))
-    return cells
-
-
-def _table_regression_prediction_cells(
-    node: _node.RegressionNode,
-    prediction_formatter: None | typing.Callable[[float], str],
-    precision: int,
-) -> list[str]:
-    """Cells for a regression node's prediction columns."""
-    formatter = prediction_formatter or (lambda v: _format_value(v, precision))
-    cell = formatter(node.predicted_mean)
-    ci_low = node.ci_low
-    ci_high = node.ci_high
-    if ci_low is not None and ci_high is not None:
-        cell += _format_ci_pair(formatter, ci_low, ci_high)
-    cells = [cell, str(node.n_samples), _format_share(node.share)]
-    return cells
-
-
-def _table_survival_prediction_cells(
-    node: _node.SurvivalNode,
-    metrics: tuple[_metric.Metric, ...],
-    prediction_formatter: None | typing.Callable[[float], str],
-    precision: int,
-) -> list[str]:
-    """Cells for a survival node's prediction columns."""
-    cells: list[str] = []
-    for index, metric in enumerate(metrics):
-        cell = _format_metric_cell(
-            metric,
-            node.predicted_metrics[index],
-            node.ci_low[index],
-            node.ci_high[index],
-            prediction_formatter,
-            precision,
+    cells = [
+        _format_displayed_value(
+            displayed, prediction_formatter, precision, False
         )
-        cells.append(cell)
-    cells.append(str(node.n_samples))
-    cells.append(_format_share(node.share))
+        for displayed in displayed_values
+    ]
+    sample_count = str(node.n_samples)
+    cells.append(sample_count)
+    share = _format_share(node.share)
+    cells.append(share)
     return cells
-
-
-def _table_ranking_prediction_cells(
-    node: _node.RankingNode,
-    metrics: tuple[_metric.Metric, ...],
-    prediction_formatter: None | typing.Callable[[float], str],
-    precision: int,
-    displayed_indices: list[int],
-) -> list[str]:
-    """Cells for a ranking node's displayed-item prediction columns."""
-    cells: list[str] = []
-    for index in displayed_indices:
-        cell = _format_metric_cell(
-            metrics[index],
-            node.predicted_ranks[index],
-            node.ci_low[index],
-            node.ci_high[index],
-            prediction_formatter,
-            precision,
-        )
-        cells.append(cell)
-    cells.append(str(node.n_samples))
-    cells.append(_format_share(node.share))
-    return cells
-
-
-def _format_metric_cell(
-    metric: _metric.Metric,
-    value: float,
-    ci_low: float,
-    ci_high: float,
-    prediction_formatter: None | typing.Callable[[float], str],
-    precision: int,
-) -> str:
-    """Render one metric cell with optional CI bounds."""
-    cell = _format_metric_value(
-        metric,
-        value,
-        ci_low,
-        ci_high,
-        prediction_formatter,
-        precision,
-        False,
-    )
-    return cell
-
-
-def _format_metric_value(
-    metric: _metric.Metric,
-    value: float,
-    ci_low: float,
-    ci_high: float,
-    prediction_formatter: None | typing.Callable[[float], str],
-    precision: int,
-    bold_value: bool,
-) -> str:
-    """Render a metric value with optional bolding and trailing CI bounds."""
-
-    def default_formatter(v: float) -> str:
-        if metric.style == "probability":
-            return _format_probability(v, precision)
-        return _format_value(v, precision)
-
-    formatter = prediction_formatter or default_formatter
-    formatted_value = formatter(value)
-    text = _bold(formatted_value, bold_value)
-    if metric.has_ci:
-        text += _format_ci_pair(formatter, ci_low, ci_high)
-    return text
 
 
 def _table_p_value_cell(partition: _partition.Partition) -> None | str:
@@ -691,22 +293,26 @@ def _collect_text_rows(
     metrics: tuple[_metric.Metric, ...],
     category_labels: None | dict[int, dict[float, str]],
     feature_names: None | numpy.typing.NDArray,
+    class_names: None | list[str],
+    response_name: None | str,
+    displayed_indices: list[int],
     prediction_formatter: None | typing.Callable[[float], str],
     max_depth: None | int,
     precision: int,
     best_first: bool,
-    displayed_indices: None | list[int],
 ) -> list[_TextRow]:
     """Walk the tree and collect one _TextRow per displayed line."""
     rows: list[_TextRow] = []
     _append_text_row(
         root,
         metrics,
+        class_names,
+        response_name,
+        displayed_indices,
         "All records",
         prediction_formatter,
         precision,
         rows,
-        displayed_indices,
     )
     prediction_column_count = len(rows[0].prediction_cells)
     _append_child_text_rows(
@@ -714,13 +320,15 @@ def _collect_text_rows(
         metrics,
         category_labels,
         feature_names,
+        class_names,
+        response_name,
+        displayed_indices,
         prediction_formatter,
         max_depth,
         precision,
         best_first,
         "",
         rows,
-        displayed_indices,
         prediction_column_count,
     )
     return rows
@@ -729,15 +337,23 @@ def _collect_text_rows(
 def _append_text_row(
     node: _node.Node,
     metrics: tuple[_metric.Metric, ...],
+    class_names: None | list[str],
+    response_name: None | str,
+    displayed_indices: list[int],
     prefix: str,
     prediction_formatter: None | typing.Callable[[float], str],
     precision: int,
     rows: list[_TextRow],
-    displayed_indices: None | list[int],
 ) -> None:
     """Append one _TextRow representing node to rows."""
     cells = _table_prediction_cells(
-        node, metrics, prediction_formatter, precision, displayed_indices
+        node,
+        metrics,
+        class_names,
+        response_name,
+        displayed_indices,
+        prediction_formatter,
+        precision,
     )
     match node.extension:
         case _partition.Partition() as partition:
@@ -763,13 +379,15 @@ def _append_child_text_rows(
     metrics: tuple[_metric.Metric, ...],
     category_labels: None | dict[int, dict[float, str]],
     feature_names: None | numpy.typing.NDArray,
+    class_names: None | list[str],
+    response_name: None | str,
+    displayed_indices: list[int],
     prediction_formatter: None | typing.Callable[[float], str],
     max_depth: None | int,
     precision: int,
     best_first: bool,
     indent: str,
     rows: list[_TextRow],
-    displayed_indices: None | list[int],
     prediction_column_count: int,
 ) -> None:
     """Recursively append text rows for each child of node."""
@@ -812,11 +430,13 @@ def _append_child_text_rows(
         _append_text_row(
             child,
             metrics,
+            class_names,
+            response_name,
+            displayed_indices,
             prefix,
             prediction_formatter,
             precision,
             rows,
-            displayed_indices,
         )
         indent_extension = "    " if is_last else "│   "
         _append_child_text_rows(
@@ -824,13 +444,15 @@ def _append_child_text_rows(
             metrics,
             category_labels,
             feature_names,
+            class_names,
+            response_name,
+            displayed_indices,
             prediction_formatter,
             max_depth,
             precision,
             best_first,
             indent + indent_extension,
             rows,
-            displayed_indices,
             prediction_column_count,
         )
 

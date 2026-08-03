@@ -15,6 +15,17 @@ if typing.TYPE_CHECKING:
     import polars
 
 
+class _DisplayedValue(typing.NamedTuple):
+    """One labeled value a node reports, before any formatting."""
+
+    label: str
+    value: float
+    ci_low: float
+    ci_high: float
+    style: typing.Literal["value", "probability"]
+    has_ci: bool
+
+
 class Node(abc.ABC):
     """Abstract base for a node in a fitted conditional inference tree.
 
@@ -162,6 +173,26 @@ class Node(abc.ABC):
             of any other node of the same tree.
         """
 
+    @abc.abstractmethod
+    def _displayed_values(
+        self,
+        metrics: tuple[_metric.Metric, ...],
+        class_names: None | list[str],
+        response_name: None | str,
+        displayed_indices: list[int],
+    ) -> list[_DisplayedValue]:
+        """Labeled values this node reports to the renderers, in display order."""
+
+    @abc.abstractmethod
+    def _sql_value(self, target_class_index: None | int) -> float:
+        """Single numeric value the SQL export emits for this node."""
+
+    def _top_displayed_indices(
+        self, top_displayed_items: None | int
+    ) -> list[int]:
+        """Positions of the values this node displays when only its best ones are kept."""
+        return []
+
 
 class RegressionNode(Node):
     """Node of a fitted RegressionTree.
@@ -203,6 +234,37 @@ class RegressionNode(Node):
         """Sort key: ascending by predicted mean."""
         key = (self.predicted_mean,)
         return key
+
+    def _displayed_values(
+        self,
+        metrics: tuple[_metric.Metric, ...],
+        class_names: None | list[str],
+        response_name: None | str,
+        displayed_indices: list[int],
+    ) -> list[_DisplayedValue]:
+        """The predicted mean, labeled after the response when it is named."""
+        if response_name is None:
+            label = "Predicted mean"
+        else:
+            label = f"{response_name} mean"
+        ci_low = self.ci_low
+        ci_high = self.ci_high
+        if ci_low is not None and ci_high is not None:
+            displayed = _DisplayedValue(
+                label, self.predicted_mean, ci_low, ci_high, "value", True
+            )
+        else:
+            undefined = float("nan")
+            displayed = _DisplayedValue(
+                label, self.predicted_mean, undefined, undefined, "value", False
+            )
+        values = [displayed]
+        return values
+
+    def _sql_value(self, target_class_index: None | int) -> float:
+        """The predicted mean."""
+        value = self.predicted_mean
+        return value
 
 
 class ClassificationNode(Node):
@@ -255,6 +317,53 @@ class ClassificationNode(Node):
         """Sort key: descending by class probability tuple."""
         key = tuple(-p for p in self.predicted_proba)
         return key
+
+    def _displayed_values(
+        self,
+        metrics: tuple[_metric.Metric, ...],
+        class_names: None | list[str],
+        response_name: None | str,
+        displayed_indices: list[int],
+    ) -> list[_DisplayedValue]:
+        """One probability per class, labeled with the class display name."""
+        predicted_proba = self.predicted_proba
+        ci_low = self.ci_low
+        ci_high = self.ci_high
+        values: list[_DisplayedValue] = []
+        for index in range(len(predicted_proba)):
+            if class_names is None:
+                name = str(index)
+            else:
+                name = class_names[index]
+            label = f"{name} proba."
+            if ci_low is not None and ci_high is not None:
+                bound_low = float(ci_low[index])
+                bound_high = float(ci_high[index])
+                has_ci = True
+            else:
+                bound_low = float("nan")
+                bound_high = float("nan")
+                has_ci = False
+            displayed = _DisplayedValue(
+                label,
+                predicted_proba[index],
+                bound_low,
+                bound_high,
+                "probability",
+                has_ci,
+            )
+            values.append(displayed)
+        return values
+
+    def _sql_value(self, target_class_index: None | int) -> float:
+        """Probability of the target class."""
+        if target_class_index is None:
+            raise RuntimeError(
+                "target_class_index must be resolved before rendering a"
+                " classification leaf"
+            )
+        value = float(self.predicted_proba[target_class_index])
+        return value
 
 
 class SurvivalNode(Node):
@@ -321,6 +430,33 @@ class SurvivalNode(Node):
         key = tuple(components)
         return key
 
+    def _displayed_values(
+        self,
+        metrics: tuple[_metric.Metric, ...],
+        class_names: None | list[str],
+        response_name: None | str,
+        displayed_indices: list[int],
+    ) -> list[_DisplayedValue]:
+        """One value per metric of the fitted tree, in metric order."""
+        values: list[_DisplayedValue] = []
+        for index, metric in enumerate(metrics):
+            label = metric._display_label(response_name)
+            displayed = _DisplayedValue(
+                label,
+                self.predicted_metrics[index],
+                self.ci_low[index],
+                self.ci_high[index],
+                metric.style,
+                metric.has_ci,
+            )
+            values.append(displayed)
+        return values
+
+    def _sql_value(self, target_class_index: None | int) -> float:
+        """Value of the first metric of the fitted tree."""
+        value = float(self.predicted_metrics[0])
+        return value
+
 
 class RankingNode(Node):
     """Node of a fitted RankingTree.
@@ -373,6 +509,54 @@ class RankingNode(Node):
             components.append(sort_value)
         key = tuple(components)
         return key
+
+    def _displayed_values(
+        self,
+        metrics: tuple[_metric.Metric, ...],
+        class_names: None | list[str],
+        response_name: None | str,
+        displayed_indices: list[int],
+    ) -> list[_DisplayedValue]:
+        """One expected rank per displayed item, in item order."""
+        values: list[_DisplayedValue] = []
+        for index in displayed_indices:
+            metric = metrics[index]
+            label = metric._display_label(response_name)
+            displayed = _DisplayedValue(
+                label,
+                self.predicted_ranks[index],
+                self.ci_low[index],
+                self.ci_high[index],
+                metric.style,
+                metric.has_ci,
+            )
+            values.append(displayed)
+        return values
+
+    def _sql_value(self, target_class_index: None | int) -> float:
+        """Unsupported: a leaf predicts a per-item vector, not one scalar."""
+        raise NotImplementedError(
+            "SQL export is not supported for RankingTree: a single SQL"
+            " scalar cannot represent the per-item expected-rank vector"
+            " predicted at each leaf."
+        )
+
+    def _top_displayed_indices(
+        self, top_displayed_items: None | int
+    ) -> list[int]:
+        """The node's own top items by lowest non-NaN expected rank."""
+        if top_displayed_items is None:
+            return []
+        values = self.predicted_ranks
+        nan_mask = numpy.isnan(values)
+        valid_indices = numpy.flatnonzero(~nan_mask)
+        if valid_indices.size == 0:
+            return []
+        take = min(top_displayed_items, valid_indices.size)
+        valid_values = values[valid_indices]
+        order = numpy.argsort(valid_values, kind="stable")[:take]
+        result = [int(index) for index in valid_indices[order]]
+        return result
 
 
 def _populate_share(root: Node) -> None:
