@@ -19,7 +19,7 @@ import numpy.typing
 _PL_EXPECTED_RANK_CHUNK = 256
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False, slots=True)
 class _OrderingsCache:
     """Vectorised representation of per-row partial-permutation orderings."""
 
@@ -276,7 +276,7 @@ def _compute_pl_mle_from_cache(
     return alpha
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, eq=False, slots=True)
 class _AtRiskAux:
     """Per-flat-step PL at-risk quantities derived from a cache and alpha."""
 

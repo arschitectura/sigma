@@ -96,8 +96,6 @@ def _survival_leaf(values):
     leaf = sigma._node.SurvivalNode(
         depth=1,
         n_samples=10,
-        share=0.0,
-        decoration=None,
         predicted_survival=(curve_times, curve_surv),
         survival_log_variance=numpy.zeros(1, dtype=float),
         predicted_metrics=metric_values,

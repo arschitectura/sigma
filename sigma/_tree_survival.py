@@ -533,8 +533,6 @@ class SurvivalTree(_tree.Tree[_node.SurvivalNode]):
         node = _node.SurvivalNode(
             depth=depth,
             n_samples=n_samples,
-            share=0.0,
-            decoration=None,
             predicted_survival=predicted_survival,
             survival_log_variance=survival_log_variance,
             predicted_metrics=predicted_metrics,

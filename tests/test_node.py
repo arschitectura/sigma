@@ -16,8 +16,6 @@ def _leaf_regression(predicted_mean: float) -> sigma._node.RegressionNode:
     leaf = sigma._node.RegressionNode(
         depth=1,
         n_samples=10,
-        share=0.0,
-        decoration=None,
         predicted_mean=predicted_mean,
         ci_low=None,
         ci_high=None,
@@ -39,8 +37,6 @@ def _survival_node(
     node = sigma._node.SurvivalNode(
         depth=0,
         n_samples=10,
-        share=1.0,
-        decoration=None,
         predicted_survival=(times, survival),
         survival_log_variance=numpy.zeros(1, dtype=float),
         predicted_metrics=metric_values,
@@ -68,14 +64,12 @@ def _numeric_partition(left, right) -> sigma._partition.NumericalPartition:
 
 
 def _regression_root(
-    extension, predicted_mean, n_samples, share=1.0
+    extension, predicted_mean, n_samples
 ) -> sigma._node.RegressionNode:
     """Build a depth-0 regression root carrying the given extension."""
     root = sigma._node.RegressionNode(
         depth=0,
         n_samples=n_samples,
-        share=share,
-        decoration=None,
         predicted_mean=predicted_mean,
         ci_low=None,
         ci_high=None,
@@ -100,8 +94,6 @@ class TestRegressionNode(unittest.TestCase):
         leaf = sigma._node.RegressionNode(
             depth=2,
             n_samples=42,
-            share=0.42,
-            decoration=None,
             predicted_mean=7.0,
             ci_low=6.0,
             ci_high=8.0,
@@ -111,7 +103,6 @@ class TestRegressionNode(unittest.TestCase):
         self.assertEqual(leaf.ci_low, 6.0)
         self.assertEqual(leaf.ci_high, 8.0)
         self.assertEqual(leaf.n_samples, 42)
-        self.assertAlmostEqual(leaf.share, 0.42)
 
     def test_leaf_sort_key_orders_ascending(self):
         """RegressionNode.leaf_sort_key returns (predicted_mean,) for
@@ -134,8 +125,6 @@ class TestClassificationNode(unittest.TestCase):
         leaf = sigma._node.ClassificationNode(
             depth=0,
             n_samples=20,
-            share=1.0,
-            decoration=None,
             predicted_class_index=1,
             predicted_proba=distribution,
             ci_low=ci_low,
@@ -158,8 +147,6 @@ class TestClassificationNode(unittest.TestCase):
         majority_zero = sigma._node.ClassificationNode(
             depth=0,
             n_samples=10,
-            share=1.0,
-            decoration=None,
             predicted_class_index=0,
             predicted_proba=majority_zero_proba,
             ci_low=None,
@@ -170,8 +157,6 @@ class TestClassificationNode(unittest.TestCase):
         majority_one = sigma._node.ClassificationNode(
             depth=0,
             n_samples=10,
-            share=1.0,
-            decoration=None,
             predicted_class_index=1,
             predicted_proba=majority_one_proba,
             ci_low=None,
@@ -282,8 +267,6 @@ class TestLeavesAndShare(unittest.TestCase):
         left = sigma._node.RegressionNode(
             depth=1,
             n_samples=15,
-            share=0.0,
-            decoration=None,
             predicted_mean=1.0,
             ci_low=None,
             ci_high=None,
@@ -292,15 +275,13 @@ class TestLeavesAndShare(unittest.TestCase):
         right = sigma._node.RegressionNode(
             depth=1,
             n_samples=5,
-            share=0.0,
-            decoration=None,
             predicted_mean=9.0,
             ci_low=None,
             ci_high=None,
             response_samples=numpy.empty(0, dtype=float),
         )
         partition = _numeric_partition(left, right)
-        root = _regression_root(partition, 3.0, 20, share=0.0)
+        root = _regression_root(partition, 3.0, 20)
         return root
 
     def test_leaves_returns_left_then_right(self):
@@ -405,8 +386,8 @@ class TestLeafIdDefault(unittest.TestCase):
         self.assertFalse(hasattr(extension, "leaf_id"))
 
 
-class TestNodeIdDefault(unittest.TestCase):
-    """Tests for the Node.node_id field at construction time."""
+class TestNodeConstructionDefaults(unittest.TestCase):
+    """Tests for the Node fields that construction fills in on its own."""
 
     __slots__ = ()
 
@@ -422,6 +403,16 @@ class TestNodeIdDefault(unittest.TestCase):
         partition = _numeric_partition(left, right)
         root = _regression_root(partition, 5.0, 20)
         self.assertEqual(root.node_id, 0)
+
+    def test_freshly_constructed_leaf_has_zero_share(self):
+        """A newly built leaf has share equal to the sentinel 0.0."""
+        leaf = _leaf_regression(3.0)
+        self.assertEqual(leaf.share, 0.0)
+
+    def test_freshly_constructed_leaf_has_no_decoration(self):
+        """A newly built leaf has no decoration."""
+        leaf = _leaf_regression(3.0)
+        self.assertIsNone(leaf.decoration)
 
 
 class TestWeakReferenceable(unittest.TestCase):
@@ -456,8 +447,6 @@ class TestWeakReferenceable(unittest.TestCase):
         classification = sigma._node.ClassificationNode(
             depth=0,
             n_samples=10,
-            share=1.0,
-            decoration=None,
             predicted_class_index=0,
             predicted_proba=classification_proba,
             ci_low=None,
@@ -469,8 +458,6 @@ class TestWeakReferenceable(unittest.TestCase):
         ranking = sigma._node.RankingNode(
             depth=0,
             n_samples=10,
-            share=1.0,
-            decoration=None,
             predicted_ranks=ranking_ranks,
             ci_low=numpy.array([numpy.nan]),
             ci_high=numpy.array([numpy.nan]),

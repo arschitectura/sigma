@@ -259,7 +259,7 @@ def _emit_digraph(
                 )
                 if max_depth is None or node.depth < max_depth:
                     branches = _node.display_branches(
-                        node, partition, display_reverse, metrics
+                        partition, display_reverse, metrics
                     )
                     branch_name = _tree_text._resolve_feature_name(
                         partition, feature_names

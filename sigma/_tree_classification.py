@@ -291,8 +291,6 @@ class ClassificationTree(
         node = _node.ClassificationNode(
             depth=depth,
             n_samples=n_samples,
-            share=0.0,
-            decoration=None,
             predicted_class_index=prediction_index,
             predicted_proba=predicted_proba,
             ci_low=ci_low,

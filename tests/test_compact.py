@@ -9,6 +9,7 @@ import sigma
 import sigma._extension
 import sigma._partition
 import sigma._tree_classification
+import sigma._tree_ranking
 import sigma._tree_regression
 import sigma._tree_survival
 
@@ -41,6 +42,79 @@ def _fit_nested_categorical_regression():
         min_splits=2,
         min_buckets=1,
         ci_coverage=None,
+        random_state=0,
+    )
+    tree.fit(X, y)
+    return tree, X
+
+
+def _fit_step_regression():
+    """Fit a regression tree on a single step, giving one split and two leaves."""
+    X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
+    y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
+    tree = sigma._tree_regression.RegressionTree(
+        correlation="normal",
+        min_splits=2,
+        min_buckets=1,
+        ci_coverage=None,
+    )
+    tree.fit(X, y)
+    return tree, X
+
+
+def _fit_nested_numeric_classification():
+    """Fit a classification tree splitting one numeric feature into four levels."""
+    X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
+    values = X.ravel()
+    y = numpy.select(
+        [values <= 20, values <= 40, values <= 60],
+        [0, 1, 2],
+        default=3,
+    )
+    tree = sigma._tree_classification.ClassificationTree(
+        correlation="normal", min_splits=2, min_buckets=1, ci_coverage=None
+    )
+    tree.fit(X, y)
+    return tree, X
+
+
+def _fit_numeric_survival():
+    """Fit a survival tree on a stepped numeric feature."""
+    X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
+    values = X.ravel()
+    time = numpy.select(
+        [values <= 20, values <= 40, values <= 60],
+        [1.0, 5.0, 9.0],
+        default=13.0,
+    )
+    event = numpy.tile([1.0, 1.0, 1.0, 0.0], 20)
+    y = numpy.column_stack([time, event])
+    tree = sigma._tree_survival.SurvivalTree(min_splits=2, min_buckets=1)
+    tree.fit(X, y)
+    return tree, X
+
+
+def _fit_numeric_ranking():
+    """Fit a ranking tree on a stepped numeric feature."""
+    X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
+    values = X.ravel()
+    orders = numpy.array(
+        [
+            [1.0, 2.0, 3.0],
+            [2.0, 3.0, 1.0],
+            [3.0, 1.0, 2.0],
+            [1.0, 3.0, 2.0],
+        ]
+    )
+    group = numpy.select(
+        [values <= 20, values <= 40, values <= 60], [0, 1, 2], default=3
+    )
+    y = orders[group]
+    tree = sigma._tree_ranking.RankingTree(
+        pca_components=2,
+        min_splits=2,
+        min_buckets=1,
+        ci_replicates=5,
         random_state=0,
     )
     tree.fit(X, y)
@@ -142,24 +216,9 @@ class TestClassificationCompaction(unittest.TestCase):
 
     __slots__ = ()
 
-    def _fit(self):
-        """Fit a classification tree with a recursive numeric split."""
-        X = numpy.arange(1, 81, dtype=float).reshape(-1, 1)
-        values = X.ravel()
-        y = numpy.select(
-            [values <= 20, values <= 40, values <= 60],
-            [0, 1, 2],
-            default=3,
-        )
-        tree = sigma._tree_classification.ClassificationTree(
-            correlation="normal", min_splits=2, min_buckets=1, ci_coverage=None
-        )
-        tree.fit(X, y)
-        return tree, X
-
     def test_predict_proba_matches_original(self):
         """Class probabilities are identical before and after compaction."""
-        tree, X = self._fit()
+        tree, X = _fit_nested_numeric_classification()
         compacted = tree.compact()
         numpy.testing.assert_allclose(
             tree.predict_proba(X), compacted.predict_proba(X)
@@ -173,15 +232,7 @@ class TestNonMergingCompaction(unittest.TestCase):
 
     def test_single_split_keeps_statistics_and_two_children(self):
         """A stump has no chain to merge, so it keeps its split statistics."""
-        X = numpy.arange(1, 41, dtype=float).reshape(-1, 1)
-        y = numpy.where(X.ravel() <= 20, 0.0, 10.0)
-        tree = sigma._tree_regression.RegressionTree(
-            correlation="normal",
-            min_splits=2,
-            min_buckets=1,
-            ci_coverage=None,
-        )
-        tree.fit(X, y)
+        tree, X = _fit_step_regression()
         compacted = tree.compact()
         root = compacted.content_.extension
         assert isinstance(root, sigma._partition.Partition)
@@ -224,6 +275,82 @@ class TestCompactionLeavesOriginalIntact(unittest.TestCase):
         )
         self.assertEqual(len(tree.content_.extension.children), 2)
         self.assertIsNotNone(tree.content_.extension.statistics)
+
+
+class TestCompactedTreeOwnsItsValueArrays(unittest.TestCase):
+    """Tests that a compacted tree shares no value array with its source."""
+
+    __slots__ = ()
+
+    def test_regression_response_samples_are_copied(self):
+        """Compacted regression nodes hold their own response_samples array."""
+        tree, _ = _fit_nested_numeric_regression()
+        compacted = tree.compact()
+        source_arrays = [node.response_samples for node in tree.nodes_]
+        for node in compacted.nodes_:
+            self._assert_not_shared(node.response_samples, source_arrays)
+
+    def test_classification_proba_edit_leaves_source_unchanged(self):
+        """Editing a compacted leaf's predicted_proba leaves the source
+        predictions untouched."""
+        tree, X = _fit_nested_numeric_classification()
+        compacted = tree.compact()
+        expected = tree.predict_proba(X)
+        compacted.leaves_[0].predicted_proba[:] = 0.25
+        numpy.testing.assert_array_equal(tree.predict_proba(X), expected)
+
+    def test_survival_curve_and_metric_arrays_are_copied(self):
+        """Compacted survival nodes hold their own curve, variance and metric
+        arrays."""
+        tree, _ = _fit_numeric_survival()
+        compacted = tree.compact()
+        source_arrays = []
+        for node in tree.nodes_:
+            times, surv = node.predicted_survival
+            source_arrays.append(times)
+            source_arrays.append(surv)
+            source_arrays.append(node.survival_log_variance)
+            source_arrays.append(node.predicted_metrics)
+            source_arrays.append(node.ci_low)
+            source_arrays.append(node.ci_high)
+        for node in compacted.nodes_:
+            times, surv = node.predicted_survival
+            self._assert_not_shared(times, source_arrays)
+            self._assert_not_shared(surv, source_arrays)
+            self._assert_not_shared(node.survival_log_variance, source_arrays)
+            self._assert_not_shared(node.predicted_metrics, source_arrays)
+            self._assert_not_shared(node.ci_low, source_arrays)
+            self._assert_not_shared(node.ci_high, source_arrays)
+
+    def test_ranking_expected_rank_arrays_are_copied(self):
+        """Compacted ranking nodes hold their own expected-rank and bound
+        arrays."""
+        tree, _ = _fit_numeric_ranking()
+        compacted = tree.compact()
+        source_arrays = []
+        for node in tree.nodes_:
+            source_arrays.append(node.predicted_ranks)
+            source_arrays.append(node.ci_low)
+            source_arrays.append(node.ci_high)
+        for node in compacted.nodes_:
+            self._assert_not_shared(node.predicted_ranks, source_arrays)
+            self._assert_not_shared(node.ci_low, source_arrays)
+            self._assert_not_shared(node.ci_high, source_arrays)
+
+    def test_kept_split_statistics_are_copied(self):
+        """A partition kept whole reports the same p-value through its own
+        statistics record."""
+        tree, _ = _fit_step_regression()
+        compacted = tree.compact()
+        source = tree.content_.extension.statistics
+        statistics = compacted.content_.extension.statistics
+        self.assertIsNot(statistics, source)
+        self.assertEqual(statistics.p_value, source.p_value)
+
+    def _assert_not_shared(self, array, source_arrays) -> None:
+        """Fail when array is one of the source tree's array objects."""
+        for source in source_arrays:
+            self.assertIsNot(array, source)
 
 
 class TestCompactedTreeInvariants(unittest.TestCase):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 import typing
 
 import numpy
@@ -33,15 +34,17 @@ class Node(abc.ABC):
         depth: Depth in the tree (root = 0).
         n_samples: Number of active samples reaching this node.
         share: Fraction of the total training samples that reached this
-            node.
-        decoration: Optional decoration produced by the tree decorator
-            callable, or None when no decorator is set.
+            node. Set by Tree.fit; defaults to 0.0 in unfitted nodes.
+        decoration: Decoration produced by the tree decorator callable,
+            or None when no decorator is set. Set by Tree.fit; defaults
+            to None in unfitted nodes.
         extension: Partition on internal nodes, Leaf on leaves. Set by
             Tree.fit; defaults to a Leaf in unfitted nodes.
         node_id: Zero-based index of this node in Tree.nodes_. Set by
             Tree.fit; defaults to 0 in unfitted nodes.
         parent: Parent node, or None on the root. Set by Tree.fit;
-            defaults to None in unfitted nodes.
+            defaults to None in unfitted nodes. Holding a node keeps its
+            ancestors, and through them the whole fitted tree, alive.
     """
 
     __slots__ = (
@@ -59,19 +62,17 @@ class Node(abc.ABC):
     node_id: int
     parent: None | Node
 
-    def __init__(
-        self,
-        depth: int,
-        n_samples: int,
-        share: float,
-        decoration: None | object,
-    ) -> None:
+    def __init__(self, depth: int, n_samples: int) -> None:
         self.depth = depth
         self.n_samples = n_samples
-        self.share = share
-        self.decoration = decoration
+        self.share = 0.0
+        self.decoration = None
         self.extension = _extension.Leaf()
         self.node_id = 0
+        # Every node holds its parent, and every partition holds its children,
+        # so a fitted tree is a reference cycle freed by the cycle collector
+        # rather than at once. A weak parent would break both pickling and
+        # traversal from a node kept alive on its own, so the cycle is kept.
         self.parent = None
 
     def traverse(self, x: numpy.typing.NDArray) -> typing_extensions.Self:
@@ -173,6 +174,11 @@ class Node(abc.ABC):
             of any other node of the same tree.
         """
 
+    def _copy(self) -> typing_extensions.Self:
+        """Copy of this node that shares no value array with it."""
+        clone = copy.copy(self)
+        return clone
+
     @abc.abstractmethod
     def _displayed_values(
         self,
@@ -215,14 +221,12 @@ class RegressionNode(Node):
         self,
         depth: int,
         n_samples: int,
-        share: float,
-        decoration: None | object,
         predicted_mean: float,
         ci_low: None | float,
         ci_high: None | float,
         response_samples: numpy.typing.NDArray[numpy.floating],
     ) -> None:
-        super().__init__(depth, n_samples, share, decoration)
+        super().__init__(depth, n_samples)
         self.predicted_mean = predicted_mean
         self.ci_low = ci_low
         self.ci_high = ci_high
@@ -234,6 +238,12 @@ class RegressionNode(Node):
         """Sort key: ascending by predicted mean."""
         key = (self.predicted_mean,)
         return key
+
+    def _copy(self) -> typing_extensions.Self:
+        """Copy carrying its own response-sample array."""
+        clone = super()._copy()
+        clone.response_samples = self.response_samples.copy()
+        return clone
 
     def _displayed_values(
         self,
@@ -296,15 +306,13 @@ class ClassificationNode(Node):
         self,
         depth: int,
         n_samples: int,
-        share: float,
-        decoration: None | object,
         predicted_class_index: int,
         predicted_proba: numpy.typing.NDArray[numpy.floating],
         ci_low: None | numpy.typing.NDArray[numpy.floating],
         ci_high: None | numpy.typing.NDArray[numpy.floating],
         mean_offset_proba: None | numpy.typing.NDArray[numpy.floating],
     ) -> None:
-        super().__init__(depth, n_samples, share, decoration)
+        super().__init__(depth, n_samples)
         self.predicted_class_index = predicted_class_index
         self.predicted_proba = predicted_proba
         self.ci_low = ci_low
@@ -317,6 +325,15 @@ class ClassificationNode(Node):
         """Sort key: descending by class probability tuple."""
         key = tuple(-p for p in self.predicted_proba)
         return key
+
+    def _copy(self) -> typing_extensions.Self:
+        """Copy carrying its own probability, bound and offset arrays."""
+        clone = super()._copy()
+        clone.predicted_proba = self.predicted_proba.copy()
+        clone.ci_low = _copied_array(self.ci_low)
+        clone.ci_high = _copied_array(self.ci_high)
+        clone.mean_offset_proba = _copied_array(self.mean_offset_proba)
+        return clone
 
     def _displayed_values(
         self,
@@ -396,8 +413,6 @@ class SurvivalNode(Node):
         self,
         depth: int,
         n_samples: int,
-        share: float,
-        decoration: None | object,
         predicted_survival: tuple[
             numpy.typing.NDArray[numpy.floating],
             numpy.typing.NDArray[numpy.floating],
@@ -407,7 +422,7 @@ class SurvivalNode(Node):
         ci_low: numpy.typing.NDArray[numpy.floating],
         ci_high: numpy.typing.NDArray[numpy.floating],
     ) -> None:
-        super().__init__(depth, n_samples, share, decoration)
+        super().__init__(depth, n_samples)
         self.predicted_survival = predicted_survival
         self.survival_log_variance = survival_log_variance
         self.predicted_metrics = predicted_metrics
@@ -429,6 +444,17 @@ class SurvivalNode(Node):
             components.append(component)
         key = tuple(components)
         return key
+
+    def _copy(self) -> typing_extensions.Self:
+        """Copy carrying its own curve, variance, metric and bound arrays."""
+        clone = super()._copy()
+        times, surv = self.predicted_survival
+        clone.predicted_survival = (times.copy(), surv.copy())
+        clone.survival_log_variance = self.survival_log_variance.copy()
+        clone.predicted_metrics = self.predicted_metrics.copy()
+        clone.ci_low = self.ci_low.copy()
+        clone.ci_high = self.ci_high.copy()
+        return clone
 
     def _displayed_values(
         self,
@@ -477,13 +503,11 @@ class RankingNode(Node):
         self,
         depth: int,
         n_samples: int,
-        share: float,
-        decoration: None | object,
         predicted_ranks: numpy.typing.NDArray[numpy.floating],
         ci_low: numpy.typing.NDArray[numpy.floating],
         ci_high: numpy.typing.NDArray[numpy.floating],
     ) -> None:
-        super().__init__(depth, n_samples, share, decoration)
+        super().__init__(depth, n_samples)
         self.predicted_ranks = predicted_ranks
         self.ci_low = ci_low
         self.ci_high = ci_high
@@ -509,6 +533,14 @@ class RankingNode(Node):
             components.append(sort_value)
         key = tuple(components)
         return key
+
+    def _copy(self) -> typing_extensions.Self:
+        """Copy carrying its own expected-rank and bound arrays."""
+        clone = super()._copy()
+        clone.predicted_ranks = self.predicted_ranks.copy()
+        clone.ci_low = self.ci_low.copy()
+        clone.ci_high = self.ci_high.copy()
+        return clone
 
     def _displayed_values(
         self,
@@ -575,7 +607,6 @@ def _assign_share(node: Node, total: int) -> None:
 
 
 def display_branches(
-    node: Node,
     partition: _partition.Partition,
     best_first: bool,
     metrics: tuple[_metric.Metric, ...],
@@ -593,3 +624,13 @@ def display_branches(
     if best_first:
         pairs.reverse()
     return pairs
+
+
+def _copied_array(
+    values: None | numpy.typing.NDArray[numpy.floating],
+) -> None | numpy.typing.NDArray[numpy.floating]:
+    """Copy an optional array, mapping None to None."""
+    if values is None:
+        return None
+    copied = values.copy()
+    return copied

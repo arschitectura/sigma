@@ -51,8 +51,6 @@ class TestNumericPartitionRouting(unittest.TestCase):
         return sigma._node.RegressionNode(
             0,
             1,
-            1.0,
-            None,
             value,
             None,
             None,
@@ -131,16 +129,12 @@ class TestBooleanPartitionRouting(unittest.TestCase):
             1,
             1.0,
             None,
-            1.0,
-            None,
             None,
             numpy.array([], dtype=float),
         )
         right = sigma._node.RegressionNode(
             0,
             1,
-            1.0,
-            None,
             2.0,
             None,
             None,
@@ -709,8 +703,6 @@ class TestPartitionState(unittest.TestCase):
         left = sigma._node.RegressionNode(
             1,
             1,
-            1.0,
-            None,
             0.0,
             None,
             None,
@@ -719,8 +711,6 @@ class TestPartitionState(unittest.TestCase):
         right = sigma._node.RegressionNode(
             1,
             1,
-            1.0,
-            None,
             1.0,
             None,
             None,

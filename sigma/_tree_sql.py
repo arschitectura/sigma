@@ -121,7 +121,7 @@ def _build_sql_case(
         )
         return line
     partition = typing.cast(_partition.Partition, extension)
-    branches = _node.display_branches(node, partition, best_first, metrics)
+    branches = _node.display_branches(partition, best_first, metrics)
     raw_name = _tree_text._resolve_feature_name(partition, feature_names)
     feature = _format_sql_identifier(raw_name)
     labels = _tree_text._feature_category_labels(partition, category_labels)

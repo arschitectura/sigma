@@ -51,9 +51,6 @@ _OFFSET_EPS = 1e-15
 N = typing.TypeVar("N", bound=_node.Node)
 
 
-# TODO review all shared data structures
-
-
 class Tree(
     sklearn.base.BaseEstimator,
     abc.ABC,
@@ -1795,7 +1792,7 @@ def _compact_node(node: _node.Node, depth: int) -> _node.Node:
         case _partition.Partition() as partition:
             result = _compact_internal(node, partition, depth)
         case _:
-            result = copy.copy(node)
+            result = node._copy()
             result.extension = _extension.Leaf()
             result.depth = depth
     return result
@@ -1825,7 +1822,7 @@ def _compact_internal(
         new_partition = _rebuild_partition(partition, depth)
     else:
         new_partition = merged_partition
-    result = copy.copy(node)
+    result = node._copy()
     result.extension = new_partition
     result.depth = depth
     return result
@@ -1840,6 +1837,11 @@ def _rebuild_partition(
         new_children.append(_compact_node(child, depth + 1))
     new_partition = copy.copy(partition)
     new_partition.children = tuple(new_children)
+    statistics = partition.statistics
+    if statistics is not None:
+        new_partition.statistics = _partition.SplitStatistics(
+            statistics.p_value
+        )
     return new_partition
 
 

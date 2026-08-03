@@ -587,8 +587,6 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         node = _node.RankingNode(
             depth=depth,
             n_samples=n_samples,
-            share=0.0,
-            decoration=None,
             predicted_ranks=values,
             ci_low=ci_low,
             ci_high=ci_high,

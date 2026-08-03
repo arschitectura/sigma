@@ -408,7 +408,7 @@ def _append_child_text_rows(
             )
         )
         return
-    branches = _node.display_branches(node, partition, best_first, metrics)
+    branches = _node.display_branches(partition, best_first, metrics)
     name = _resolve_feature_name(partition, feature_names)
     labels = _feature_category_labels(partition, category_labels)
     is_promoted = isinstance(partition.feature, _feature.PromotedBooleanFeature)

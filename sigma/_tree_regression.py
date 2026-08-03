@@ -278,8 +278,6 @@ class RegressionTree(
         node = _node.RegressionNode(
             depth=depth,
             n_samples=n_samples,
-            share=0.0,
-            decoration=None,
             predicted_mean=predicted_mean,
             ci_low=ci_low,
             ci_high=ci_high,

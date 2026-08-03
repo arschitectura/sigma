@@ -17,8 +17,6 @@ def _leaf(predicted_mean: float) -> sigma._node.RegressionNode:
     leaf = sigma._node.RegressionNode(
         depth=1,
         n_samples=10,
-        share=0.0,
-        decoration=None,
         predicted_mean=predicted_mean,
         ci_low=None,
         ci_high=None,
@@ -32,8 +30,6 @@ def _root(extension) -> sigma._node.RegressionNode:
     root = sigma._node.RegressionNode(
         depth=0,
         n_samples=20,
-        share=1.0,
-        decoration=None,
         predicted_mean=0.0,
         ci_low=None,
         ci_high=None,
