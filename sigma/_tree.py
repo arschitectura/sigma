@@ -785,8 +785,8 @@ class Tree(
             match node.extension:
                 case _partition.Partition() as partition:
                     for child in reversed(partition.children):
-                        child.parent = node  # ty: ignore[unresolved-attribute]
-                        stack.append(child)  # ty: ignore[invalid-argument-type]
+                        child.parent = node
+                        stack.append(child)
         self.nodes_ = typing.cast(list[N], collected)
 
     def _build_tree(

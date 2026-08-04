@@ -12,10 +12,10 @@ license = "LicenseRef-ArsChitectura-Sigma"
 license-files = ["LICENSE.txt", "NOTICE.txt"]
 authors = [{ name = "ArsChitectura SAS" }]
 dependencies = [
-    "numpy >= 1.24",
-    "scipy >= 1.11",
-    "scikit-learn >= 1.9",
-    "typing_extensions >= 4.0",
+    "numpy >= 1.21.0",
+    "scipy >= 1.10.0",
+    "scikit-learn >= 1.6.0",
+    "typing_extensions >= 4.0.0",
 ]
 
 [project.optional-dependencies]

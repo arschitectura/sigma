@@ -299,8 +299,8 @@ class TestLeavesAndShare(unittest.TestCase):
         self.assertAlmostEqual(root.share, 1.0)
         match root.extension:
             case sigma._partition.Partition() as partition:
-                self.assertAlmostEqual(partition.children[0].share, 0.75)  # ty: ignore[unresolved-attribute]
-                self.assertAlmostEqual(partition.children[1].share, 0.25)  # ty: ignore[unresolved-attribute]
+                self.assertAlmostEqual(partition.children[0].share, 0.75)
+                self.assertAlmostEqual(partition.children[1].share, 0.25)
             case _:
                 self.fail("root extension should be a Partition")
 
