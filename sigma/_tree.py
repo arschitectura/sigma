@@ -19,7 +19,6 @@ import numpy.typing
 import scipy.sparse
 import sklearn.base
 import sklearn.utils.validation
-import typing_extensions
 
 from . import (
     _extension,
@@ -732,7 +731,7 @@ class Tree(
         listing = ", ".join(parts)
         return listing
 
-    def compact(self) -> typing_extensions.Self:
+    def compact(self) -> typing.Self:
         """Return a new tree with recursive same-feature splits merged.
 
         Wherever a node splits on a feature and one of its children splits on

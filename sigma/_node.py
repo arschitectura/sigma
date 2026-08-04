@@ -8,7 +8,6 @@ import typing
 
 import numpy
 import numpy.typing
-import typing_extensions
 
 from . import _extension, _metric, _partition
 
@@ -58,7 +57,7 @@ class Node(abc.ABC):
         "share",
     )
 
-    extension: _extension.Extension[typing_extensions.Self]
+    extension: _extension.Extension[typing.Self]
     node_id: int
     parent: None | Node
 
@@ -75,7 +74,7 @@ class Node(abc.ABC):
         # traversal from a node kept alive on its own, so the cycle is kept.
         self.parent = None
 
-    def traverse(self, x: numpy.typing.NDArray) -> typing_extensions.Self:
+    def traverse(self, x: numpy.typing.NDArray) -> typing.Self:
         """Walk a single sample down the tree to its deepest reached node.
 
         Args:
@@ -89,9 +88,7 @@ class Node(abc.ABC):
         node = path[-1]
         return node
 
-    def traverse_path(
-        self, x: numpy.typing.NDArray
-    ) -> list[typing_extensions.Self]:
+    def traverse_path(self, x: numpy.typing.NDArray) -> list[typing.Self]:
         """Walk a single sample down the tree, listing the nodes it visits.
 
         Args:
@@ -103,7 +100,7 @@ class Node(abc.ABC):
             completes, or the internal node whose partition did not route
             the value.
         """
-        path: list[typing_extensions.Self] = []
+        path: list[typing.Self] = []
         node = self
         while True:
             path.append(node)  # ty: ignore[invalid-argument-type]
@@ -118,11 +115,11 @@ class Node(abc.ABC):
                     break
         return path
 
-    def leaves(self) -> list[typing_extensions.Self]:
+    def leaves(self) -> list[typing.Self]:
         """Return all leaf nodes in this subtree, in left-to-right order."""
         match self.extension:
             case _partition.Partition() as partition:
-                result: list[typing_extensions.Self] = []
+                result: list[typing.Self] = []
                 for child in partition.children:
                     result.extend(child.leaves())  # ty: ignore[invalid-argument-type]
             case _:
@@ -174,7 +171,7 @@ class Node(abc.ABC):
             of any other node of the same tree.
         """
 
-    def _copy(self) -> typing_extensions.Self:
+    def _copy(self) -> typing.Self:
         """Copy of this node that shares no value array with it."""
         clone = copy.copy(self)
         return clone
@@ -239,7 +236,7 @@ class RegressionNode(Node):
         key = (self.predicted_mean,)
         return key
 
-    def _copy(self) -> typing_extensions.Self:
+    def _copy(self) -> typing.Self:
         """Copy carrying its own response-sample array."""
         clone = super()._copy()
         clone.response_samples = self.response_samples.copy()
@@ -326,7 +323,7 @@ class ClassificationNode(Node):
         key = tuple(-p for p in self.predicted_proba)
         return key
 
-    def _copy(self) -> typing_extensions.Self:
+    def _copy(self) -> typing.Self:
         """Copy carrying its own probability, bound and offset arrays."""
         clone = super()._copy()
         clone.predicted_proba = self.predicted_proba.copy()
@@ -445,7 +442,7 @@ class SurvivalNode(Node):
         key = tuple(components)
         return key
 
-    def _copy(self) -> typing_extensions.Self:
+    def _copy(self) -> typing.Self:
         """Copy carrying its own curve, variance, metric and bound arrays."""
         clone = super()._copy()
         times, surv = self.predicted_survival
@@ -534,7 +531,7 @@ class RankingNode(Node):
         key = tuple(components)
         return key
 
-    def _copy(self) -> typing_extensions.Self:
+    def _copy(self) -> typing.Self:
         """Copy carrying its own expected-rank and bound arrays."""
         clone = super()._copy()
         clone.predicted_ranks = self.predicted_ranks.copy()
