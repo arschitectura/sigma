@@ -172,7 +172,7 @@ def _collect_nodes(node: _NodeT) -> list[_NodeT]:
     extension = node.extension
     if isinstance(extension, sigma._partition.Partition):
         for child in extension.children:
-            nodes.extend(_collect_nodes(typing.cast(_NodeT, child)))
+            nodes.extend(_collect_nodes(child))
     return nodes
 
 

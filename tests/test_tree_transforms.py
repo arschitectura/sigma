@@ -1,6 +1,5 @@
 """Unit tests for transmuter and offset transformations."""
 
-import typing
 import unittest
 
 import _helpers
@@ -8,7 +7,6 @@ import numpy
 import numpy.testing
 
 import sigma._extension
-import sigma._node
 import sigma._partition
 import sigma._tree
 import sigma._tree_classification
@@ -171,12 +169,8 @@ class TestTransmuterClassificationTree(unittest.TestCase):
         classification_tree.fit(X, y)
         partition = classification_tree.content_.extension
         assert isinstance(partition, sigma._partition.Partition)
-        left = typing.cast(
-            sigma._node.ClassificationNode, partition.children[0]
-        )
-        right = typing.cast(
-            sigma._node.ClassificationNode, partition.children[1]
-        )
+        left = partition.children[0]
+        right = partition.children[1]
         numpy.testing.assert_allclose(left.predicted_proba[1], 1.0)
         numpy.testing.assert_allclose(right.predicted_proba[0], 1.0)
 

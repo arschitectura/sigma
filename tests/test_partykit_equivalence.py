@@ -1,7 +1,6 @@
 """Partykit-equivalence crosschecks for RegressionTree and ClassificationTree."""
 
 import os
-import typing
 import unittest
 import warnings
 
@@ -9,7 +8,6 @@ import numpy
 import numpy.testing
 import pandas
 
-import sigma._node
 import sigma._partition
 import sigma._tree_classification
 import sigma._tree_regression
@@ -41,10 +39,6 @@ class TestRegressionTreePartykitEquivalence(unittest.TestCase):
         root = estimator.content_
         root_partition = root.extension
         assert isinstance(root_partition, sigma._partition.NumericalPartition)
-        root_partition = typing.cast(
-            sigma._partition.NumericalPartition[sigma._node.RegressionNode],
-            root_partition,
-        )
         self.assertEqual(feature_columns[root_partition.feature_index], "Temp")
         self.assertEqual(root_partition.thresholds[0], 82)
         left = root_partition.children[0]
@@ -84,10 +78,6 @@ class TestClassificationTreePartykitEquivalence(unittest.TestCase):
         root = estimator.content_
         root_partition = root.extension
         assert isinstance(root_partition, sigma._partition.NumericalPartition)
-        root_partition = typing.cast(
-            sigma._partition.NumericalPartition[sigma._node.ClassificationNode],
-            root_partition,
-        )
         self.assertEqual(feature_columns[root_partition.feature_index], "vari")
         left = root_partition.children[0]
         right = root_partition.children[1]

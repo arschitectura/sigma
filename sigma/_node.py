@@ -103,7 +103,7 @@ class Node(abc.ABC):
         path: list[typing.Self] = []
         node = self
         while True:
-            path.append(node)  # ty: ignore[invalid-argument-type]
+            path.append(node)
             match node.extension:
                 case _partition.Partition() as partition:
                     value = x[partition.feature_index]
@@ -121,7 +121,7 @@ class Node(abc.ABC):
             case _partition.Partition() as partition:
                 result: list[typing.Self] = []
                 for child in partition.children:
-                    result.extend(child.leaves())  # ty: ignore[invalid-argument-type]
+                    result.extend(child.leaves())
             case _:
                 result = [self]
         return result

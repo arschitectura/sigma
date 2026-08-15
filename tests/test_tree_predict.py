@@ -580,9 +580,7 @@ class TestLeafId(unittest.TestCase):
         while stack:
             node = stack.pop()
             if isinstance(node.extension, sigma._partition.Partition):
-                partition = typing.cast(
-                    sigma._partition.Partition[sigma._node.Node], node.extension
-                )
+                partition = node.extension
                 collected.append(node)
                 stack.extend(partition.children)
         return collected
