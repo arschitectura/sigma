@@ -8,7 +8,6 @@ import graphviz
 import numpy.typing
 
 from . import (
-    _extension,
     _feature,
     _metric,
     _node,
@@ -302,7 +301,7 @@ def _emit_digraph(
                         )
                         stack.append(child)
                     continue
-            case _extension.Leaf() as leaf:
+            case _partition.Leaf() as leaf:
                 label = f"{label}{decoration_suffix}"
                 leaf_id = leaf.leaf_id
                 badge_number = leaf_id + 1

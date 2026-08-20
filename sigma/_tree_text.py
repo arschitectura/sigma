@@ -12,7 +12,7 @@ import typing
 import numpy
 import numpy.typing
 
-from . import _extension, _feature, _metric, _node, _partition
+from . import _feature, _metric, _node, _partition
 
 
 def _format_p_value_number(value: float) -> str:
@@ -359,7 +359,7 @@ def _append_text_row(
         case _partition.Partition() as partition:
             p_value_cell: None | str = _table_p_value_cell(partition)
             leaf_index_cell: None | str = None
-        case _extension.Leaf() as leaf_extension:
+        case _partition.Leaf() as leaf_extension:
             p_value_cell = None
             leaf_index_cell = str(leaf_extension.leaf_id + 1)
         case _:

@@ -534,12 +534,14 @@ def _plot_step_survival_tree():
     """Plot a fitted step survival tree and return (tree, axes)."""
     import matplotlib.figure
 
-    from sigma import _response_plot
+    import sigma._response_plot
 
     survival_tree = _helpers._fit_step_survival_tree()
     figure = matplotlib.figure.Figure()
     axes = figure.add_subplot(111)
-    _response_plot._plot_survival(axes, survival_tree, response_name="time")
+    sigma._response_plot._plot_survival(
+        axes, survival_tree, response_name="time"
+    )
     return survival_tree, axes
 
 
@@ -920,15 +922,15 @@ class TestExportImageResponse(unittest.TestCase):
             self.skipTest("matplotlib not installed")
         import matplotlib.colors
 
-        from sigma import _palette
+        import sigma._palette
 
         survival_tree, axes = _plot_step_survival_tree()
         lines = axes.get_lines()
         n_leaves = len(survival_tree.leaves_)
         for index, line in enumerate(lines):
             expected = matplotlib.colors.to_hex(
-                _palette._leaf_color(
-                    index, n_leaves, _palette._DEFAULT_LEAF_PALETTE
+                sigma._palette._leaf_color(
+                    index, n_leaves, sigma._palette._DEFAULT_LEAF_PALETTE
                 )
             )
             actual = matplotlib.colors.to_hex(line.get_color())
@@ -980,7 +982,7 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.collections
         import matplotlib.figure
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         times = numpy.linspace(1.0, 10.0, 60)
         events = numpy.tile([1.0, 0.0], 30)
@@ -995,7 +997,7 @@ class TestExportImageResponse(unittest.TestCase):
         survival_tree.fit(X, y)
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
-        _response_plot._plot_survival(
+        sigma._response_plot._plot_survival(
             axes,
             survival_tree,
             response_name="time",
@@ -1014,7 +1016,7 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.collections
         import matplotlib.colors
 
-        from sigma import _palette
+        import sigma._palette
 
         survival_tree, axes = _plot_step_survival_tree()
         bands = [
@@ -1026,8 +1028,8 @@ class TestExportImageResponse(unittest.TestCase):
         for index, band in enumerate(bands):
             facecolor = numpy.asarray(band.get_facecolor(), dtype=float)[0]
             expected_rgb = matplotlib.colors.to_rgb(
-                _palette._leaf_color(
-                    index, n_leaves, _palette._DEFAULT_LEAF_PALETTE
+                sigma._palette._leaf_color(
+                    index, n_leaves, sigma._palette._DEFAULT_LEAF_PALETTE
                 )
             )
             for axis in range(3):
@@ -1044,12 +1046,12 @@ class TestExportImageResponse(unittest.TestCase):
             self.skipTest("matplotlib not installed")
         import matplotlib.figure
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         survival_tree = _helpers._fit_step_survival_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
-        _response_plot._plot_survival(
+        sigma._response_plot._plot_survival(
             axes,
             survival_tree,
             response_name="time",
@@ -1070,7 +1072,7 @@ class TestExportImageResponse(unittest.TestCase):
             self.skipTest("matplotlib not installed")
         import matplotlib.figure
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         classification_tree = _helpers._fit_step_classification_tree()
         figure = matplotlib.figure.Figure()
@@ -1078,7 +1080,7 @@ class TestExportImageResponse(unittest.TestCase):
         class_names = classification_tree._effective_class_names(
             ["died", "survived"]
         )
-        _response_plot._plot_classification(
+        sigma._response_plot._plot_classification(
             axes,
             classification_tree,
             class_names=class_names,
@@ -1100,13 +1102,13 @@ class TestExportImageResponse(unittest.TestCase):
             self.skipTest("matplotlib not installed")
         import matplotlib.figure
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         regression_tree = _helpers._fit_step_regression_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         response_name = regression_tree._effective_response_name("my_response")
-        _response_plot._plot_regression(
+        sigma._response_plot._plot_regression(
             axes,
             regression_tree,
             response_name=response_name,
@@ -1119,13 +1121,13 @@ class TestExportImageResponse(unittest.TestCase):
             self.skipTest("matplotlib not installed")
         import matplotlib.figure
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         survival_tree = _helpers._fit_step_survival_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         response_name = survival_tree._effective_response_name("time")
-        _response_plot._plot_survival(
+        sigma._response_plot._plot_survival(
             axes,
             survival_tree,
             response_name=response_name,
@@ -1139,12 +1141,13 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.colors
         import matplotlib.figure
 
-        from sigma import _palette, _response_plot
+        import sigma._palette
+        import sigma._response_plot
 
         regression_tree = _helpers._fit_step_regression_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
-        _response_plot._plot_regression(
+        sigma._response_plot._plot_regression(
             axes,
             regression_tree,
             response_name=None,
@@ -1155,8 +1158,8 @@ class TestExportImageResponse(unittest.TestCase):
         self.assertEqual(len(mean_dot_collections), n_leaves)
         for index, collection in enumerate(mean_dot_collections):
             expected = matplotlib.colors.to_hex(
-                _palette._leaf_color(
-                    index, n_leaves, _palette._DEFAULT_LEAF_PALETTE
+                sigma._palette._leaf_color(
+                    index, n_leaves, sigma._palette._DEFAULT_LEAF_PALETTE
                 )
             )
             face = numpy.asarray(collection.get_facecolor(), dtype=float)
@@ -1169,18 +1172,18 @@ class TestExportImageResponse(unittest.TestCase):
             self.skipTest("matplotlib not installed")
         import matplotlib.figure
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         natural_tree = _helpers._fit_step_regression_tree()
         reversed_tree = _helpers._fit_step_regression_tree(reverse_order=True)
         natural_figure = matplotlib.figure.Figure()
         natural_axes = natural_figure.add_subplot(111)
-        _response_plot._plot_regression(
+        sigma._response_plot._plot_regression(
             natural_axes, natural_tree, response_name=None
         )
         reversed_figure = matplotlib.figure.Figure()
         reversed_axes = reversed_figure.add_subplot(111)
-        _response_plot._plot_regression(
+        sigma._response_plot._plot_regression(
             reversed_axes, reversed_tree, response_name=None
         )
         natural_dots = _select_single_point_scatters(natural_axes)
@@ -1203,7 +1206,7 @@ class TestExportImageResponse(unittest.TestCase):
             self.skipTest("matplotlib not installed")
         import matplotlib.figure
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         natural_tree = _helpers._fit_step_classification_tree()
         reversed_tree = _helpers._fit_step_classification_tree(
@@ -1211,14 +1214,14 @@ class TestExportImageResponse(unittest.TestCase):
         )
         figure_default = matplotlib.figure.Figure()
         axes_default = figure_default.add_subplot(111)
-        _response_plot._plot_classification(
+        sigma._response_plot._plot_classification(
             axes_default,
             natural_tree,
             class_names=["died", "survived"],
         )
         figure_reversed = matplotlib.figure.Figure()
         axes_reversed = figure_reversed.add_subplot(111)
-        _response_plot._plot_classification(
+        sigma._response_plot._plot_classification(
             axes_reversed,
             reversed_tree,
             class_names=["died", "survived"],
@@ -1243,12 +1246,13 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.colors
         import matplotlib.figure
 
-        from sigma import _palette, _response_plot
+        import sigma._palette
+        import sigma._response_plot
 
         classification_tree = _helpers._fit_step_classification_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
-        _response_plot._plot_classification(
+        sigma._response_plot._plot_classification(
             axes,
             classification_tree,
             class_names=["died", "survived"],
@@ -1260,8 +1264,8 @@ class TestExportImageResponse(unittest.TestCase):
         for slot_idx in range(n_classes):
             class_bars = bars[slot_idx * n_leaves : (slot_idx + 1) * n_leaves]
             expected = matplotlib.colors.to_hex(
-                _palette._leaf_color(
-                    slot_idx, n_classes, _palette._DEFAULT_LEAF_PALETTE
+                sigma._palette._leaf_color(
+                    slot_idx, n_classes, sigma._palette._DEFAULT_LEAF_PALETTE
                 )
             )
             for bar in class_bars:
@@ -1275,12 +1279,13 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.colors
         import matplotlib.figure
 
-        from sigma import _palette, _response_plot
+        import sigma._palette
+        import sigma._response_plot
 
         classification_tree = _helpers._fit_step_classification_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
-        _response_plot._plot_classification(
+        sigma._response_plot._plot_classification(
             axes,
             classification_tree,
             class_names=["died", "survived"],
@@ -1291,8 +1296,8 @@ class TestExportImageResponse(unittest.TestCase):
         self.assertEqual(len(lines), n_classes)
         for slot_idx, line in enumerate(lines):
             expected = matplotlib.colors.to_hex(
-                _palette._leaf_color(
-                    slot_idx, n_classes, _palette._DEFAULT_LEAF_PALETTE
+                sigma._palette._leaf_color(
+                    slot_idx, n_classes, sigma._palette._DEFAULT_LEAF_PALETTE
                 )
             )
             actual = matplotlib.colors.to_hex(line.get_color())
@@ -1305,12 +1310,12 @@ class TestExportImageResponse(unittest.TestCase):
             self.skipTest("matplotlib not installed")
         import matplotlib.figure
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         classification_tree = _helpers._fit_step_classification_tree()
         figure_with_ci = matplotlib.figure.Figure()
         axes_with_ci = figure_with_ci.add_subplot(111)
-        _response_plot._plot_classification(
+        sigma._response_plot._plot_classification(
             axes_with_ci,
             classification_tree,
             class_names=["died", "survived"],
@@ -1330,7 +1335,7 @@ class TestExportImageResponse(unittest.TestCase):
         no_ci_tree.fit(X, y)
         figure_no_ci = matplotlib.figure.Figure()
         axes_no_ci = figure_no_ci.add_subplot(111)
-        _response_plot._plot_classification(
+        sigma._response_plot._plot_classification(
             axes_no_ci,
             no_ci_tree,
             class_names=["died", "survived"],
@@ -1345,18 +1350,18 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.colors
         import matplotlib.figure
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         natural_tree = _helpers._fit_step_survival_tree()
         reversed_tree = _helpers._fit_step_survival_tree(reverse_order=True)
         natural_figure = matplotlib.figure.Figure()
         natural_axes = natural_figure.add_subplot(111)
-        _response_plot._plot_survival(
+        sigma._response_plot._plot_survival(
             natural_axes, natural_tree, response_name=None
         )
         reversed_figure = matplotlib.figure.Figure()
         reversed_axes = reversed_figure.add_subplot(111)
-        _response_plot._plot_survival(
+        sigma._response_plot._plot_survival(
             reversed_axes, reversed_tree, response_name=None
         )
         natural_lines = natural_axes.get_lines()
@@ -1498,14 +1503,14 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.colors
         import matplotlib.figure
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         axes.set_title("hello")
         axes.set_xlabel("x")
         axes.set_ylabel("y")
-        _response_plot._apply_axes_colors(axes, "#112233", "white")
+        sigma._response_plot._apply_axes_colors(axes, "#112233", "white")
         title_color = matplotlib.colors.to_hex(axes.title.get_color())
         self.assertEqual(title_color.lower(), "#112233")
         xlabel_color = matplotlib.colors.to_hex(axes.xaxis.label.get_color())
@@ -1521,13 +1526,16 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.colors
         import matplotlib.figure
 
-        from sigma import _palette, _response_plot
+        import sigma._palette
+        import sigma._response_plot
 
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
         axes.grid(axis="y", linestyle=":")
-        _response_plot._apply_axes_colors(axes, "black", "white")
-        expected = _palette._perceptual_midpoint("#000000", "#FFFFFF").lower()
+        sigma._response_plot._apply_axes_colors(axes, "black", "white")
+        expected = sigma._palette._perceptual_midpoint(
+            "#000000", "#FFFFFF"
+        ).lower()
         for gridline in axes.get_ygridlines():
             actual = matplotlib.colors.to_hex(gridline.get_color()).lower()
             self.assertEqual(actual, expected)
@@ -1540,12 +1548,12 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.figure
         import matplotlib.patches
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         regression_tree = _helpers._fit_step_regression_tree()
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
-        _response_plot._plot_regression(
+        sigma._response_plot._plot_regression(
             axes, regression_tree, None, background_color="#1F2937"
         )
         rectangle_facecolors = {
@@ -1562,7 +1570,7 @@ class TestExportImageResponse(unittest.TestCase):
         import matplotlib.figure
         import matplotlib.patches
 
-        from sigma import _response_plot
+        import sigma._response_plot
 
         rng = numpy.random.default_rng(0)
         n_samples = 60
@@ -1580,7 +1588,7 @@ class TestExportImageResponse(unittest.TestCase):
         ranking_tree.fit(X, y)
         figure = matplotlib.figure.Figure()
         axes = figure.add_subplot(111)
-        _response_plot._plot_ranking(axes, ranking_tree, [0, 1, 2])
+        sigma._response_plot._plot_ranking(axes, ranking_tree, [0, 1, 2])
         rectangles = [
             patch
             for patch in axes.patches

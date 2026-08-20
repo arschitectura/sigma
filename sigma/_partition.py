@@ -1,4 +1,4 @@
-"""Partition class hierarchy for routing records at internal tree nodes."""
+"""Extension and partition hierarchies attached to fitted tree nodes."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import abc
 import math
 import typing
 
-from . import _extension, _feature
+from . import _feature
 
 if typing.TYPE_CHECKING:
     import polars
@@ -14,6 +14,42 @@ if typing.TYPE_CHECKING:
     from . import _node
 
 N = typing.TypeVar("N", bound="_node.Node")
+
+
+class Extension(abc.ABC, typing.Generic[N]):
+    """Per-kind payload attached to every node of a fitted tree.
+
+    Internal nodes carry a Partition, which routes records to children;
+    leaves carry a Leaf.
+    """
+
+    __slots__ = ("__weakref__",)
+
+
+class Leaf(Extension[N], typing.Generic[N]):
+    """Extension marking that the bearing Node is a leaf of the tree.
+
+    Attributes:
+        leaf_id: Zero-based index identifying the leaf among the tree's
+            leaves. Leaves are numbered 0..N-1 in ascending
+            leaf_sort_key() order, matching the position of each leaf
+            in Tree.leaves_ (so leaves_[k].extension.leaf_id == k).
+            Assigned at fit time and unaffected by display options
+            such as reverse_order. Equal to the sentinel value 0 on a
+            leaf that has not yet been incorporated into a fitted tree.
+    """
+
+    __slots__ = ("leaf_id",)
+
+    def __init__(self, leaf_id: int = 0) -> None:
+        """Initialize the leaf with a pre-assigned leaf_id.
+
+        Args:
+            leaf_id: Pre-assigned leaf identifier. Defaults to the
+                sentinel value 0, used during tree construction before
+                the final identifier is known.
+        """
+        self.leaf_id = leaf_id
 
 
 class SplitStatistics:
@@ -86,7 +122,7 @@ class MissingValue(BranchCondition):
     __slots__ = ()
 
 
-class Partition(_extension.Extension[N], typing.Generic[N]):
+class Partition(Extension[N], typing.Generic[N]):
     """Routes records reaching an internal tree node to one of its children.
 
     Attributes:

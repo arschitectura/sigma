@@ -11,8 +11,10 @@ from __future__ import annotations
 import abc
 import collections.abc
 import copy
+import importlib.metadata
 import sys
 import typing
+import warnings
 
 import numpy
 import numpy.typing
@@ -21,7 +23,6 @@ import sklearn.base
 import sklearn.utils.validation
 
 from . import (
-    _extension,
     _feature,
     _metric,
     _node,
@@ -46,8 +47,40 @@ _CategoryLabels: typing.TypeAlias = (
 
 _OFFSET_EPS = 1e-15
 
+_SIGMA_VERSION = importlib.metadata.version("ars-sigma")
+
 
 N = typing.TypeVar("N", bound=_node.Node)
+
+
+class InconsistentVersionWarning(UserWarning):
+    """Warns that a fitted tree was saved by a different version of sigma.
+
+    Attributes:
+        estimator_name: Name of the estimator class being loaded.
+        original_sigma_version: Version of sigma that saved the tree.
+        current_sigma_version: Version of sigma loading the tree.
+    """
+
+    def __init__(
+        self,
+        estimator_name: str,
+        original_sigma_version: str,
+        current_sigma_version: str,
+    ) -> None:
+        self.estimator_name = estimator_name
+        self.original_sigma_version = original_sigma_version
+        self.current_sigma_version = current_sigma_version
+
+    def __str__(self) -> str:
+        """Message naming the estimator, the saving and the loading version."""
+        message = (
+            f"Trying to unpickle estimator {self.estimator_name} saved by sigma"
+            f" version {self.original_sigma_version} while running sigma"
+            f" version {self.current_sigma_version}. This might lead to"
+            f" breaking code or invalid results. Use at your own risk."
+        )
+        return message
 
 
 class Tree(
@@ -198,6 +231,40 @@ class Tree(
         tags = super().__sklearn_tags__()
         tags.input_tags.allow_nan = True
         return tags
+
+    def __getstate__(self) -> dict[str, object]:
+        """Return the estimator state, stamped with the running sigma version.
+
+        Returns:
+            The estimator state, carrying the version of sigma that produced
+            it. Mutating the returned mapping leaves the estimator unchanged.
+        """
+        state = super().__getstate__()
+        stamped = dict(state)
+        stamped["_sigma_version"] = _SIGMA_VERSION
+        return stamped
+
+    def __setstate__(self, state: dict[str, object]) -> None:
+        """Restore an estimator state saved by __getstate__.
+
+        Args:
+            state: Estimator state to restore.
+
+        Warns:
+            InconsistentVersionWarning: If the state was saved by another
+                version of sigma. The state is restored either way.
+        """
+        remaining = dict(state)
+        stored = remaining.pop("_sigma_version", None)
+        current = _SIGMA_VERSION
+        if stored is not None and stored != current:
+            original = str(stored)
+            estimator_class = type(self)
+            warning = InconsistentVersionWarning(
+                estimator_class.__name__, original, current
+            )
+            warnings.warn(warning)
+        super().__setstate__(remaining)
 
     def fit(
         self,
@@ -768,7 +835,7 @@ class Tree(
             sorted_leaves = list(reversed(sorted_leaves))
         self.leaves_ = sorted_leaves
         for index, leaf in enumerate(sorted_leaves):
-            leaf_extension = typing.cast(_extension.Leaf, leaf.extension)
+            leaf_extension = typing.cast(_partition.Leaf, leaf.extension)
             leaf_extension.leaf_id = index
 
     def _assign_node_ids(self) -> None:
@@ -1792,7 +1859,7 @@ def _compact_node(node: _node.Node, depth: int) -> _node.Node:
             result = _compact_internal(node, partition, depth)
         case _:
             result = node._copy()
-            result.extension = _extension.Leaf()
+            result.extension = _partition.Leaf()
             result.depth = depth
     return result
 

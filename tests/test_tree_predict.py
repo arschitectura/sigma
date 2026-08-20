@@ -12,7 +12,6 @@ import sklearn.datasets
 import sklearn.exceptions
 import sklearn.model_selection
 
-import sigma._extension
 import sigma._node
 import sigma._partition
 import sigma._tree
@@ -610,7 +609,7 @@ class TestLeafId(unittest.TestCase):
         observed = []
         for leaf in regression_tree.leaves_:
             extension = leaf.extension
-            assert isinstance(extension, sigma._extension.Leaf)
+            assert isinstance(extension, sigma._partition.Leaf)
             observed.append(extension.leaf_id)
         expected = list(range(len(regression_tree.leaves_)))
         self.assertEqual(observed, expected)
@@ -637,7 +636,7 @@ class TestLeafId(unittest.TestCase):
         )
         regression_tree.fit(X, y)
         extension = regression_tree.content_.extension
-        assert isinstance(extension, sigma._extension.Leaf)
+        assert isinstance(extension, sigma._partition.Leaf)
         self.assertEqual(extension.leaf_id, 0)
 
     def test_leaf_id_assignment_reverses_under_reverse_order(self):
@@ -757,7 +756,7 @@ class TestApply(unittest.TestCase):
         ids = regression_tree.apply(X)
         for value in ids:
             node = regression_tree.nodes_[int(value)]
-            self.assertIsInstance(node.extension, sigma._extension.Leaf)
+            self.assertIsInstance(node.extension, sigma._partition.Leaf)
 
     def test_apply_consistent_with_manual_traversal(self):
         """apply(X)[i] equals content_.traverse(X[i]).node_id for every i."""
@@ -857,7 +856,7 @@ class TestRegressionTreeLeaves(unittest.TestCase):
         tree_leaves = [
             n
             for n in _helpers._collect_nodes(regression_tree.content_)
-            if isinstance(n.extension, sigma._extension.Leaf)
+            if isinstance(n.extension, sigma._partition.Leaf)
         ]
         self.assertEqual(len(regression_tree.leaves_), len(tree_leaves))
 
@@ -951,7 +950,7 @@ class TestClassificationTreeLeaves(unittest.TestCase):
         tree_leaves = [
             n
             for n in _helpers._collect_nodes(classification_tree.content_)
-            if isinstance(n.extension, sigma._extension.Leaf)
+            if isinstance(n.extension, sigma._partition.Leaf)
         ]
         self.assertEqual(len(classification_tree.leaves_), len(tree_leaves))
 

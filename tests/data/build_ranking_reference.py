@@ -30,7 +30,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import sigma
-from sigma import _partition
+import sigma._partition
 
 _CACHE_DIR = os.path.join(_REPO_ROOT, ".demo_data")
 _OUTPUT_PATH = os.path.join(
@@ -207,18 +207,18 @@ def _serialize_tree(tree, n_items: int, item_names, fit_seconds: float) -> dict:
         metric_ci_low[i] = node.ci_low
         metric_ci_high[i] = node.ci_high
         match node.extension:
-            case _partition.Partition() as partition:
+            case sigma._partition.Partition() as partition:
                 is_leaf[i] = False
                 feature_index[i] = partition.feature_index
                 left_child[i] = partition.children[0].node_id
                 right_child[i] = partition.children[1].node_id
                 match partition:
-                    case _partition.NumericalPartition():
+                    case sigma._partition.NumericalPartition():
                         partition_kind[i] = 1
                         threshold[i] = float(partition.thresholds[0])
-                    case _partition.BooleanPartition():
+                    case sigma._partition.BooleanPartition():
                         partition_kind[i] = 2
-                    case _partition.CategoricalPartition():
+                    case sigma._partition.CategoricalPartition():
                         partition_kind[i] = 3
                         left_categories_list.append(
                             sorted(partition.category_groups[0], key=repr)

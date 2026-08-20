@@ -18,6 +18,8 @@ import scipy.stats
 
 from . import _feature, _types
 
+_INTEGRATION_SEED = 0
+
 
 class _VariableSelection(typing.NamedTuple):
     """Selected variable and its test inputs at one tree node."""
@@ -166,19 +168,24 @@ def compute_p_value(
     d = len(valid_indices)
     lower = numpy.full(d, -statistic)
     upper = numpy.full(d, statistic)
-    prob = float(
-        scipy.stats.multivariate_normal.cdf(
-            upper,
-            mean=numpy.zeros(d),
-            cov=R,
-            allow_singular=True,
-            lower_limit=lower,
-            maxpts=25000,
-            abseps=1e-3,
-            releps=0,
-        )
+    means = numpy.zeros(d)
+    # scipy integrates the orthant probability with a randomized
+    # quasi-Monte Carlo rule and draws its randomization from the global
+    # numpy random state when no seed is given, which would make the
+    # p-value depend on unrelated code. A fresh distribution seeded with
+    # the same constant on every call keeps the rule fixed.
+    distribution = scipy.stats.multivariate_normal(
+        mean=means,
+        cov=R,
+        allow_singular=True,
+        seed=_INTEGRATION_SEED,
+        maxpts=25000,
+        abseps=1e-3,
+        releps=0,
     )
-    p_value = float(1.0 - prob)
+    orthant = distribution.cdf(upper, lower_limit=lower)
+    prob = float(orthant)
+    p_value = 1.0 - prob
     return p_value
 
 

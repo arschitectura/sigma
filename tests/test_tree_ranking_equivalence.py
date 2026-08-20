@@ -28,10 +28,7 @@ import pandas
 import sigma
 import sigma._partition
 import sigma._ranking
-from tests.test_ranking_equivalence import (
-    _legacy_compute_pl_mle,
-    _legacy_pl_expected_rank,
-)
+import tests.test_ranking_equivalence
 
 _RTOL = 1e-9
 _ATOL = 1e-9
@@ -58,7 +55,7 @@ def _legacy_compute_pl_mle_from_cache(
         for position, item in enumerate(ord_items):
             y_local[i, int(item)] = float(position + 1)
     weights_arr = numpy.asarray(ordering_weights, dtype=float)
-    alpha = _legacy_compute_pl_mle(
+    alpha = tests.test_ranking_equivalence._legacy_compute_pl_mle(
         y_local,
         weights_arr,
         npseudo=npseudo,
@@ -73,8 +70,8 @@ def _ranking_legacy_active():
     """Swap the production PL primitives for embedded legacy ones during a fit."""
     targets = {
         "_compute_pl_mle_from_cache": _legacy_compute_pl_mle_from_cache,
-        "pl_expected_rank": _legacy_pl_expected_rank,
-        "compute_pl_mle": _legacy_compute_pl_mle,
+        "pl_expected_rank": tests.test_ranking_equivalence._legacy_pl_expected_rank,
+        "compute_pl_mle": tests.test_ranking_equivalence._legacy_compute_pl_mle,
     }
     original = {name: getattr(sigma._ranking, name) for name in targets}
     try:

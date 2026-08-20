@@ -6,7 +6,6 @@ import numpy
 import numpy.testing
 
 import sigma
-import sigma._extension
 import sigma._partition
 import sigma._tree_classification
 import sigma._tree_ranking
@@ -250,7 +249,7 @@ class TestNonMergingCompaction(unittest.TestCase):
         tree.fit(X, y)
         compacted = tree.compact()
         self.assertIsInstance(
-            compacted.content_.extension, sigma._extension.Leaf
+            compacted.content_.extension, sigma._partition.Leaf
         )
         numpy.testing.assert_array_equal(tree.predict(X), compacted.predict(X))
 

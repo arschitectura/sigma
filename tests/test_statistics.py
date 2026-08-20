@@ -381,14 +381,51 @@ class TestComputePValueMaximumMultivariate(unittest.TestCase):
                 )
                 sd = numpy.sqrt(numpy.diag(Sigma))
                 R = Sigma / numpy.outer(sd, sd)
-                rv = scipy.stats.multivariate_normal(mean=numpy.zeros(d), cov=R)
+                means = numpy.zeros(d)
                 prob = 0.0
                 for bits in itertools.product([0, 1], repeat=d):
                     point = [-c if bits[k] else c for k in range(d)]
                     sign = (-1) ** sum(bits)
-                    prob += sign * rv.cdf(point)
+                    # scipy advances the generator of a reused distribution
+                    # on every call, so each corner gets its own seeded one.
+                    rv = scipy.stats.multivariate_normal(
+                        mean=means,
+                        cov=R,
+                        seed=0,
+                        abseps=1e-9,
+                        releps=0,
+                        maxpts=2000000,
+                    )
+                    corner = rv.cdf(point)
+                    prob += sign * float(corner)
                 expected = 1.0 - prob
                 numpy.testing.assert_allclose(result, expected, rtol=1e-4)
+
+    def test_repeated_calls_return_the_identical_p_value(self):
+        """Repeating a call on unchanged inputs returns the very same value."""
+        R = numpy.full((5, 5), 0.4)
+        numpy.fill_diagonal(R, 1.0)
+        values = set()
+        for _ in range(5):
+            p_value = sigma._statistics.compute_p_value(
+                1.7, R, sigma._types.TestStat.MAXIMUM
+            )
+            values.add(p_value)
+        self.assertEqual(len(values), 1)
+
+    def test_p_value_ignores_the_global_numpy_seed(self):
+        """Reseeding numpy globally leaves the p-value where it was."""
+        R = numpy.full((4, 4), 0.3)
+        numpy.fill_diagonal(R, 1.0)
+        numpy.random.seed(1)
+        first = sigma._statistics.compute_p_value(
+            1.4, R, sigma._types.TestStat.MAXIMUM
+        )
+        numpy.random.seed(987654)
+        second = sigma._statistics.compute_p_value(
+            1.4, R, sigma._types.TestStat.MAXIMUM
+        )
+        self.assertEqual(first, second)
 
     def test_singular_two_level_matches_analytical(self):
         """Matches 2*Phi(-c) for a 2-level one-hot whose Sigma has rank 1."""

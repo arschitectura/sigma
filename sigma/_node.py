@@ -9,7 +9,7 @@ import typing
 import numpy
 import numpy.typing
 
-from . import _extension, _metric, _partition
+from . import _metric, _partition
 
 if typing.TYPE_CHECKING:
     import polars
@@ -57,7 +57,7 @@ class Node(abc.ABC):
         "share",
     )
 
-    extension: _extension.Extension[typing.Self]
+    extension: _partition.Extension[typing.Self]
     node_id: int
     parent: None | Node
 
@@ -66,7 +66,7 @@ class Node(abc.ABC):
         self.n_samples = n_samples
         self.share = 0.0
         self.decoration = None
-        self.extension = _extension.Leaf()
+        self.extension = _partition.Leaf()
         self.node_id = 0
         # Every node holds its parent, and every partition holds its children,
         # so a fitted tree is a reference cycle freed by the cycle collector

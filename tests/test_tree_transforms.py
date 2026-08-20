@@ -6,7 +6,6 @@ import _helpers
 import numpy
 import numpy.testing
 
-import sigma._extension
 import sigma._partition
 import sigma._tree
 import sigma._tree_classification
@@ -302,7 +301,7 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
         )
         regression_tree.fit(X, y)
         assert isinstance(
-            regression_tree.content_.extension, sigma._extension.Leaf
+            regression_tree.content_.extension, sigma._partition.Leaf
         )
 
     def test_identity_transmuter_preserves_tree_structure(self):
@@ -330,8 +329,8 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
         )
         reg_id.fit(X, y)
         self.assertEqual(
-            isinstance(reg_plain.content_.extension, sigma._extension.Leaf),
-            isinstance(reg_id.content_.extension, sigma._extension.Leaf),
+            isinstance(reg_plain.content_.extension, sigma._partition.Leaf),
+            isinstance(reg_id.content_.extension, sigma._partition.Leaf),
         )
         numpy.testing.assert_array_equal(
             reg_plain.predict(X), reg_id.predict(X)
@@ -382,7 +381,7 @@ class TestTransmuterPostHocValidation(unittest.TestCase):
         )
         classification_tree.fit(X, y)
         assert isinstance(
-            classification_tree.content_.extension, sigma._extension.Leaf
+            classification_tree.content_.extension, sigma._partition.Leaf
         )
 
     def test_child_predictions_use_transmuted_data(self):
@@ -553,7 +552,7 @@ class TestRegressionTreeOffset(unittest.TestCase):
             correlation="normal", min_splits=2, min_buckets=1
         )
         tree.fit(X, y, offset=y.copy())
-        assert isinstance(tree.content_.extension, sigma._extension.Leaf)
+        assert isinstance(tree.content_.extension, sigma._partition.Leaf)
 
     def test_offset_passed_to_transmuter(self):
         """The transmuter receives the active subset of offset."""
@@ -917,7 +916,7 @@ class TestPerfectOffsetReturnsLeaf(unittest.TestCase):
             correlation="normal", min_splits=10, min_buckets=5
         )
         tree.fit(X, y, offset=y.copy())
-        assert isinstance(tree.content_.extension, sigma._extension.Leaf)
+        assert isinstance(tree.content_.extension, sigma._partition.Leaf)
 
     def test_classification_perfect_offset_returns_leaf(self):
         """Classification: offset = one_hot(y) drives the residual to zero."""
@@ -929,7 +928,7 @@ class TestPerfectOffsetReturnsLeaf(unittest.TestCase):
             correlation="normal", min_splits=10, min_buckets=5
         )
         tree.fit(X, y, offset=offset)
-        assert isinstance(tree.content_.extension, sigma._extension.Leaf)
+        assert isinstance(tree.content_.extension, sigma._partition.Leaf)
 
     def test_survival_perfect_offset_returns_leaf(self):
         """Survival: offset = exp(-event) drives the martingale residual to
@@ -944,7 +943,7 @@ class TestPerfectOffsetReturnsLeaf(unittest.TestCase):
         offset = numpy.exp(-event)
         tree = sigma._tree_survival.SurvivalTree(min_splits=10, min_buckets=5)
         tree.fit(X, y, offset=offset)
-        assert isinstance(tree.content_.extension, sigma._extension.Leaf)
+        assert isinstance(tree.content_.extension, sigma._partition.Leaf)
 
 
 class TestBiasedSubspaceOffset(unittest.TestCase):

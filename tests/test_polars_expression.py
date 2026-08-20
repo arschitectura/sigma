@@ -7,7 +7,6 @@ import numpy
 import polars
 
 import sigma
-import sigma._extension
 import sigma._node
 import sigma._partition
 
@@ -52,7 +51,7 @@ class TestPolarsExpressionStructure(unittest.TestCase):
 
     def test_root_expression_is_literal_true(self):
         """A node without a parent returns a literal true expression."""
-        root = _root(sigma._extension.Leaf())
+        root = _root(sigma._partition.Leaf())
         expression = root.polars_expression()
         expected = polars.lit(True)
         equal = expression.meta.eq(expected)

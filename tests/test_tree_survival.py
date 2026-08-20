@@ -9,7 +9,6 @@ import sklearn.model_selection
 import sklearn.pipeline
 import sklearn.preprocessing
 
-import sigma._extension
 import sigma._node
 import sigma._partition
 import sigma._tree
@@ -150,7 +149,7 @@ class TestSurvivalTreeFit(unittest.TestCase):
         estimator = sigma._tree_survival.SurvivalTree(alpha=0.0)
         estimator.fit(X, y)
         self.assertIsInstance(
-            estimator.content_.extension, sigma._extension.Leaf
+            estimator.content_.extension, sigma._partition.Leaf
         )
 
     def test_constant_response_returns_leaf(self):
@@ -165,7 +164,7 @@ class TestSurvivalTreeFit(unittest.TestCase):
         )
         estimator.fit(X, y)
         self.assertIsInstance(
-            estimator.content_.extension, sigma._extension.Leaf
+            estimator.content_.extension, sigma._partition.Leaf
         )
 
     def test_predict_returns_median_per_leaf(self):
@@ -865,9 +864,9 @@ class TestSurvivalTreeLiteratureCrosscheck(unittest.TestCase):
 
     def test_gbsg2_matches_partykit_reference(self):
         """Reproduces tree structure and leaf medians from Hothorn et al. (2006)."""
-        from lifelines.datasets import load_gbsg2
+        import lifelines.datasets
 
-        frame = load_gbsg2()
+        frame = lifelines.datasets.load_gbsg2()
         frame = frame.copy()
         frame["horTh_num"] = (frame["horTh"] == "yes").astype(int)
         frame["menostat_num"] = (frame["menostat"] == "Post").astype(int)

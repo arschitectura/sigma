@@ -9,7 +9,6 @@ import numpy
 import numpy.testing
 import pandas
 
-import sigma._extension
 import sigma._node
 import sigma._partition
 import sigma._tree
@@ -54,8 +53,8 @@ class TestRegressionTreeFit(unittest.TestCase):
             sigma._partition.Partition[sigma._node.Node], extension
         )
         left_child, right_child = root_extension.children
-        assert isinstance(left_child.extension, sigma._extension.Leaf)
-        assert isinstance(right_child.extension, sigma._extension.Leaf)
+        assert isinstance(left_child.extension, sigma._partition.Leaf)
+        assert isinstance(right_child.extension, sigma._partition.Leaf)
 
     def test_alpha_zero_produces_single_leaf(self):
         """Returns a single leaf when alpha=0.0 rejects nothing."""
@@ -66,7 +65,7 @@ class TestRegressionTreeFit(unittest.TestCase):
         )
         regression_tree.fit(X, y)
         assert isinstance(
-            regression_tree.content_.extension, sigma._extension.Leaf
+            regression_tree.content_.extension, sigma._partition.Leaf
         )
         expected_mean = y.mean()
         numpy.testing.assert_allclose(
@@ -82,7 +81,7 @@ class TestRegressionTreeFit(unittest.TestCase):
         )
         regression_tree.fit(X, y)
         assert isinstance(
-            regression_tree.content_.extension, sigma._extension.Leaf
+            regression_tree.content_.extension, sigma._partition.Leaf
         )
         numpy.testing.assert_allclose(
             regression_tree.content_.predicted_mean, 5.0
@@ -97,7 +96,7 @@ class TestRegressionTreeFit(unittest.TestCase):
         )
         regression_tree.fit(X, y)
         assert isinstance(
-            regression_tree.content_.extension, sigma._extension.Leaf
+            regression_tree.content_.extension, sigma._partition.Leaf
         )
 
     def test_mixed_features(self):
@@ -547,7 +546,7 @@ class TestClassificationTreeFit(unittest.TestCase):
         )
         classification_tree.fit(X, y)
         assert isinstance(
-            classification_tree.content_.extension, sigma._extension.Leaf
+            classification_tree.content_.extension, sigma._partition.Leaf
         )
         preds = classification_tree.predict(X)
         numpy.testing.assert_allclose(preds, 1.0)
@@ -561,7 +560,7 @@ class TestClassificationTreeFit(unittest.TestCase):
         )
         classification_tree.fit(X, y)
         assert isinstance(
-            classification_tree.content_.extension, sigma._extension.Leaf
+            classification_tree.content_.extension, sigma._partition.Leaf
         )
 
     def test_classes_attribute_set_after_fit(self):

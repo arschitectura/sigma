@@ -6,7 +6,6 @@ import unittest
 import _helpers
 import numpy
 
-import sigma._extension
 import sigma._partition
 import sigma._tree_classification
 import sigma._tree_regression
@@ -82,16 +81,16 @@ class TestBuildDigraph(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Fit the models and build the default digraph source once."""
-        from sigma import _graphviz
+        import sigma._graphviz
 
-        cls._graphviz = _graphviz
+        cls._graphviz = sigma._graphviz
         cls.regression_tree = _helpers._fit_step_regression_tree()
         cls.classification_tree, _, _ = _make_classification_tree()
         cls.categorical_regression_tree = (
             _helpers._fit_categorical_regression_tree()
         )
         cls.default_source = _build_default_digraph(
-            _graphviz, cls.regression_tree.content_, None
+            sigma._graphviz, cls.regression_tree.content_, None
         ).source
 
     def _build_digraph(
@@ -450,9 +449,9 @@ class TestLeafBadges(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Fit the models used by the badge tests once."""
-        from sigma import _graphviz
+        import sigma._graphviz
 
-        cls._graphviz = _graphviz
+        cls._graphviz = sigma._graphviz
         cls.regression_tree = _helpers._fit_step_regression_tree()
         cls.classification_tree, _, _ = _make_classification_tree()
 
@@ -477,7 +476,7 @@ class TestLeafBadges(unittest.TestCase):
         ranked = sorted(leaves, key=lambda node: node.predicted_mean)
         for expected_index, node in enumerate(ranked):
             extension = node.extension
-            assert isinstance(extension, sigma._extension.Leaf)
+            assert isinstance(extension, sigma._partition.Leaf)
             self.assertEqual(extension.leaf_id, expected_index)
             self.assertIs(self.regression_tree.leaves_[expected_index], node)
 
@@ -492,7 +491,7 @@ class TestLeafBadges(unittest.TestCase):
         )
         for expected_index, node in enumerate(ranked):
             extension = node.extension
-            assert isinstance(extension, sigma._extension.Leaf)
+            assert isinstance(extension, sigma._partition.Leaf)
             self.assertEqual(extension.leaf_id, expected_index)
             self.assertIs(
                 self.classification_tree.leaves_[expected_index], node
@@ -507,7 +506,7 @@ class TestLeafBadges(unittest.TestCase):
         )
         regression_tree.fit(X, y)
         extension = regression_tree.content_.extension
-        assert isinstance(extension, sigma._extension.Leaf)
+        assert isinstance(extension, sigma._partition.Leaf)
         self.assertEqual(extension.leaf_id, 0)
         source = sigma.export_graphviz(regression_tree)
         self.assertIn("<b>1</b>", source)
@@ -535,19 +534,19 @@ class TestLeafBadges(unittest.TestCase):
         ).source
         for leaf in reversed_leaves:
             leaf_extension = leaf.extension
-            assert isinstance(leaf_extension, sigma._extension.Leaf)
+            assert isinstance(leaf_extension, sigma._partition.Leaf)
             expected_badge = leaf_extension.leaf_id + 1
             label_token = f"<b>{expected_badge}</b>"
             self.assertIn(label_token, dot_source)
 
     def test_badge_order_classification_reversed(self):
         """A reverse-ordered classification tree displays the flipped badge per leaf."""
-        from sigma._tree_classification import ClassificationTree
+        import sigma._tree_classification
 
         rng = numpy.random.default_rng(42)
         X = rng.standard_normal((60, 2))
         y = (X[:, 0] > 0).astype(float)
-        reversed_tree = ClassificationTree(
+        reversed_tree = sigma._tree_classification.ClassificationTree(
             correlation="normal",
             min_splits=2,
             min_buckets=1,
@@ -566,7 +565,7 @@ class TestLeafBadges(unittest.TestCase):
         ).source
         for leaf in reversed_tree.leaves_:
             leaf_extension = leaf.extension
-            assert isinstance(leaf_extension, sigma._extension.Leaf)
+            assert isinstance(leaf_extension, sigma._partition.Leaf)
             expected_badge = leaf_extension.leaf_id + 1
             label_token = f"<b>{expected_badge}</b>"
             self.assertIn(label_token, dot_source)
@@ -620,9 +619,9 @@ class TestBuildDigraphMaxDepth(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Fit the three-step regression tree used by every test once."""
-        from sigma import _graphviz
+        import sigma._graphviz
 
-        cls._graphviz = _graphviz
+        cls._graphviz = sigma._graphviz
         cls.regression_tree = _helpers._fit_three_step_regression_tree()
 
     def _build(self, max_depth):
@@ -680,9 +679,9 @@ class TestBuildDigraphPrecision(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Fit the step regression tree used by every test once."""
-        from sigma import _graphviz
+        import sigma._graphviz
 
-        cls._graphviz = _graphviz
+        cls._graphviz = sigma._graphviz
         cls.regression_tree = _helpers._fit_step_regression_tree()
 
     def _build(self, precision):
@@ -734,31 +733,31 @@ class TestEllipsize(unittest.TestCase):
 
     def test_returns_string_unchanged_when_shorter_than_limit(self):
         """A string shorter than max_length is returned unchanged."""
-        from sigma._tree_text import _ellipsize
+        import sigma._tree_text
 
-        self.assertEqual(_ellipsize("Bla", 10), "Bla")
+        self.assertEqual(sigma._tree_text._ellipsize("Bla", 10), "Bla")
 
     def test_returns_string_unchanged_at_exact_max_length(self):
         """A string of length equal to max_length is returned unchanged."""
-        from sigma._tree_text import _ellipsize
+        import sigma._tree_text
 
-        self.assertEqual(_ellipsize("Hello", 5), "Hello")
+        self.assertEqual(sigma._tree_text._ellipsize("Hello", 5), "Hello")
 
     def test_truncates_longer_string_with_trailing_ellipsis(self):
         """A longer string is truncated to max_length characters ending in '...'."""
-        from sigma._tree_text import _ellipsize
+        import sigma._tree_text
 
-        result = _ellipsize("Bla bla bla bla", 6)
+        result = sigma._tree_text._ellipsize("Bla bla bla bla", 6)
         self.assertEqual(result, "Bla...")
         self.assertEqual(len(result), 6)
 
     def test_max_length_below_three_returns_truncated_ellipsis_only(self):
         """When max_length is smaller than the ellipsis itself, only ellipsis chars are kept."""
-        from sigma._tree_text import _ellipsize
+        import sigma._tree_text
 
-        self.assertEqual(_ellipsize("Hello", 2), "..")
-        self.assertEqual(_ellipsize("Hello", 1), ".")
-        self.assertEqual(_ellipsize("Hello", 0), "")
+        self.assertEqual(sigma._tree_text._ellipsize("Hello", 2), "..")
+        self.assertEqual(sigma._tree_text._ellipsize("Hello", 1), ".")
+        self.assertEqual(sigma._tree_text._ellipsize("Hello", 0), "")
 
 
 @unittest.skipUnless(_HAS_GRAPHVIZ, "graphviz not installed")
@@ -770,9 +769,9 @@ class TestBuildDigraphMaxBranchLength(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Fit the regression tree and name the deliberately long feature once."""
-        from sigma import _graphviz
+        import sigma._graphviz
 
-        cls._graphviz = _graphviz
+        cls._graphviz = sigma._graphviz
         cls.regression_tree = _helpers._fit_step_regression_tree()
         cls.long_feature_name = (
             "AVeryLongFeatureNameThatExceedsTheDefaultBranchLengthOfFifty"
@@ -857,13 +856,13 @@ class TestUniformNodeWidths(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Fit models with varied label lengths and build the shared digraph once."""
-        from sigma import _graphviz
+        import sigma._graphviz
 
-        cls._graphviz = _graphviz
+        cls._graphviz = sigma._graphviz
         cls.three_step = _helpers._fit_three_step_regression_tree()
         cls.classification_tree, _, _ = _make_classification_tree()
         cls.three_step_dot = _build_default_digraph(
-            _graphviz, cls.three_step.content_
+            sigma._graphviz, cls.three_step.content_
         )
 
     def _build(self, root, **kwargs):
@@ -968,18 +967,18 @@ class TestBoldPredictionValues(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Build the regression digraph source shared by the regression tests."""
-        from sigma import _graphviz
+        import sigma._graphviz
 
         regression_tree = _helpers._fit_step_regression_tree()
         cls.regression_source = _build_default_digraph(
-            _graphviz, regression_tree.content_
+            sigma._graphviz, regression_tree.content_
         ).source
 
     def _build(self, root):
         """Invoke _build_digraph with default colors."""
-        from sigma import _graphviz
+        import sigma._graphviz
 
-        digraph = _build_default_digraph(_graphviz, root)
+        digraph = _build_default_digraph(sigma._graphviz, root)
         return digraph
 
     def test_regression_value_is_wrapped_in_bold(self):
@@ -1002,11 +1001,13 @@ class TestBoldPredictionValues(unittest.TestCase):
 
     def test_survival_each_metric_value_is_bold(self):
         """Each survival metric value is wrapped in <b>...</b>."""
-        from sigma import _graphviz
+        import sigma._graphviz
 
         survival_tree = _make_survival_tree()
         digraph = _build_default_digraph(
-            _graphviz, survival_tree.content_, metrics=survival_tree.metrics_
+            sigma._graphviz,
+            survival_tree.content_,
+            metrics=survival_tree.metrics_,
         )
         source = digraph.source
         self.assertIn("Median survival = <b>", source)
@@ -1027,11 +1028,11 @@ class TestBoldPredictionValues(unittest.TestCase):
     def test_export_text_has_no_bold_markers(self):
         """Plain-text export contains neither HTML tags nor sentinel chars."""
         import sigma
-        from sigma import _tree_text
+        import sigma._tree_text
 
         regression_tree = _helpers._fit_step_regression_tree()
         text = sigma.export_text(regression_tree)
         self.assertNotIn("<b>", text)
         self.assertNotIn("</b>", text)
-        self.assertNotIn(_tree_text._BOLD_OPEN, text)
-        self.assertNotIn(_tree_text._BOLD_CLOSE, text)
+        self.assertNotIn(sigma._tree_text._BOLD_OPEN, text)
+        self.assertNotIn(sigma._tree_text._BOLD_CLOSE, text)

@@ -6,7 +6,6 @@ import _helpers
 import numpy
 import numpy.testing
 
-import sigma._extension
 import sigma._node
 import sigma._partition
 import sigma._statistics
@@ -480,7 +479,7 @@ class TestTreeMonteCarlo(unittest.TestCase):
         )
         regression_tree.fit(X, y)
         assert isinstance(
-            regression_tree.content_.extension, sigma._extension.Leaf
+            regression_tree.content_.extension, sigma._partition.Leaf
         )
 
 

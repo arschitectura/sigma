@@ -6,7 +6,6 @@ import weakref
 import numpy
 
 import sigma
-import sigma._extension
 import sigma._node
 import sigma._partition
 
@@ -87,7 +86,7 @@ class TestRegressionNode(unittest.TestCase):
     def test_leaf_has_leaf_extension(self):
         """A leaf RegressionNode carries a Leaf extension."""
         leaf = _leaf_regression(3.5)
-        self.assertIsInstance(leaf.extension, sigma._extension.Leaf)
+        self.assertIsInstance(leaf.extension, sigma._partition.Leaf)
 
     def test_stores_predicted_mean_and_ci(self):
         """RegressionNode stores predicted_mean and the scalar CI bounds."""
@@ -372,7 +371,7 @@ class TestLeafIdDefault(unittest.TestCase):
         """A newly built leaf carries the 0 sentinel leaf_id."""
         leaf = _leaf_regression(3.0)
         extension = leaf.extension
-        assert isinstance(extension, sigma._extension.Leaf)
+        assert isinstance(extension, sigma._partition.Leaf)
         self.assertEqual(extension.leaf_id, 0)
 
     def test_freshly_constructed_internal_node_has_no_leaf_id(self):

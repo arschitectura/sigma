@@ -7,7 +7,7 @@ import typing
 import numpy
 import numpy.typing
 
-from . import _extension, _feature, _metric, _node, _partition, _tree_text
+from . import _feature, _metric, _node, _partition, _tree_text
 
 
 def _collect_sql(
@@ -72,7 +72,7 @@ def _collect_rendered_partitions(
 ) -> None:
     """Record the partition of each internal node rendered within max_depth."""
     extension = node.extension
-    if isinstance(extension, _extension.Leaf):
+    if isinstance(extension, _partition.Leaf):
         return
     if max_depth is not None and node.depth >= max_depth:
         return
@@ -115,7 +115,7 @@ def _build_sql_case(
     """Recursively render the SQL expression for the subtree at node."""
     extension = node.extension
     is_truncated = max_depth is not None and node.depth >= max_depth
-    if isinstance(extension, _extension.Leaf) or is_truncated:
+    if isinstance(extension, _partition.Leaf) or is_truncated:
         line = _format_leaf_line(
             node, target_class_index, indent_level, is_truncated
         )
@@ -178,7 +178,7 @@ def _format_leaf_line(
     if is_truncated:
         comment = f"Truncated at depth {node.depth}"
     else:
-        leaf_extension = typing.cast(_extension.Leaf, node.extension)
+        leaf_extension = typing.cast(_partition.Leaf, node.extension)
         leaf_number = leaf_extension.leaf_id + 1
         comment = f"Leaf {leaf_number}"
     line = f"{indent}{value_literal} -- {comment}"

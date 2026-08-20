@@ -475,7 +475,7 @@ def _km_survival_from_counts(
 ) -> numpy.typing.NDArray[numpy.floating]:
     """Kaplan-Meier survival step values from weighted event and risk counts."""
     safe_factor = numpy.where(r_w > 0, 1.0 - d_w / r_w, 1.0)
-    surv = numpy.cumprod(safe_factor)
+    surv = numpy.cumprod(safe_factor, dtype=numpy.float64)
     return surv
 
 
@@ -485,7 +485,7 @@ def _cumulative_hazard_from_counts(
 ) -> numpy.typing.NDArray[numpy.floating]:
     """Nelson-Aalen cumulative hazard from event and at-risk counts per time."""
     increment = numpy.where(r > 0, d / r, 0.0)
-    cum_haz = numpy.cumsum(increment)
+    cum_haz = numpy.cumsum(increment, dtype=numpy.float64)
     return cum_haz
 
 

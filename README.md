@@ -455,6 +455,37 @@ combination raises `ValueError` instead of silently reinterpreting the
 values, and plain arrays or lists - which carry no column types - are
 accepted only when the model was fit on numeric data.
 
+### 5.8. Saving and loading a fitted tree
+
+A fitted tree is a plain Python object: `pickle` and `joblib` both save
+and load one without any extra step.
+
+```python
+import pickle
+
+with open("tree.pkl", "wb") as handle:
+    pickle.dump(tree, handle)
+
+with open("tree.pkl", "rb") as handle:
+    restored = pickle.load(handle)
+```
+
+Every saved tree records the version of Sigma that wrote it. Loading it
+under a different version emits `sigma.InconsistentVersionWarning`,
+naming the estimator, the version that saved the tree, and the version
+loading it. The tree is still restored, so the warning is a signal to
+re-fit or to pin the version rather than an error. Silence the warning
+with:
+
+```python
+import warnings
+
+warnings.simplefilter("ignore", sigma.InconsistentVersionWarning)
+```
+
+`pickle` executes whatever the file tells it to, so only load trees from
+a source you trust.
+
 ## 6. Parameters
 
 The table below is a quick reference; each parameter has a dedicated
