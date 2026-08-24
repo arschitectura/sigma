@@ -12,7 +12,7 @@ Provides classification (`ClassificationTree`), regression
 - **Interpretable by construction** - each split is a statistical hypothesis test with a reported p-value, and fitted trees render to PNG, PDF, SVG, or GIF via `to_image`
 - **scikit-learn compatible** - `ClassificationTree`, `RegressionTree`, `SurvivalTree`, and `RankingTree` drop into any sklearn pipeline
 
-Every statistical method in Sigma comes from a [peer-reviewed paper](#references).
+Every statistical method in Sigma comes from a [peer-reviewed paper](#10-references).
 
 ## 1. License
 
@@ -55,13 +55,140 @@ Have questions, feedback, or need help getting started? I would love to hear fro
 pip install ars-sigma
 ```
 
-## 4. Sample Trees
+Supported Python version: 3.11 and later
+
+| Dependency   | Purpose                                          |
+|--------------|--------------------------------------------------|
+| numpy        | Numerical operations                             |
+| scipy        | Statistical distributions and numerical routines |
+| scikit-learn | Estimator API and input validation               |
+
+Two extras carry the optional dependencies:
+
+| Extra | Command                      | Purpose                                                              |
+|-------|------------------------------|----------------------------------------------------------------------|
+| `cli` | `pip install ars-sigma[cli]` | pandas and pyarrow, for the data files of the command line interface |
+| `viz` | `pip install ars-sigma[viz]` | graphviz and matplotlib, for image renderings                        |
+
+## 4. Command Line Interface
+
+Sigma installs a `sigma` command, which can also be run as a module:
+
+```bash
+python -m sigma [options] <command> [arguments]
+```
+
+Reading and writing data files needs the `cli` extra.
+
+### 4.1. Fit command
+
+Fit a tree on training data and save it as a pickle.
+
+```bash
+python -m sigma fit <data_file> <family> <target_columns> <model_file>
+```
+
+Example:
+
+```bash
+python -m sigma fit train.csv classification survived tree.pkl
+```
+
+| Argument          | Description                                                                                                                |
+|-------------------|----------------------------------------------------------------------------------------------------------------------------|
+| `data_file`       | Path to the training data file                                                                                             |
+| `family`          | Estimator family: `regression`, `classification`, `survival`, or `ranking`                                                 |
+| `target_columns`  | Comma-separated target columns: one for regression and classification, `time,event` for survival, one per item for ranking |
+| `model_file`      | Path where the fitted tree will be saved                                                                                   |
+| `--sample-weight` | Column holding the case weights; it is not used as a feature                                                               |
+
+Every column that is neither a target nor the sample weight is used as a
+feature. The parameters of section 7 are available as flags, for example
+`--alpha`, `--max-depth` and `--min-splits`; `python -m sigma fit --help`
+lists them all.
+
+### 4.2. Predict command
+
+Predict with a fitted tree and write the results as a table.
+
+```bash
+python -m sigma predict <data_file> <model_file> [--output <output_file>]
+```
+
+Example:
+
+```bash
+python -m sigma predict test.csv tree.pkl --output predictions.csv
+```
+
+| Argument          | Description                                                                                         |
+|-------------------|-----------------------------------------------------------------------------------------------------|
+| `data_file`       | Path to the data file to predict on                                                                 |
+| `model_file`      | Path to the fitted tree file                                                                        |
+| `--output`        | Path where predictions will be saved (default: stdout)                                              |
+| `--output-format` | Force the output format (default: inferred from the output file extension, or csv)                  |
+| `--proba`         | Add one class probability column per class (classification only)                                    |
+| `--rank`          | Add one expected rank column per item (ranking only)                                                |
+| `--times`         | Comma-separated non-decreasing times; adds one survival probability column per time (survival only) |
+| `--node`          | Add the identifier of the node each row lands in                                                    |
+| `--with-input`    | Prepend the columns of the input file                                                               |
+
+### 4.3. Export command
+
+Render a fitted tree as text, SQL, Graphviz DOT, or an image.
+
+```bash
+python -m sigma export <model_file> [--format <format>] [--output <output_file>]
+```
+
+Example:
+
+```bash
+python -m sigma export tree.pkl --output tree.png
+```
+
+| Argument                | Description                                                                                                                           |
+|-------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| `model_file`            | Path to the fitted tree file                                                                                                          |
+| `--format`              | Rendering to produce: `text`, `sql`, `dot`, `png`, `svg`, `pdf`, or `gif` (default: inferred from the output file extension, or text) |
+| `--output`              | Path where the rendering will be saved (default: stdout)                                                                              |
+| `--kind`                | Image contents: `tree` or `response` (default: tree)                                                                                  |
+| `--max-depth`           | Deepest level to render, or none for the whole tree (default: none)                                                                   |
+| `--precision`           | Number of decimals shown for predicted values (default: 3)                                                                            |
+| `--top-displayed-items` | Number of ranked items shown per leaf (default: all)                                                                                  |
+| `--target-class`        | Class whose probability the SQL expression returns (default: the last class)                                                          |
+| `--orientation`         | Direction the tree grows in: `top-down` or `left-to-right` (default: top-down)                                                        |
+| `--dpi`                 | Image resolution in dots per inch (default: 192)                                                                                      |
+| `--max-branch-length`   | Characters kept on a branch label before wrapping (default: 60)                                                                       |
+
+Image renderings need the `viz` extra.
+
+### 4.4. Supported file formats
+
+| Format        | Extensions           | Input | Output |
+|---------------|----------------------|-------|--------|
+| CSV           | `.csv`               | Yes   | Yes    |
+| TSV           | `.tsv`               | Yes   | Yes    |
+| Parquet       | `.parquet`           | Yes   | Yes    |
+| Arrow/Feather | `.arrow`, `.feather` | Yes   | Yes    |
+| ORC           | `.orc`               | Yes   | Yes    |
+| JSON Lines    | `.jsonl`, `.ndjson`  | Yes   | Yes    |
+| Markdown      | `.md`                | No    | Yes    |
+
+### 4.5. Options
+
+| Option      | Description                                                                   |
+|-------------|-------------------------------------------------------------------------------|
+| `--log`     | Logging level: `none`, `debug`, `info`, `warning`, or `error` (default: info) |
+| `--version` | Print the installed sigma version and exit                                    |
+
+## 5. Sample Trees
 
 Four trees fitted on classic datasets. Each subsection shows the
 fit code, the `to_text` rendering, and the rendered tree and response
 images. Click an image to view it at full size.
 
-### 4.1. Titanic (classification)
+### 5.1. Titanic (classification)
 
 Predicting survival probability with a Jeffreys 95% confidence
 interval at each node - surfaces passenger class, sex, and age.
@@ -101,12 +228,12 @@ All records                           59.6% (55.9% to 63.1%) 40.4% (36.9% to 44.
   </tr>
 </table>
 
-### 4.2. Diabetes (regression)
+### 5.2. Diabetes (regression)
 
 Predicting one-year disease progression with a Bayesian-bootstrap 95%
 confidence interval at each node - surfaces BMI, triglycerides, and blood
 pressure. BMI splits recursively, so the example calls `compact()` (see
-section 5.6) to fold that chain into one multi-way node.
+section 6.6) to fold that chain into one multi-way node.
 
 ```python
 tree = sigma.RegressionTree(
@@ -152,7 +279,7 @@ All records                              152.1 (145.1 to 159.4)        442     1
   </tr>
 </table>
 
-### 4.3. GBSG-2 breast cancer (survival)
+### 5.3. GBSG-2 breast cancer (survival)
 
 Predicting recurrence-free years with a Brookmeyer-Crowley 95%
 confidence interval at each node - splits on positive lymph nodes,
@@ -196,13 +323,13 @@ All records                                               4.9 (4.2 to 5.5) 49.2%
   </tr>
 </table>
 
-### 4.4. Sushi (ranking)
+### 5.4. Sushi (ranking)
 
 Predicting per-item Plackett-Luce expected rank with a Bayesian-bootstrap
 95% confidence interval at each node - surfaces sex and age group as the
 strongest demographic drivers of sushi preference among 5000 Japanese
 respondents ranking ten classic sushi. Age group splits recursively on the
-male side, so the example calls `compact()` (see section 5.5) to fold that
+male side, so the example calls `compact()` (see section 6.6) to fold that
 chain into one multi-way node.
 
 ```python
@@ -246,9 +373,9 @@ All records                                                                     
   </tr>
 </table>
 
-## 5. Advanced usage
+## 6. Advanced usage
 
-### 5.1. Controlling tree depth and node size
+### 6.1. Controlling tree depth and node size
 
 `alpha` is the principal knob: it sets the significance threshold for
 every split test, so lowering it produces a terser, more statistically
@@ -262,7 +389,7 @@ tree = sigma.ClassificationTree(
 )
 ```
 
-### 5.2. Fitting with sample weights
+### 6.2. Fitting with sample weights
 
 Sample weights let you model **variable exposures** - per-row
 time-at-risk, insurance policy-years, or frequency weights for
@@ -285,7 +412,7 @@ tree.fit(X, claim_amount, sample_weight=exposure_years)
 predictions = tree.predict(X)
 ```
 
-### 5.3. Visualizing the tree
+### 6.3. Visualizing the tree
 
 Install the optional visualization extra and the Graphviz system
 binary (`brew install graphviz` on macOS):
@@ -304,7 +431,7 @@ All four formats are produced directly by the Graphviz binary, with no
 additional system library. See `to_image` and `export_graphviz` for the
 full set of display options.
 
-### 5.4. Exporting the tree as a SQL CASE expression
+### 6.4. Exporting the tree as a SQL CASE expression
 
 `to_sql` (and the module-level `sigma.export_sql`) emits a single SQL
 `CASE` expression that reproduces `tree.predict` row-by-row in any
@@ -368,7 +495,7 @@ label categoricals, `boolean` for boolean columns, `numeric` otherwise);
 a SQL expression cannot verify column types itself, so the expression
 assumes every column keeps its fit-time type.
 
-### 5.5. Selecting a node's observations with polars
+### 6.5. Selecting a node's observations with polars
 
 Every node of a fitted tree exposes `polars_expression()`, which returns
 a [polars](https://pola.rs) expression AND-combining the branch
@@ -389,7 +516,7 @@ missing-value branches test for null. Nodes are reachable through
 `tree.content_` (the root), `tree.nodes_`, and `tree.leaves_`, and each
 node links back to its parent through `node.parent` (None on the root).
 
-### 5.6. Collapsing recursive splits with `compact()`
+### 6.6. Collapsing recursive splits with `compact()`
 
 When the same feature is split over several consecutive levels, a binary
 tree repeats that feature down a chain. `compact()` returns a new tree in
@@ -425,7 +552,7 @@ collapses into one node carrying three interval branches:
 The original tree is left unchanged; `compact()` produces an independent
 copy whose node ids are renumbered to match its smaller shape.
 
-### 5.7. Missing values (NaN)
+### 6.7. Missing values (NaN)
 
 Sigma accepts `NaN` in the covariate matrix `X` for numeric, boolean, and
 categorical features. The target `y` must stay finite, and infinities in
@@ -455,7 +582,7 @@ combination raises `ValueError` instead of silently reinterpreting the
 values, and plain arrays or lists - which carry no column types - are
 accepted only when the model was fit on numeric data.
 
-### 5.8. Saving and loading a fitted tree
+### 6.8. Saving and loading a fitted tree
 
 A fitted tree is a plain Python object: `pickle` and `joblib` both save
 and load one without any extra step.
@@ -486,7 +613,7 @@ warnings.simplefilter("ignore", sigma.InconsistentVersionWarning)
 `pickle` executes whatever the file tells it to, so only load trees from
 a source you trust.
 
-## 6. Parameters
+## 7. Parameters
 
 The table below is a quick reference; each parameter has a dedicated
 subsection further down with defaults, alternatives, and guidance on
@@ -521,7 +648,7 @@ when to choose each option.
 | `reverse_order`                   | Reverse the canonical leaf display order across all renderings                |
 | `random_state`                    | RNG seed for permutation resampling, bootstrap CI methods, and plot jitter    |
 
-### 6.1. `correlation`
+### 7.1. `correlation`
 
 **Default**: `"rank"` (`SurvivalTree` defaults to `"normal"`, matching
 partykit's survival behavior).
@@ -537,7 +664,7 @@ Score function for the test statistic.
   Spearman-like nonparametric test. Robust to outliers and heavy tails.
   The safe choice for arbitrary real-world data.
 
-### 6.2. `test_stat`
+### 7.2. `test_stat`
 
 **Default**: `"quadratic"`.
 
@@ -552,7 +679,7 @@ How the multivariate score is aggregated into a scalar test statistic.
   on the direction of association, or when the response is multivariate
   (multi-class classification with many classes).
 
-### 6.3. `test_type`
+### 7.3. `test_type`
 
 **Default**: `"sidak"`.
 
@@ -573,7 +700,7 @@ stopping rule fires.
   under independence or positive dependence of test statistics. The
   recommended default.
 
-### 6.4. `alpha`
+### 7.4. `alpha`
 
 **Default**: `0.05`.
 
@@ -589,7 +716,7 @@ accuracy (closer to a full-fledged machine learning model), loosen
 `alpha` to between `0.10` and `0.25`. Tune in concert with
 `max_depth`, `min_splits`, and `min_buckets`.
 
-### 6.5. `min_splits`
+### 7.5. `min_splits`
 
 **Default**: `20`.
 
@@ -598,7 +725,7 @@ sum falls below this become leaves regardless of p-values. Increase to
 enforce statistical reliability of node-level estimates on smaller
 subsets, decrease to allow finer partitioning.
 
-### 6.6. `min_buckets`
+### 7.6. `min_buckets`
 
 **Default**: `7`.
 
@@ -606,14 +733,14 @@ Minimum sum of weights in each child node. Splits that would produce a
 child smaller than this are rejected. Together with `min_splits`,
 controls the smallest leaf permitted; raise both for noisier data.
 
-### 6.7. `max_depth`
+### 7.7. `max_depth`
 
 **Default**: `None` (no limit).
 
 Maximum tree depth. Set to a small integer for shallow, easily interpreted
 trees. Leave `None` to let the p-value stopping rule fully control depth.
 
-### 6.8. `categorical_features`
+### 7.8. `categorical_features`
 
 **Default**: `None` (all numeric).
 
@@ -625,7 +752,7 @@ categorical feature, Sigma uses exhaustive split enumeration for
 $K \le 10$ and an ordered-merge heuristic for $K > 10$ (see the
 Algorithm section).
 
-### 6.9. `ci_method` (`RegressionTree` only)
+### 7.9. `ci_method` (`RegressionTree` only)
 
 **Default**: `"bayesian_bootstrap"`.
 
@@ -690,7 +817,7 @@ sample size at the node.
   `"normal"` for small effective sample sizes. Choose when
   $n_{\text{eff}}$ is borderline and small-sample coverage matters.
 
-### 6.10. `ci_method` (`ClassificationTree` only)
+### 7.10. `ci_method` (`ClassificationTree` only)
 
 **Default**: `"jeffreys"`.
 
@@ -728,7 +855,7 @@ size and $z$ a standard normal quantile.
   total weight $w_{\text{total}}$ is small and plain Wilson
   under-covers.
 
-### 6.11. `ci_method` (`RankingTree` only)
+### 7.11. `ci_method` (`RankingTree` only)
 
 **Default**: `"bayesian_bootstrap"`.
 
@@ -758,7 +885,7 @@ replicates each.
   linearised through the Fisher information. Non-deterministic across
   calls.
 
-### 6.12. `ci_coverage`
+### 7.12. `ci_coverage`
 
 **Default**: `0.95`.
 
@@ -770,7 +897,7 @@ controls the confidence band drawn behind each Kaplan-Meier curve in
 the response plot; for ranking trees, it sets the per-item whisker
 width in the expected-rank response plot.
 
-### 6.13. `transmuter`
+### 7.13. `transmuter`
 
 **Default**: `None`.
 
@@ -786,7 +913,7 @@ is rejected and the node becomes a leaf. Use cases: survival outcomes
 to click-through rate), de-noising heavy-tailed responses. `RankingTree`
 does not support a transmuter and rejects one at construction time.
 
-### 6.14. `resamples`
+### 7.14. `resamples`
 
 **Default**: `None`.
 
@@ -795,7 +922,7 @@ must be a positive integer when monte_carlo is selected; ignored
 otherwise. Typical choices: `1000` for day-to-day production, `10000`
 for paper-grade reproducible adjusted p-values.
 
-### 6.15. `decorator`
+### 7.15. `decorator`
 
 **Default**: `None`.
 
@@ -807,7 +934,7 @@ object is stored on the node as `node.decoration` and rendered by
 classification accuracy), business labels (segment names), diagnostic
 statistics.
 
-### 6.16. `random_state`
+### 7.16. `random_state`
 
 **Default**: `None`.
 
@@ -824,7 +951,7 @@ for reproducibility; `None` uses an unpredictable seed. Controls:
   (`RegressionTree` only; combined with the leaf index so each leaf
   receives a distinct pattern).
 
-### 6.17. `ci_method` (`SurvivalTree` only)
+### 7.17. `ci_method` (`SurvivalTree` only)
 
 **Default**: `"brookmeyer_crowley"`.
 
@@ -832,7 +959,7 @@ Method for the confidence interval on each node's median survival time.
 `"brookmeyer_crowley"` (default) is the Brookmeyer-Crowley interval and
 the only supported option.
 
-### 6.18. `ci_replicates` (`RankingTree` only)
+### 7.18. `ci_replicates` (`RankingTree` only)
 
 **Default**: `200`.
 
@@ -841,7 +968,7 @@ choices (`"bayesian_bootstrap"`, `"bca"`, `"gaussian_multiplier"`).
 Ignored when `ci_method="wald"`. Raise for smoother interval estimates
 at higher cost.
 
-### 6.19. `npseudo` (`RankingTree` only)
+### 7.19. `npseudo` (`RankingTree` only)
 
 **Default**: `0.5`.
 
@@ -850,7 +977,7 @@ during the per-node Plackett-Luce fit. Must be strictly positive. The
 default follows Turner et al. (2020); raise it to regularize nodes with
 few or sparsely overlapping rankings.
 
-### 6.20. `pl_max_iter` (`RankingTree` only)
+### 7.20. `pl_max_iter` (`RankingTree` only)
 
 **Default**: `100`.
 
@@ -858,7 +985,7 @@ Maximum number of Hunter MM iterations for each node's Plackett-Luce
 fit. Must be a positive integer. Raise it if the fit fails to converge
 on large catalogues.
 
-### 6.21. `pl_tolerance` (`RankingTree` only)
+### 7.21. `pl_tolerance` (`RankingTree` only)
 
 **Default**: `1e-6`.
 
@@ -866,7 +993,7 @@ Convergence tolerance on the largest change in log-worth between
 successive MM iterations. Must be strictly positive. Lower it for
 tighter fits at higher cost.
 
-### 6.22. `pca_components` (`RankingTree` only)
+### 7.22. `pca_components` (`RankingTree` only)
 
 **Default**: `10`.
 
@@ -875,7 +1002,7 @@ the influence function for the split tests. Must be at least 1. When it
 is at least the catalogue size, the projection covers the full response
 space; lower it to denoise high-dimensional rankings.
 
-### 6.23. `item_names` (`RankingTree` only)
+### 7.23. `item_names` (`RankingTree` only)
 
 **Default**: `None`.
 
@@ -884,7 +1011,7 @@ rankings are a NumPy array, integer indices `0..n_items-1` are used; when
 the rankings are a pandas DataFrame, its column names take precedence
 over this argument.
 
-### 6.24. `metrics` (`SurvivalTree` only)
+### 7.24. `metrics` (`SurvivalTree` only)
 
 **Default**: `("median",)`.
 
@@ -898,7 +1025,7 @@ render in the given order; the first drives the leaf ordering and the
 value returned by `predict`. The default predicts the median survival
 time.
 
-### 6.25. `response_sample_size` (`RegressionTree` only)
+### 7.25. `response_sample_size` (`RegressionTree` only)
 
 **Default**: `1000`.
 
@@ -907,16 +1034,16 @@ response-distribution overlay in `to_image(kind="response")`. Must be a
 non-negative integer. Set to `0` to store none, yielding smaller fitted
 trees with no raincloud overlay.
 
-### 6.26. `reverse_order`
+### 7.26. `reverse_order`
 
 **Default**: `False`.
 
 When `True`, reverses the canonical leaf ordering used by `leaves_`,
 `to_text`, `to_image`, and `to_sql` (the per-task sort described in
-section 8). Use it to flip the reading direction, for example to list
+section 9). Use it to flip the reading direction, for example to list
 the best-prognosis leaf first.
 
-## 7. Algorithm
+## 8. Algorithm
 
 The algorithm builds a decision tree using statistical hypothesis
 testing for unbiased variable selection. Unlike CART, which selects
@@ -942,7 +1069,7 @@ log-transformation of power-law-distributed rank data before factor
 analysis follows Leydesdorff (2006). All test statistics, p-value
 computations, and splitting criteria use the same formulas.
 
-### 7.1. Step 1: Variable selection and stopping
+### 8.1. Step 1: Variable selection and stopping
 
 Given $n$ observations with response values $Y_i$, covariate values
 $X_{ji}$ (the value of the $j$-th covariate $X_j$ for observation $i$),
@@ -983,7 +1110,7 @@ $O(B \cdot m)$ additional statistic evaluations. Set `resamples` (e.g.,
 1000 or 10000) and optionally `random_state` for reproducibility. All
 three methods are available via the `test_type` parameter.
 
-### 7.2. Step 2: Binary splitting
+### 8.2. Step 2: Binary splitting
 
 For the selected covariate, the algorithm searches for the binary
 partition $A^*$ that maximizes the two-sample test statistic. Numeric
@@ -994,7 +1121,7 @@ by weighted mean of the first influence function column and only $K - 1$
 contiguous splits are evaluated (provably optimal for regression; a
 heuristic for classification, survival, and ranking).
 
-### 7.3. Step 3: Recursion and prediction
+### 8.3. Step 3: Recursion and prediction
 
 Case weights are updated to reflect node membership and steps 1-2 are
 repeated recursively on each child node. Terminal nodes predict:
@@ -1009,7 +1136,7 @@ repeated recursively on each child node. Terminal nodes predict:
   most-preferred item), with the full per-item expected-rank vector
   available on the node.
 
-## 8. Partykit compatibility
+## 9. Partykit compatibility
 
 Sigma is a pure-Python reimplementation of R's `partykit::ctree` with
 various improvements. Tree shape, split variables, split thresholds,
@@ -1056,7 +1183,7 @@ Three deliberate deviations from partykit are worth knowing about:
    of `leaves_` and the visual left-vs-right placement of children in
    exported renderings differ.
 
-## 9. References
+## 10. References
 
 - Turner, H., van Etten, J., Firth, D., & Kosmidis, I. (2020).
   *Modelling Rankings in R: The PlackettLuce Package.* *Computational

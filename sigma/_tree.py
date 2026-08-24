@@ -280,7 +280,7 @@ class Tree(
         sample_weight: None | numpy.typing.NDArray[numpy.floating] = None,
         offset: None | numpy.typing.NDArray[numpy.floating] = None,
         side_data: None | numpy.typing.NDArray[numpy.floating] = None,
-    ) -> Tree:
+    ) -> typing.Self:
         """Fit the conditional inference tree.
 
         Args:

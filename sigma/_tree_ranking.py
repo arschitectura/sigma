@@ -299,7 +299,7 @@ class RankingTree(_tree.Tree[_node.RankingNode]):
         sample_weight: None | numpy.typing.NDArray[numpy.floating] = None,
         offset: None | numpy.typing.NDArray[numpy.floating] = None,
         side_data: None | numpy.typing.NDArray[numpy.floating] = None,
-    ) -> _tree.Tree:
+    ) -> typing.Self:
         """Fit the conditional inference ranking tree.
 
         Args:
